@@ -1,5 +1,11 @@
 {
   "name": "Couple Expense Tracker",
+  "short_name": "Expenses",
   "description": "A collaborative finance management app for couples featuring expense tracking, budget monitoring, data visualization, and AI-powered financial insights.",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "minimal-ui"
+  ],
   "requestFramePermissions": []
 }

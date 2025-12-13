@@ -8,7 +8,10 @@ const formatCurrency = (amount: number) => {
 
 const getAI = () => {
   const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("API Key not found");
+  if (!apiKey) {
+    console.error("CRITICAL ERROR: API Key is missing. Please check Vercel Settings > Environment Variables.");
+    throw new Error("API Key not found");
+  }
   return new GoogleGenAI({ apiKey });
 };
 
@@ -65,7 +68,7 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
     return response.text || "Could not generate insights at this time.";
 
   } catch (error) {
-    console.error("Gemini API Error:", error);
+    console.error("Gemini API Error details:", error);
     return "Unable to generate AI insights. Please check your API key and connection.";
   }
 };

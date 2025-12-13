@@ -6,13 +6,12 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     rollupOptions: {
-      // Critical: This tells Vite that @google/genai is loaded via CDN (index.html), 
-      // so it shouldn't try to find it in node_modules during build.
       external: ['@google/genai'],
     }
   },
   define: {
-    // This injects the API key from Vercel's environment variables into the code at build time.
-    'process.env': process.env
+    // 1. Tries to use the Vercel Environment Variable (secure way)
+    // 2. Falls back to your hardcoded key (guaranteed to work way)
+    'process.env.API_KEY': JSON.stringify(process.env.API_KEY || "AlzaSyAJ4DskH1JQpRgWJkcO5jyPXYJ6Cuha7mc")
   }
 });
