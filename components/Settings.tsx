@@ -10,11 +10,13 @@ interface SettingsProps {
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
   installApp: () => void;
   canInstall: boolean;
+  isIos: boolean;
+  isStandalone: boolean;
 }
 
 const COLORS = ['#e91e63', '#f44336', '#ff6f00', '#ffc107', '#4caf50', '#2196f3', '#9c27b0', '#673ab7', '#3f51b5', '#00bcd4', '#009688', '#8bc34a'];
 
-export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, resetData, importData, showToast, installApp, canInstall }) => {
+export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, resetData, importData, showToast, installApp, canInstall, isIos, isStandalone }) => {
   const [newCat, setNewCat] = useState('');
   const [pinInput, setPinInput] = useState('');
 
@@ -72,19 +74,36 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
   return (
     <div className="pb-24 space-y-4 sm:space-y-6">
       
-      {/* Install App Section - Only show if available */}
-      {canInstall && (
-        <div className="bg-gradient-to-r from-primary to-purple-600 rounded-xl shadow-lg p-4 text-white flex justify-between items-center">
-          <div>
-            <h3 className="font-bold text-lg">Install App</h3>
-            <p className="text-xs opacity-90">Get a better experience on your home screen</p>
+      {/* Install App Section - Show if not already installed (standalone) AND (either canInstall is true OR on iOS) */}
+      {!isStandalone && (canInstall || isIos) && (
+        <div className="bg-gradient-to-r from-primary to-purple-600 rounded-xl shadow-lg p-4 text-white">
+          <div className="flex justify-between items-center mb-2">
+            <div>
+              <h3 className="font-bold text-lg">Install App</h3>
+              <p className="text-xs opacity-90">Get the best experience on your phone</p>
+            </div>
+            {canInstall && (
+              <button 
+                onClick={installApp} 
+                className="bg-white text-primary px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-100 transition-colors shadow-sm"
+              >
+                Install
+              </button>
+            )}
           </div>
-          <button 
-            onClick={installApp} 
-            className="bg-white text-primary px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-100 transition-colors shadow-sm"
-          >
-            Install
-          </button>
+          
+          {/* iOS Specific Instructions */}
+          {isIos && !canInstall && (
+            <div className="bg-black/20 rounded-lg p-3 text-xs mt-2 border border-white/10">
+              <p className="font-bold mb-1 flex items-center gap-1">
+                <span>📱</span> Install on iPhone/iPad:
+              </p>
+              <ol className="list-decimal list-inside space-y-1 opacity-90 ml-1">
+                <li>Tap the <span className="font-bold">Share</span> button in Safari menu</li>
+                <li>Scroll down & select <span className="font-bold">Add to Home Screen</span></li>
+              </ol>
+            </div>
+          )}
         </div>
       )}
 

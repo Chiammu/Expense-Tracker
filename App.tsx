@@ -17,8 +17,12 @@ function App() {
   const [loaded, setLoaded] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [showChat, setShowChat] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   
+  // PWA Install State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isIos, setIsIos] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+
   // Toast State
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
 
@@ -26,8 +30,9 @@ function App() {
     setToast({ message, type });
   };
 
-  // Load data on mount
+  // Load data on mount and check environment
   useEffect(() => {
+    // Load Data
     const data = loadFromStorage();
     setState(data);
     setLoaded(true);
@@ -41,6 +46,15 @@ function App() {
       setDeferredPrompt(e);
     };
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    
+    // Check Environment
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    setIsIos(ios);
+    
+    // Check if running as PWA (Standalone)
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+    setIsStandalone(standalone);
+
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
@@ -182,7 +196,11 @@ function App() {
       <div className="min-h-screen bg-background text-text transition-colors duration-300">
         <div className="max-w-3xl mx-auto px-3 sm:px-6 lg:px-8 pt-2 sm:pt-4">
           
-          <Header settings={state.settings} />
+          <Header 
+            settings={state.settings} 
+            showInstall={!!deferredPrompt && !isStandalone}
+            onInstall={handleInstallClick}
+          />
           
           <div className="hidden sm:flex justify-center gap-4 mb-8">
              {[
@@ -237,6 +255,8 @@ function App() {
                   showToast={showToast}
                   installApp={handleInstallClick}
                   canInstall={!!deferredPrompt}
+                  isIos={isIos}
+                  isStandalone={isStandalone}
                 />
               )}
             </div>
