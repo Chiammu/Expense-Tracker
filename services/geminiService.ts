@@ -7,7 +7,8 @@ const formatCurrency = (amount: number) => {
 };
 
 const getAI = () => {
-  const apiKey = process.env.API_KEY;
+  // Ensure we trim whitespace just in case
+  const apiKey = process.env.API_KEY ? process.env.API_KEY.trim() : "";
   if (!apiKey) {
     console.error("CRITICAL ERROR: API Key is missing.");
     throw new Error("API Key not found in configuration");
