@@ -10,8 +10,13 @@ export default defineConfig({
     }
   },
   define: {
-    // 1. Tries to use the Vercel Environment Variable (secure way)
-    // 2. Falls back to your hardcoded key (guaranteed to work way)
-    'process.env.API_KEY': JSON.stringify(process.env.API_KEY || "AlzaSyAJ4DskH1JQpRgWJkcO5jyPXYJ6Cuha7mc")
+    // Inject the API Key specifically
+    'process.env.API_KEY': JSON.stringify(process.env.API_KEY || "AlzaSyAJ4DskH1JQpRgWJkcO5jyPXYJ6Cuha7mc"),
+    // Mock the global process object to support libraries that expect it (like some SDK builds)
+    // We exclude 'env' here because vite handles process.env automatically or via the line above
+    'process.version': JSON.stringify('1.0.0'),
+    'process.versions': JSON.stringify({}),
+    'process.platform': JSON.stringify('browser'),
+    'process.env': {} 
   }
 });
