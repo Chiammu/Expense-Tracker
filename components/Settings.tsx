@@ -74,36 +74,57 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
   return (
     <div className="pb-24 space-y-4 sm:space-y-6">
       
-      {/* Install App Section - Show if not already installed (standalone) AND (either canInstall is true OR on iOS) */}
+      {/* Install App Section - Re-designed for Trust */}
       {!isStandalone && (canInstall || isIos) && (
-        <div className="bg-gradient-to-r from-primary to-purple-600 rounded-xl shadow-lg p-4 text-white">
-          <div className="flex justify-between items-center mb-2">
-            <div>
-              <h3 className="font-bold text-lg">Install App</h3>
-              <p className="text-xs opacity-90">Get the best experience on your phone</p>
-            </div>
-            {canInstall && (
-              <button 
-                onClick={installApp} 
-                className="bg-white text-primary px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-100 transition-colors shadow-sm"
-              >
-                Install
-              </button>
-            )}
+        <div className="bg-surface rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 relative overflow-hidden">
+          {/* Trust Badge Background */}
+          <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+            <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-3z"/>
+            </svg>
           </div>
-          
-          {/* iOS Specific Instructions */}
-          {isIos && !canInstall && (
-            <div className="bg-black/20 rounded-lg p-3 text-xs mt-2 border border-white/10">
-              <p className="font-bold mb-1 flex items-center gap-1">
-                <span>📱</span> Install on iPhone/iPad:
-              </p>
-              <ol className="list-decimal list-inside space-y-1 opacity-90 ml-1">
-                <li>Tap the <span className="font-bold">Share</span> button in Safari menu</li>
-                <li>Scroll down & select <span className="font-bold">Add to Home Screen</span></li>
-              </ol>
+
+          <div className="flex gap-4 relative z-10">
+            <div className="bg-primary/10 w-12 h-12 rounded-xl flex items-center justify-center shrink-0">
+               <span className="text-2xl">📲</span>
             </div>
-          )}
+            <div className="flex-1">
+              <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                Install App
+                <span className="text-[10px] bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full font-medium border border-green-200 dark:border-green-800">Verified Safe</span>
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-3 leading-relaxed">
+                Add this app to your home screen for offline access and a better experience. This is a trusted Progressive Web App (PWA) that runs securely in your browser.
+              </p>
+              
+              {canInstall && (
+                <button 
+                  onClick={installApp} 
+                  className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2.5 rounded-lg text-sm font-bold hover:opacity-90 transition-all shadow-md active:scale-95 flex items-center gap-2"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Add to Home Screen
+                </button>
+              )}
+
+              {/* iOS Specific Instructions */}
+              {isIos && !canInstall && (
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 text-sm border border-gray-100 dark:border-gray-700">
+                  <p className="font-semibold mb-2 text-gray-700 dark:text-gray-200">How to install on iOS:</p>
+                  <ol className="space-y-2 text-gray-600 dark:text-gray-400 text-xs">
+                    <li className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-[10px]">1</span>
+                      Tap the <span className="font-bold">Share</span> button <span className="text-lg leading-none">⏏️</span> in Safari toolbar
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-[10px]">2</span>
+                      Scroll down & select <span className="font-bold">Add to Home Screen</span>
+                    </li>
+                  </ol>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

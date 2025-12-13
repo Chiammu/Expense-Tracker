@@ -196,11 +196,7 @@ function App() {
       <div className="min-h-screen bg-background text-text transition-colors duration-300">
         <div className="max-w-3xl mx-auto px-3 sm:px-6 lg:px-8 pt-2 sm:pt-4">
           
-          <Header 
-            settings={state.settings} 
-            showInstall={!!deferredPrompt && !isStandalone}
-            onInstall={handleInstallClick}
-          />
+          <Header settings={state.settings} />
           
           <div className="hidden sm:flex justify-center gap-4 mb-8">
              {[
