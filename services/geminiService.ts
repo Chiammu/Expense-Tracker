@@ -7,11 +7,15 @@ const formatCurrency = (amount: number) => {
 };
 
 const getAI = () => {
-  // Ensure we trim whitespace just in case
-  const apiKey = process.env.API_KEY ? process.env.API_KEY.trim() : "";
+  // The key is injected by Vite at build time via vite.config.ts
+  const apiKey = process.env.API_KEY;
+  
+  // Debug log (Safe: only logs length or start)
+  console.log("Gemini Service Init. Key present:", !!apiKey, "Length:", apiKey?.length);
+
   if (!apiKey) {
-    console.error("CRITICAL ERROR: API Key is missing.");
-    throw new Error("API Key not found in configuration");
+    console.error("CRITICAL ERROR: API Key is missing in the build.");
+    throw new Error("API Key is missing. Please check Vercel Environment Variables (GEMINI_API_KEY) and redeploy.");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -70,7 +74,10 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
 
   } catch (error: any) {
     console.error("Gemini API Error details:", error);
-    // Return the actual error message to help debugging
+    // Return a user-friendly error string that will be displayed in the UI
+    if (error.message.includes("API Key is missing")) {
+      return "Configuration Error: API Key missing. Check Vercel settings.";
+    }
     return `AI Error: ${error.message || error.statusText || 'Connection failed'}`;
   }
 };
@@ -170,7 +177,11 @@ export const chatWithFinances = async (history: {role: string, content: string}[
     });
 
     return response.text || "I didn't catch that.";
-  } catch (error) {
-    return "Sorry, I'm having trouble connecting to the brain right now.";
+  } catch (error: any) {
+    console.error("Chat Error:", error);
+    if (error.message.includes("API Key is missing")) {
+      return "Error: API Key is missing. Please check your Vercel configuration.";
+    }
+    return `Connection Error: ${error.message || "Unable to reach AI"}`;
   }
 };
