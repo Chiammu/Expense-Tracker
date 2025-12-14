@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AppState, AppSettings } from '../types';
 import { shareBackup, exportToCSV, exportToPDF } from '../services/storage';
+// @ts-ignore
+import QRCode from 'qrcode';
+// @ts-ignore
+import jsQR from 'jsqr';
 
 interface SettingsProps {
   state: AppState;
@@ -20,6 +24,86 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
   const [newCat, setNewCat] = useState('');
   const [pinInput, setPinInput] = useState('');
   const [syncCodeInput, setSyncCodeInput] = useState('');
+  
+  // QR State
+  const [qrUrl, setQrUrl] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Generate QR when ID changes
+  useEffect(() => {
+    if (state.settings.syncId) {
+      QRCode.toDataURL(state.settings.syncId)
+        .then((url: string) => setQrUrl(url))
+        .catch((err: any) => console.error(err));
+    } else {
+      setQrUrl('');
+    }
+  }, [state.settings.syncId]);
+
+  // Handle Scanning Logic
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    let animationFrameId: number;
+
+    const startScan = async () => {
+      if (isScanning && videoRef.current) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.setAttribute("playsinline", "true"); // required to tell iOS safari we don't want fullscreen
+            videoRef.current.play();
+            requestAnimationFrame(tick);
+          }
+        } catch (err) {
+          console.error("Error accessing camera", err);
+          showToast("Camera access denied", 'error');
+          setIsScanning(false);
+        }
+      }
+    };
+
+    const tick = () => {
+      if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA && canvasRef.current) {
+        const canvas = canvasRef.current;
+        const video = videoRef.current;
+        canvas.height = video.videoHeight;
+        canvas.width = video.videoWidth;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+          
+          if (code) {
+             console.log("Found QR code", code.data);
+             if (code.data.length > 5) { // Basic validation
+               updateSettings({ syncId: code.data });
+               showToast("QR Code Scanned! Connecting...", 'success');
+               setIsScanning(false);
+               return; // Stop scanning
+             }
+          }
+        }
+      }
+      if (isScanning) {
+        animationFrameId = requestAnimationFrame(tick);
+      }
+    };
+
+    if (isScanning) {
+      startScan();
+    }
+
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [isScanning]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -80,7 +164,6 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
 
   const joinSyncSession = () => {
     if (syncCodeInput.length > 5) {
-      // Setting the syncID here will trigger the useEffect in App.tsx
       updateSettings({ syncId: syncCodeInput });
       setSyncCodeInput('');
     } else {
@@ -102,6 +185,16 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
         {state.settings.syncId ? (
           <div className="relative z-10">
             <p className="text-indigo-100 text-xs mb-3">Your devices are linked via this secure ID.</p>
+            
+            {/* Display QR Code */}
+            {qrUrl && (
+              <div className="flex justify-center mb-4">
+                <div className="p-3 bg-white rounded-xl shadow-lg">
+                  <img src={qrUrl} alt="Sync QR Code" className="w-32 h-32" />
+                </div>
+              </div>
+            )}
+
             <div className="bg-black/20 p-3 rounded-lg flex justify-between items-center mb-3 border border-white/10">
               <code className="text-sm font-mono break-all opacity-90">{state.settings.syncId}</code>
               <button 
@@ -112,6 +205,7 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
                 📋
               </button>
             </div>
+            
             <button 
               onClick={() => { 
                 if(confirm("Disconnect sync? You will stop receiving updates.")) {
@@ -128,35 +222,59 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
           <div className="relative z-10">
              <p className="text-indigo-100 text-xs mb-4">Link two phones to manage expenses together in real-time.</p>
              
-             <div className="flex flex-col gap-3">
-               <button 
-                 onClick={generateSyncCode}
-                 className="w-full py-2.5 bg-white text-indigo-700 font-bold rounded-lg shadow hover:bg-indigo-50 active:scale-95 transition-all text-sm"
-               >
-                 Generate New Code (Phone 1)
-               </button>
-               
-               <div className="flex items-center gap-2 my-1">
-                 <div className="h-px bg-white/20 flex-1"></div>
-                 <span className="text-xs text-white/50 uppercase">OR</span>
-                 <div className="h-px bg-white/20 flex-1"></div>
-               </div>
+             {isScanning ? (
+                <div className="mb-4 bg-black rounded-xl overflow-hidden relative">
+                   <video ref={videoRef} className="w-full h-48 object-cover"></video>
+                   <canvas ref={canvasRef} className="hidden"></canvas>
+                   <div className="absolute inset-0 border-2 border-primary/50 flex items-center justify-center pointer-events-none">
+                     <div className="w-32 h-32 border-2 border-white/80 rounded-lg"></div>
+                   </div>
+                   <button 
+                     onClick={() => setIsScanning(false)}
+                     className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 w-8 h-8 flex items-center justify-center"
+                   >
+                     ✕
+                   </button>
+                   <p className="absolute bottom-2 left-0 right-0 text-center text-xs text-white/80">Point camera at partner's QR code</p>
+                </div>
+             ) : (
+                <div className="flex flex-col gap-3">
+                  <button 
+                    onClick={generateSyncCode}
+                    className="w-full py-2.5 bg-white text-indigo-700 font-bold rounded-lg shadow hover:bg-indigo-50 active:scale-95 transition-all text-sm"
+                  >
+                    Generate New Code (Phone 1)
+                  </button>
+                  
+                  <div className="flex items-center gap-2 my-1">
+                    <div className="h-px bg-white/20 flex-1"></div>
+                    <span className="text-xs text-white/50 uppercase">OR</span>
+                    <div className="h-px bg-white/20 flex-1"></div>
+                  </div>
 
-               <div className="flex gap-2">
-                 <input 
-                   value={syncCodeInput}
-                   onChange={e => setSyncCodeInput(e.target.value)}
-                   placeholder="Paste Code from Phone 1"
-                   className="flex-1 p-2.5 rounded-lg bg-black/20 border border-white/20 text-white placeholder:text-indigo-200/50 text-sm focus:outline-none focus:border-white/50 transition-colors"
-                 />
-                 <button 
-                   onClick={joinSyncSession}
-                   className="bg-indigo-500 hover:bg-indigo-400 text-white px-4 rounded-lg font-bold shadow transition-colors active:scale-95"
-                 >
-                   Join
-                 </button>
-               </div>
-             </div>
+                  <div className="flex gap-2">
+                    <input 
+                      value={syncCodeInput}
+                      onChange={e => setSyncCodeInput(e.target.value)}
+                      placeholder="Paste Code from Phone 1"
+                      className="flex-1 p-2.5 rounded-lg bg-black/20 border border-white/20 text-white placeholder:text-indigo-200/50 text-sm focus:outline-none focus:border-white/50 transition-colors"
+                    />
+                    <button 
+                      onClick={joinSyncSession}
+                      className="bg-indigo-500 hover:bg-indigo-400 text-white px-4 rounded-lg font-bold shadow transition-colors active:scale-95"
+                    >
+                      Join
+                    </button>
+                  </div>
+                  
+                  <button 
+                     onClick={() => setIsScanning(true)}
+                     className="w-full py-2 bg-indigo-500/30 text-white font-semibold rounded-lg hover:bg-indigo-500/50 transition-colors border border-indigo-400/30 flex items-center justify-center gap-2"
+                  >
+                    <span>📷</span> Scan QR Code
+                  </button>
+                </div>
+             )}
           </div>
         )}
       </div>
