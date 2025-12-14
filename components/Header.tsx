@@ -18,13 +18,16 @@ export const Header: React.FC<HeaderProps> = ({ settings }) => {
       {/* Overlay for better text readability if image exists */}
       <div className="absolute inset-0 bg-black/30 z-0"></div>
       
-      {/* Sync Indicator - Subtle */}
-      {settings.syncId && (
-        <div className="absolute top-3 right-3 z-20 bg-black/40 backdrop-blur-md rounded-full px-2 py-1 flex items-center gap-1.5 border border-white/20 shadow-sm" title="Cloud Sync Active">
-          <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-[0_0_5px_rgba(74,222,128,0.8)]"></div>
-          <span className="text-[10px] font-bold text-white/90">Linked</span>
-        </div>
-      )}
+      {/* Sync Indicator - Blinking Dot Only */}
+      <div className="absolute top-3 right-3 z-20 flex items-center justify-center">
+         {settings.syncId ? (
+            // Connected: Green Blinking
+            <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.8)]" title="Connected"></div>
+         ) : (
+            // Disconnected: Red Blinking
+            <div className="w-3 h-3 rounded-full bg-red-500 animate-[pulse_1s_infinite] shadow-[0_0_8px_rgba(239,68,68,0.8)]" title="Disconnected"></div>
+         )}
+      </div>
       
       <div className="relative z-10">
         <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2 shadow-sm drop-shadow-md">

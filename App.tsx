@@ -113,18 +113,36 @@ function App() {
     prevSyncIdRef.current = currentSyncId;
   }, [state.settings.syncId, loaded]);
 
-  // 3. Subscribe to Realtime Changes
+  // 3. Subscribe to Realtime Changes AND Polling Fallback
   useEffect(() => {
     if (!loaded || !state.settings.syncId) return;
 
+    // A. Realtime Subscription
     const unsubscribe = subscribeToChanges(state.settings.syncId, (newState) => {
-      // Merge strategy: Cloud update wins
       setState(newState);
-      // NOTE: We do not show toast here anymore to avoid spamming while chatting
     });
+
+    // B. Polling Fallback (Every 3 seconds)
+    // This ensures that if the socket drops (common in free tier), we still get messages.
+    const pollInterval = setInterval(async () => {
+      try {
+        if(state.settings.syncId) {
+           const cloudData = await fetchCloudState(state.settings.syncId);
+           if (cloudData) {
+             // We merge strictly to avoid overwriting if user is typing, 
+             // but since AppState is monolithic, we mostly replace it.
+             // Ideally we check timestamps, but for this app, latest fetch wins.
+             setState(prev => ({...prev, ...cloudData})); 
+           }
+        }
+      } catch(e) {
+        // Silent fail on poll
+      }
+    }, 3000);
 
     return () => {
       unsubscribe();
+      clearInterval(pollInterval);
     };
   }, [loaded, state.settings.syncId]);
 
