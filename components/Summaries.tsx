@@ -24,7 +24,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
   const handlePaymentFilterClick = (mode: string) => {
     setPaymentFilter(mode);
     if (mode !== 'all' && filterType !== 'all') {
-      setFilterType('all'); // Reset date filter to all if filtering by specific payment type to find historical transactions easily
+      setFilterType('all'); // Reset date filter to all if filtering by specific payment type
     }
   };
 
@@ -154,14 +154,14 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
              <span className="font-bold text-text">₹{stats.p1Real.toFixed(0)}</span>
            </div>
            <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5 mb-2 overflow-hidden">
-             <div className="bg-secondary h-full rounded-full" style={{width: `${(stats.p1Real/stats.total)*100}%`}}></div>
+             <div className="bg-secondary h-full rounded-full" style={{width: `${(stats.p1Real/Math.max(stats.total, 1))*100}%`}}></div>
            </div>
            <div className="flex justify-between items-center text-xs mb-1">
              <span className="font-bold text-text-light">{state.settings.person2Name}</span>
              <span className="font-bold text-text">₹{stats.p2Real.toFixed(0)}</span>
            </div>
            <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
-             <div className="bg-accent h-full rounded-full" style={{width: `${(stats.p2Real/stats.total)*100}%`}}></div>
+             <div className="bg-accent h-full rounded-full" style={{width: `${(stats.p2Real/Math.max(stats.total, 1))*100}%`}}></div>
            </div>
         </div>
       </div>
