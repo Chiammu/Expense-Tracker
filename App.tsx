@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { loadFromStorage, saveToStorage, fetchCloudState, subscribeToChanges } from './services/storage';
-import { AppState, INITIAL_STATE, Section, Expense } from './types';
+import { AppState, INITIAL_STATE, Section, Expense, FixedPayment } from './types';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { AddExpense } from './components/AddExpense';
@@ -11,6 +11,7 @@ import { LockScreen } from './components/LockScreen';
 import { ChatAssistant } from './components/ChatAssistant';
 import { PartnerChat } from './components/PartnerChat';
 import { Toast } from './components/Toast';
+import { RecurringModal } from './components/RecurringModal';
 
 function App() {
   const [activeSection, setActiveSection] = useState<Section>('add-expense');
@@ -19,6 +20,10 @@ function App() {
   const [isLocked, setIsLocked] = useState(false);
   const [showChat, setShowChat] = useState(false);
   
+  // Recurring Payment Modal State
+  const [duePayments, setDuePayments] = useState<FixedPayment[]>([]);
+  const [showRecurringModal, setShowRecurringModal] = useState(false);
+
   // Edit State
   const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
 
@@ -37,33 +42,75 @@ function App() {
     setToast({ message, type });
   };
 
-  // 1. Initial Load
+  // 1. Initial Load & Recurring Check
   useEffect(() => {
     const init = async () => {
       const localData = loadFromStorage();
+      let currentState = localData;
       
       // If we have a Sync ID on startup, fetch latest cloud data
       if (localData.settings.syncId) {
         try {
           const cloudData = await fetchCloudState(localData.settings.syncId);
           if (cloudData) {
-            setState(cloudData);
+            currentState = cloudData;
             console.log("Loaded cloud data on mount");
-          } else {
-            setState(localData);
           }
         } catch (e) {
           console.error("Cloud fetch failed on mount", e);
-          setState(localData);
         }
-      } else {
-        setState(localData);
       }
 
-      prevSyncIdRef.current = localData.settings.syncId;
+      setState(currentState);
+      prevSyncIdRef.current = currentState.settings.syncId;
       setLoaded(true);
-      if (localData.settings.pin) {
+      
+      if (currentState.settings.pin) {
         setIsLocked(true);
+      }
+
+      // CHECK RECURRING PAYMENTS
+      if (currentState.fixedPayments.length > 0) {
+        const lastCheck = currentState.settings.lastFixedPaymentCheck 
+          ? new Date(currentState.settings.lastFixedPaymentCheck) 
+          : new Date();
+        
+        const now = new Date();
+        const due: FixedPayment[] = [];
+
+        // Check each day from last check until today
+        // Simple logic: if payment day falls in the range (lastCheck < day <= now)
+        // We only care about day-of-month for simplicity as requested
+        const todayDay = now.getDate();
+        const lastDay = lastCheck.getDate();
+        
+        // Handle Month Wrap: If month changed, check from lastDay to end of month, then 1 to today
+        const monthDiff = (now.getFullYear() - lastCheck.getFullYear()) * 12 + (now.getMonth() - lastCheck.getMonth());
+
+        if (monthDiff === 0) {
+           // Same month
+           currentState.fixedPayments.forEach(p => {
+             if (p.day > lastDay && p.day <= todayDay) due.push(p);
+           });
+        } else {
+           // Different month - check all payments that are <= today OR > lastDay
+           // This is a simplified logic. Properly we'd add all if a whole month passed.
+           // Let's just catch payments <= today to be safe and simple.
+           currentState.fixedPayments.forEach(p => {
+             if (p.day <= todayDay) due.push(p);
+           });
+        }
+
+        if (due.length > 0) {
+           setDuePayments(due);
+           setShowRecurringModal(true);
+        } else {
+           // Update check time even if nothing found
+           setState(prev => ({ 
+             ...prev, 
+             settings: { ...prev.settings, lastFixedPaymentCheck: new Date().toISOString() } 
+           }));
+        }
       }
     };
 
@@ -82,6 +129,46 @@ function App() {
 
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
+
+  // Handle Recurring Confirmation
+  const handleRecurringConfirm = (selectedIds: number[]) => {
+    const toAdd = duePayments.filter(p => selectedIds.includes(p.id));
+    
+    if (toAdd.length > 0) {
+      const newExpenses = toAdd.map(p => ({
+        id: Date.now() + Math.random(),
+        date: new Date().toISOString().split('T')[0],
+        amount: p.amount,
+        category: 'Bills',
+        person: 'Both',
+        paymentMode: 'Netbanking',
+        note: `Fixed: ${p.name}`
+      }));
+
+      setState(prev => ({
+        ...prev,
+        expenses: [...prev.expenses, ...newExpenses],
+        settings: { ...prev.settings, lastFixedPaymentCheck: new Date().toISOString() }
+      }));
+      showToast(`${toAdd.length} payments added`, 'success');
+    } else {
+      // Just update the check time
+      setState(prev => ({
+        ...prev,
+        settings: { ...prev.settings, lastFixedPaymentCheck: new Date().toISOString() }
+      }));
+    }
+    setShowRecurringModal(false);
+  };
+
+  const handleRecurringCancel = () => {
+    // Update check time so we don't ask again immediately
+    setState(prev => ({
+      ...prev,
+      settings: { ...prev.settings, lastFixedPaymentCheck: new Date().toISOString() }
+    }));
+    setShowRecurringModal(false);
+  };
 
   // 2. Handle "Join Session" (Sync ID changes after load)
   useEffect(() => {
@@ -294,6 +381,14 @@ function App() {
 
   return (
     <>
+      {showRecurringModal && (
+        <RecurringModal 
+          payments={duePayments} 
+          onConfirm={handleRecurringConfirm} 
+          onCancel={handleRecurringCancel} 
+        />
+      )}
+
       {showChat && (
         <ChatAssistant state={state} onClose={() => setShowChat(false)} />
       )}

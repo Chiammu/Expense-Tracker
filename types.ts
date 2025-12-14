@@ -49,8 +49,10 @@ export interface AppSettings {
   person1Name: string;
   person2Name: string;
   customCategories: string[];
+  categoryIcons: Record<string, string>; // New: Map category names to emojis
   pin: string | null; // For Lock Screen
   syncId: string | null; // UUID for Supabase Sync
+  lastFixedPaymentCheck: string | null; // New: ISO Date string of last check
 }
 
 export interface AppState {
@@ -73,6 +75,12 @@ export const DEFAULT_CATEGORIES = [
   "Entertainment", "Medical", "Education", "Investments", "Others"
 ];
 
+export const DEFAULT_ICONS: Record<string, string> = {
+  "Groceries": "🥦", "Rent": "🏠", "Bills": "⚡", "EMIs": "🏦",
+  "Shopping": "🛍️", "Travel": "🚕", "Food": "🍔", "Entertainment": "🎬",
+  "Medical": "💊", "Education": "📚", "Investments": "📈", "Others": "📦"
+};
+
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'light',
   primaryColor: '#e91e63',
@@ -86,8 +94,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   person1Name: 'Person 1',
   person2Name: 'Person 2',
   customCategories: DEFAULT_CATEGORIES,
+  categoryIcons: DEFAULT_ICONS,
   pin: null,
   syncId: null,
+  lastFixedPaymentCheck: new Date().toISOString(),
 };
 
 export const INITIAL_STATE: AppState = {

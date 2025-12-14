@@ -21,7 +21,8 @@ interface SettingsProps {
 const COLORS = ['#e91e63', '#f44336', '#ff6f00', '#ffc107', '#4caf50', '#2196f3', '#9c27b0', '#673ab7', '#3f51b5', '#00bcd4', '#009688', '#8bc34a'];
 
 export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, resetData, importData, showToast, installApp, canInstall, isIos, isStandalone }) => {
-  const [newCat, setNewCat] = useState('');
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatIcon, setNewCatIcon] = useState('📦');
   const [pinInput, setPinInput] = useState('');
   const [syncCodeInput, setSyncCodeInput] = useState('');
   
@@ -122,16 +123,25 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
   };
 
   const addCategory = () => {
-    if (newCat && !state.settings.customCategories.includes(newCat)) {
-      updateSettings({ customCategories: [...state.settings.customCategories, newCat] });
-      setNewCat('');
+    if (newCatName && !state.settings.customCategories.includes(newCatName)) {
+      updateSettings({ 
+        customCategories: [...state.settings.customCategories, newCatName],
+        categoryIcons: { ...state.settings.categoryIcons, [newCatName]: newCatIcon || '📦' }
+      });
+      setNewCatName('');
+      setNewCatIcon('📦');
       showToast(`Category added`);
     }
   };
 
   const removeCategory = (cat: string) => {
     if (window.confirm(`Delete category "${cat}"?`)) {
-      updateSettings({ customCategories: state.settings.customCategories.filter(c => c !== cat) });
+      const newIcons = { ...state.settings.categoryIcons };
+      delete newIcons[cat];
+      updateSettings({ 
+        customCategories: state.settings.customCategories.filter(c => c !== cat),
+        categoryIcons: newIcons
+      });
     }
   };
 
@@ -249,11 +259,30 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
 
             <div>
               <label className="text-xs font-bold text-text-light uppercase mb-3 block">Categories</label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 mb-3">
                  {state.settings.customCategories.map(cat => (
-                    <span key={cat} onClick={() => removeCategory(cat)} className="px-3 py-1.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg text-xs font-medium border border-gray-100 dark:border-gray-800 hover:border-red-200 cursor-pointer select-none transition-colors">{cat}</span>
+                    <span key={cat} onClick={() => removeCategory(cat)} className="px-3 py-1.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg text-xs font-medium border border-gray-100 dark:border-gray-800 hover:border-red-200 cursor-pointer select-none transition-colors flex items-center gap-1">
+                      <span>{state.settings.categoryIcons?.[cat] || '📦'}</span>
+                      {cat}
+                    </span>
                  ))}
-                 <input className="px-3 py-1.5 bg-transparent border-b border-gray-200 dark:border-gray-700 text-xs w-24 focus:border-primary outline-none" placeholder="+ Add New" value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCategory()} />
+              </div>
+              <div className="flex gap-2">
+                 <input 
+                    className="px-3 py-2 bg-gray-50 dark:bg-gray-900/50 rounded-xl text-center border-none focus:ring-2 focus:ring-primary/20 w-12" 
+                    placeholder="🥦" 
+                    value={newCatIcon} 
+                    onChange={e => setNewCatIcon(e.target.value)}
+                    maxLength={2} 
+                 />
+                 <input 
+                    className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-900/50 rounded-xl border-none focus:ring-2 focus:ring-primary/20 text-sm" 
+                    placeholder="New Category Name" 
+                    value={newCatName} 
+                    onChange={e => setNewCatName(e.target.value)} 
+                    onKeyDown={e => e.key === 'Enter' && addCategory()} 
+                 />
+                 <button onClick={addCategory} className="bg-primary text-white rounded-xl w-10 h-10 flex items-center justify-center font-bold shadow-sm">+</button>
               </div>
             </div>
          </div>

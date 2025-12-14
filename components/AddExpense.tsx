@@ -338,7 +338,11 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
                 onChange={e => setFormData({...formData, category: e.target.value})}
               >
                 <option value="">Select...</option>
-                {state.settings.customCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                {state.settings.customCategories.map(c => (
+                  <option key={c} value={c}>
+                    {state.settings.categoryIcons?.[c] || '📦'} {c}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

@@ -30,12 +30,9 @@ export const Header: React.FC<HeaderProps> = ({ settings }) => {
       </div>
       
       <div className="relative z-10">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2 shadow-sm drop-shadow-md">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-0 shadow-sm drop-shadow-md">
           {settings.headerTitle}
         </h1>
-        <p className="text-xs sm:text-sm opacity-90 drop-shadow-md font-medium">
-          {settings.headerSubtitle}
-        </p>
       </div>
     </div>
   );
