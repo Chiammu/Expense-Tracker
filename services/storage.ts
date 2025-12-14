@@ -66,6 +66,7 @@ const mergeState = (parsed: any): AppState => {
     },
     savingsGoals: parsed.savingsGoals || [],
     categoryBudgets: parsed.categoryBudgets || {},
+    chatMessages: parsed.chatMessages || [],
   };
 };
 

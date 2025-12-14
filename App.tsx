@@ -9,6 +9,7 @@ import { Overview } from './components/Overview';
 import { Settings } from './components/Settings';
 import { LockScreen } from './components/LockScreen';
 import { ChatAssistant } from './components/ChatAssistant';
+import { PartnerChat } from './components/PartnerChat';
 import { Toast } from './components/Toast';
 
 function App() {
@@ -119,7 +120,7 @@ function App() {
     const unsubscribe = subscribeToChanges(state.settings.syncId, (newState) => {
       // Merge strategy: Cloud update wins
       setState(newState);
-      showToast("Data synced from partner", 'info');
+      // NOTE: We do not show toast here anymore to avoid spamming while chatting
     });
 
     return () => {
@@ -233,6 +234,7 @@ function App() {
             settings: { ...INITIAL_STATE.settings, ...(imported.settings || {}) },
             savingsGoals: imported.savingsGoals || [],
             categoryBudgets: imported.categoryBudgets || {},
+            chatMessages: imported.chatMessages || [],
         });
         showToast("Data imported successfully!", 'success');
       } catch (err) {
@@ -240,6 +242,21 @@ function App() {
       }
     };
     reader.readAsText(file);
+  };
+
+  const sendChatMessage = (text: string, sender: 'Person1' | 'Person2') => {
+    const newMessage = {
+      id: crypto.randomUUID(),
+      sender,
+      text,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Append message and slice to keep only last 50 (prevents bloat)
+    setState(prev => {
+      const updatedMessages = [...(prev.chatMessages || []), newMessage].slice(-50);
+      return { ...prev, chatMessages: updatedMessages };
+    });
   };
 
   const handleInstallClick = () => {
@@ -285,20 +302,11 @@ function App() {
           
           <Header settings={state.settings} />
           
-          {/* Sync Status Indicator */}
-          {state.settings.syncId && (
-            <div className="flex justify-center mb-2">
-               <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 font-bold shadow-sm border border-green-200 dark:border-green-800">
-                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                 Cloud Sync Active
-               </span>
-            </div>
-          )}
-
           <div className="hidden sm:flex justify-center gap-4 mb-8">
              {[
                {id: 'add-expense', label: 'Add Expense'},
                {id: 'summaries', label: 'Summaries'},
+               {id: 'partner-chat', label: 'Chat'},
                {id: 'overview', label: 'Overview'},
                {id: 'settings', label: 'Settings'},
              ].map(item => (
@@ -336,6 +344,12 @@ function App() {
                   editExpense={editExpense}
                 />
               )}
+              {activeSection === 'partner-chat' && (
+                <PartnerChat 
+                  state={state}
+                  sendMessage={sendChatMessage}
+                />
+              )}
               {activeSection === 'overview' && (
                 <Overview 
                   state={state} 
@@ -367,8 +381,9 @@ function App() {
           <button 
             onClick={() => setShowChat(true)}
             className="fixed bottom-24 right-4 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-tr from-primary to-purple-600 text-white rounded-full shadow-lg shadow-primary/30 flex items-center justify-center text-xl sm:text-2xl z-40 hover:scale-110 active:scale-90 transition-all duration-300 animate-scale-in"
+            title="Ask AI"
           >
-            💬
+            🤖
           </button>
           
           {activeSection !== 'add-expense' && (

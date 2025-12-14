@@ -29,6 +29,13 @@ export interface SavingsGoal {
   currentAmount: number;
 }
 
+export interface ChatMessage {
+  id: string;
+  sender: 'Person1' | 'Person2';
+  text: string;
+  timestamp: string;
+}
+
 export interface AppSettings {
   theme: 'light' | 'dark';
   primaryColor: string;
@@ -56,9 +63,10 @@ export interface AppState {
   incomePerson2: number;
   savingsGoals: SavingsGoal[];
   categoryBudgets: Record<string, number>;
+  chatMessages: ChatMessage[];
 }
 
-export type Section = 'add-expense' | 'summaries' | 'overview' | 'settings';
+export type Section = 'add-expense' | 'summaries' | 'partner-chat' | 'overview' | 'settings';
 
 export const DEFAULT_CATEGORIES = [
   "Groceries", "Rent", "Bills", "EMIs", "Shopping", "Travel", "Food", 
@@ -92,4 +100,5 @@ export const INITIAL_STATE: AppState = {
   incomePerson2: 0,
   savingsGoals: [],
   categoryBudgets: {},
+  chatMessages: [],
 };
