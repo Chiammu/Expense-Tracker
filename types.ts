@@ -1,3 +1,4 @@
+
 export interface Expense {
   id: number;
   person: string;
@@ -42,6 +43,7 @@ export interface AppSettings {
   person2Name: string;
   customCategories: string[];
   pin: string | null; // For Lock Screen
+  syncId: string | null; // UUID for Supabase Sync
 }
 
 export interface AppState {
@@ -77,6 +79,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   person2Name: 'Person 2',
   customCategories: DEFAULT_CATEGORIES,
   pin: null,
+  syncId: null,
 };
 
 export const INITIAL_STATE: AppState = {

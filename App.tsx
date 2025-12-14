@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { loadFromStorage, saveToStorage } from './services/storage';
+import React, { useState, useEffect, useRef } from 'react';
+import { loadFromStorage, saveToStorage, fetchCloudState, subscribeToChanges } from './services/storage';
 import { AppState, INITIAL_STATE, Section, Expense } from './types';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
@@ -18,6 +18,9 @@ function App() {
   const [isLocked, setIsLocked] = useState(false);
   const [showChat, setShowChat] = useState(false);
   
+  // Track previous sync ID to detect changes
+  const prevSyncIdRef = useRef<string | null>(null);
+  
   // PWA Install State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isIos, setIsIos] = useState(false);
@@ -30,42 +33,105 @@ function App() {
     setToast({ message, type });
   };
 
-  // Load data on mount and check environment
+  // 1. Initial Load
   useEffect(() => {
-    // Load Data
-    const data = loadFromStorage();
-    setState(data);
-    setLoaded(true);
-    if (data.settings.pin) {
-      setIsLocked(true);
-    }
+    const init = async () => {
+      const localData = loadFromStorage();
+      
+      // If we have a Sync ID on startup, fetch latest cloud data
+      if (localData.settings.syncId) {
+        try {
+          const cloudData = await fetchCloudState(localData.settings.syncId);
+          if (cloudData) {
+            setState(cloudData);
+            console.log("Loaded cloud data on mount");
+          } else {
+            setState(localData);
+          }
+        } catch (e) {
+          console.error("Cloud fetch failed on mount", e);
+          setState(localData);
+        }
+      } else {
+        setState(localData);
+      }
 
-    // PWA Install Prompt Listener
+      prevSyncIdRef.current = localData.settings.syncId;
+      setLoaded(true);
+      if (localData.settings.pin) {
+        setIsLocked(true);
+      }
+    };
+
+    init();
+
+    // PWA Check
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
     };
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    
-    // Check Environment
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     setIsIos(ios);
-    
-    // Check if running as PWA (Standalone)
     const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
     setIsStandalone(standalone);
 
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
-  // Save data on change
+  // 2. Handle "Join Session" (Sync ID changes after load)
+  useEffect(() => {
+    if (!loaded) return;
+
+    const currentSyncId = state.settings.syncId;
+    const prevSyncId = prevSyncIdRef.current;
+
+    // If Sync ID changed (and isn't null), fetch data immediately
+    if (currentSyncId && currentSyncId !== prevSyncId) {
+      const performSync = async () => {
+        showToast("Syncing with partner...", 'info');
+        try {
+          const cloudData = await fetchCloudState(currentSyncId);
+          if (cloudData) {
+            setState(cloudData);
+            showToast("Connected! Data synced.", 'success');
+          } else {
+            // New session, data will be uploaded by the saveToStorage effect
+            showToast("Connected to new session.", 'success');
+          }
+        } catch (e) {
+          showToast("Could not sync data", 'error');
+        }
+      };
+      performSync();
+    }
+
+    prevSyncIdRef.current = currentSyncId;
+  }, [state.settings.syncId, loaded]);
+
+  // 3. Subscribe to Realtime Changes
+  useEffect(() => {
+    if (!loaded || !state.settings.syncId) return;
+
+    const unsubscribe = subscribeToChanges(state.settings.syncId, (newState) => {
+      // Merge strategy: Cloud update wins
+      setState(newState);
+      showToast("Data synced from partner", 'info');
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [loaded, state.settings.syncId]);
+
+  // 4. Save to Storage (Local + Cloud)
   useEffect(() => {
     if (loaded) {
       saveToStorage(state);
     }
   }, [state, loaded]);
 
-  // Apply Theme & CSS Variables
+  // Theme & Styles
   useEffect(() => {
     const root = document.documentElement;
     const { primaryColor, secondaryColor, accentColor, theme, fontStyle, fontSize } = state.settings;
@@ -85,9 +151,9 @@ function App() {
     if (fontSize === 'small') root.style.fontSize = '14px';
     else if (fontSize === 'large') root.style.fontSize = '18px';
     else root.style.fontSize = '16px';
-
   }, [state.settings]);
 
+  // Actions
   const addExpense = (expense: Omit<Expense, 'id'>) => {
     const newExpense: Expense = { ...expense, id: Date.now() };
     setState(prev => ({ ...prev, expenses: [...prev.expenses, newExpense] }));
@@ -174,7 +240,6 @@ function App() {
     </div>
   );
 
-  // Exclusive Lock Screen Rendering
   if (isLocked && state.settings.pin) {
     return <LockScreen pin={state.settings.pin} onUnlock={() => setIsLocked(false)} />;
   }
@@ -198,6 +263,16 @@ function App() {
           
           <Header settings={state.settings} />
           
+          {/* Sync Status Indicator */}
+          {state.settings.syncId && (
+            <div className="flex justify-center mb-2">
+               <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 font-bold shadow-sm border border-green-200 dark:border-green-800">
+                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                 Cloud Sync Active
+               </span>
+            </div>
+          )}
+
           <div className="hidden sm:flex justify-center gap-4 mb-8">
              {[
                {id: 'add-expense', label: 'Add Expense'},
@@ -260,7 +335,6 @@ function App() {
 
           <BottomNav activeSection={activeSection} setSection={setActiveSection} />
           
-          {/* Floating Action Button for Chat - Animated entrance */}
           <button 
             onClick={() => setShowChat(true)}
             className="fixed bottom-24 right-4 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-tr from-primary to-purple-600 text-white rounded-full shadow-lg shadow-primary/30 flex items-center justify-center text-xl sm:text-2xl z-40 hover:scale-110 active:scale-90 transition-all duration-300 animate-scale-in"
@@ -268,7 +342,6 @@ function App() {
             💬
           </button>
           
-          {/* Mobile FAB for Add Expense - Animated entrance */}
           {activeSection !== 'add-expense' && (
             <button 
               onClick={() => setActiveSection('add-expense')}

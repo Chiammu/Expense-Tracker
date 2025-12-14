@@ -19,6 +19,7 @@ const COLORS = ['#e91e63', '#f44336', '#ff6f00', '#ffc107', '#4caf50', '#2196f3'
 export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, resetData, importData, showToast, installApp, canInstall, isIos, isStandalone }) => {
   const [newCat, setNewCat] = useState('');
   const [pinInput, setPinInput] = useState('');
+  const [syncCodeInput, setSyncCodeInput] = useState('');
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -71,10 +72,96 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
     }
   };
 
+  const generateSyncCode = () => {
+    const newCode = crypto.randomUUID();
+    updateSettings({ syncId: newCode });
+    showToast("Code generated! Share it with your partner.", 'success');
+  };
+
+  const joinSyncSession = () => {
+    if (syncCodeInput.length > 5) {
+      // Setting the syncID here will trigger the useEffect in App.tsx
+      updateSettings({ syncId: syncCodeInput });
+      setSyncCodeInput('');
+    } else {
+      showToast("Invalid Sync Code. It should be a long ID.", 'error');
+    }
+  };
+
   return (
     <div className="pb-24 space-y-4 sm:space-y-6">
       
-      {/* Install App Section - Re-designed for Trust */}
+      {/* Cloud Sync Section */}
+      <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-xl shadow-lg p-5 text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 bg-white/10 rounded-full translate-x-1/2 -translate-y-1/2 blur-2xl"></div>
+        
+        <h3 className="font-bold text-lg mb-2 flex items-center gap-2 relative z-10">
+          <span>☁️</span> Sync Devices
+        </h3>
+        
+        {state.settings.syncId ? (
+          <div className="relative z-10">
+            <p className="text-indigo-100 text-xs mb-3">Your devices are linked via this secure ID.</p>
+            <div className="bg-black/20 p-3 rounded-lg flex justify-between items-center mb-3 border border-white/10">
+              <code className="text-sm font-mono break-all opacity-90">{state.settings.syncId}</code>
+              <button 
+                onClick={() => { navigator.clipboard.writeText(state.settings.syncId || ''); showToast("Copied to clipboard!"); }}
+                className="ml-2 p-2 hover:bg-white/20 rounded transition-colors"
+                title="Copy Code"
+              >
+                📋
+              </button>
+            </div>
+            <button 
+              onClick={() => { 
+                if(confirm("Disconnect sync? You will stop receiving updates.")) {
+                  updateSettings({ syncId: null });
+                  showToast("Disconnected from cloud.");
+                }
+              }}
+              className="text-xs bg-red-500/20 hover:bg-red-500/40 text-red-100 px-3 py-1.5 rounded-lg transition-colors border border-red-500/30"
+            >
+              Disconnect
+            </button>
+          </div>
+        ) : (
+          <div className="relative z-10">
+             <p className="text-indigo-100 text-xs mb-4">Link two phones to manage expenses together in real-time.</p>
+             
+             <div className="flex flex-col gap-3">
+               <button 
+                 onClick={generateSyncCode}
+                 className="w-full py-2.5 bg-white text-indigo-700 font-bold rounded-lg shadow hover:bg-indigo-50 active:scale-95 transition-all text-sm"
+               >
+                 Generate New Code (Phone 1)
+               </button>
+               
+               <div className="flex items-center gap-2 my-1">
+                 <div className="h-px bg-white/20 flex-1"></div>
+                 <span className="text-xs text-white/50 uppercase">OR</span>
+                 <div className="h-px bg-white/20 flex-1"></div>
+               </div>
+
+               <div className="flex gap-2">
+                 <input 
+                   value={syncCodeInput}
+                   onChange={e => setSyncCodeInput(e.target.value)}
+                   placeholder="Paste Code from Phone 1"
+                   className="flex-1 p-2.5 rounded-lg bg-black/20 border border-white/20 text-white placeholder:text-indigo-200/50 text-sm focus:outline-none focus:border-white/50 transition-colors"
+                 />
+                 <button 
+                   onClick={joinSyncSession}
+                   className="bg-indigo-500 hover:bg-indigo-400 text-white px-4 rounded-lg font-bold shadow transition-colors active:scale-95"
+                 >
+                   Join
+                 </button>
+               </div>
+             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Install App Section */}
       {!isStandalone && (canInstall || isIos) && (
         <div className="bg-surface rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 relative overflow-hidden">
           {/* Trust Badge Background */}

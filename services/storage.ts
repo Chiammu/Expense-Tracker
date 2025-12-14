@@ -1,4 +1,5 @@
 import { AppState, INITIAL_STATE } from '../types';
+import { supabase } from './supabaseClient';
 // @ts-ignore
 import jsPDF from 'jspdf';
 // @ts-ignore
@@ -6,9 +7,36 @@ import 'jspdf-autotable';
 
 const STORAGE_KEY = 'coupleExpenseTrackerV4_React';
 
+// Debounce timer for cloud saves
+let saveTimeout: any = null;
+let isRemoteUpdate = false;
+
 export const saveToStorage = (state: AppState) => {
   try {
+    // 1. Save Local (Instant)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+
+    // 2. Save Cloud (Debounced) if Sync ID exists
+    // We check !isRemoteUpdate to prevent loops where receiving a cloud update triggers a cloud save
+    if (state.settings.syncId && supabase && !isRemoteUpdate) {
+      if (saveTimeout) clearTimeout(saveTimeout);
+      
+      saveTimeout = setTimeout(async () => {
+        const { error } = await supabase
+          .from('app_state')
+          .upsert({ 
+            id: state.settings.syncId, 
+            data: state, 
+            updated_at: new Date().toISOString() 
+          });
+          
+        if (error) console.error("Cloud sync failed:", error);
+        else console.log("Cloud sync saved");
+      }, 1000); // Wait 1s after last change
+    }
+    
+    // Reset flag
+    isRemoteUpdate = false;
   } catch (e) {
     console.error("Failed to save state", e);
   }
@@ -19,24 +47,73 @@ export const loadFromStorage = (): AppState => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Merge with initial state to ensure new fields exist
-      return {
-        ...INITIAL_STATE,
-        ...parsed,
-        settings: {
-          ...INITIAL_STATE.settings,
-          ...(parsed.settings || {}),
-        },
-        // Ensure arrays are initialized
-        savingsGoals: parsed.savingsGoals || [],
-        categoryBudgets: parsed.categoryBudgets || {},
-      };
+      return mergeState(parsed);
     }
   } catch (e) {
     console.error("Failed to load state", e);
   }
   return INITIAL_STATE;
 };
+
+// Helper to ensure structure matches AppState even if loading old data
+const mergeState = (parsed: any): AppState => {
+  return {
+    ...INITIAL_STATE,
+    ...parsed,
+    settings: {
+      ...INITIAL_STATE.settings,
+      ...(parsed.settings || {}),
+    },
+    savingsGoals: parsed.savingsGoals || [],
+    categoryBudgets: parsed.categoryBudgets || {},
+  };
+};
+
+// --- Sync Functions ---
+
+export const fetchCloudState = async (syncId: string): Promise<AppState | null> => {
+  if (!supabase) return null;
+  
+  const { data, error } = await supabase
+    .from('app_state')
+    .select('data')
+    .eq('id', syncId)
+    .single();
+
+  if (error || !data) {
+    console.log("No cloud data found or error", error);
+    return null;
+  }
+  
+  return mergeState(data.data);
+};
+
+export const subscribeToChanges = (syncId: string, onUpdate: (newState: AppState) => void) => {
+  if (!supabase) return () => {};
+
+  console.log("Subscribing to channel for:", syncId);
+
+  const channel = supabase
+    .channel('room-' + syncId)
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'app_state', filter: `id=eq.${syncId}` },
+      (payload) => {
+        console.log("Received cloud update:", payload);
+        if (payload.new && payload.new.data) {
+          isRemoteUpdate = true; // Set flag to prevent echo-save
+          onUpdate(mergeState(payload.new.data));
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+};
+
+// --- Exports ---
 
 export const exportData = (state: AppState) => {
   const data = JSON.stringify(state, null, 2);

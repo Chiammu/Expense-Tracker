@@ -22,6 +22,7 @@ export const AddExpense: React.FC<AddExpenseProps> = ({ state, addExpense, switc
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [nlpInput, setNlpInput] = useState('');
+  const [isListening, setIsListening] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Category Prediction Logic
@@ -76,18 +77,20 @@ export const AddExpense: React.FC<AddExpenseProps> = ({ state, addExpense, switc
     }
   };
 
-  const handleNLP = async () => {
-    if (!nlpInput.trim()) return;
+  const handleNLP = async (textOverride?: string) => {
+    const textToProcess = typeof textOverride === 'string' ? textOverride : nlpInput;
+    if (!textToProcess.trim()) return;
+    
     setIsProcessing(true);
     try {
-      const data = await parseNaturalLanguageExpense(nlpInput);
+      const data = await parseNaturalLanguageExpense(textToProcess);
       setFormData(prev => ({
         ...prev,
         amount: data.amount?.toString() || prev.amount,
         date: data.date || prev.date,
         category: (data.category && state.settings.customCategories.includes(data.category)) ? data.category : prev.category,
         paymentMode: data.paymentMode || prev.paymentMode,
-        note: data.note || prev.note || nlpInput
+        note: data.note || prev.note || textToProcess
       }));
       setNlpInput('');
       showToast("Processed", 'success');
@@ -96,6 +99,43 @@ export const AddExpense: React.FC<AddExpenseProps> = ({ state, addExpense, switc
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const startVoiceInput = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      showToast("Voice input not supported in this browser", 'error');
+      return;
+    }
+    
+    setIsListening(true);
+    // @ts-ignore
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = 'en-US'; 
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      showToast("Listening...", 'info');
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setNlpInput(transcript);
+      setIsListening(false);
+      handleNLP(transcript);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech error", event);
+      setIsListening(false);
+      showToast("Voice input failed", 'error');
+    };
+    
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -125,37 +165,53 @@ export const AddExpense: React.FC<AddExpenseProps> = ({ state, addExpense, switc
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-4 sm:mb-6">
+      {/* Quick Actions Bar - Flex Container */}
+      <div className="flex gap-2 mb-4 sm:mb-6">
+        
+        {/* Camera Button (Reduced Size) */}
         <button 
           onClick={() => fileInputRef.current?.click()}
           disabled={isProcessing}
-          className="flex items-center justify-center gap-2 p-2 sm:p-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors active:scale-95"
+          className="shrink-0 w-12 h-12 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors active:scale-95 flex items-center justify-center shadow-sm"
+          title="Scan Receipt"
         >
           {isProcessing ? (
-             <span className="animate-pulse text-xs sm:text-sm">Processing...</span>
+             <span className="animate-spin text-lg">🌀</span>
           ) : (
-             <>
-               <span className="text-lg sm:text-xl">📷</span>
-               <span className="font-medium text-xs sm:text-sm">Scan Receipt</span>
-             </>
+             <span className="text-xl">📷</span>
           )}
         </button>
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleReceiptUpload} />
+
+        {/* Voice Record Button */}
+        <button 
+          onClick={startVoiceInput}
+          disabled={isProcessing || isListening}
+          className={`shrink-0 w-12 h-12 rounded-xl border transition-all active:scale-95 flex items-center justify-center shadow-sm ${
+            isListening 
+              ? 'bg-red-50 border-red-200 text-red-500 animate-pulse ring-2 ring-red-200' 
+              : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100'
+          }`}
+          title="Record Expense"
+        >
+          <span className="text-xl">🎙️</span>
+        </button>
         
-        <div className="relative group">
+        {/* NLP Input */}
+        <div className="relative group flex-1">
           <input 
             type="text"
-            placeholder="Type '500 for lunch'..."
+            placeholder="Type or say '500 for lunch'..."
             value={nlpInput}
             onChange={e => setNlpInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleNLP()}
-            className="w-full h-full p-2 pl-3 sm:p-3 sm:pl-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-background text-xs sm:text-sm pr-10 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+            disabled={isProcessing}
+            className="w-full h-full p-2 pl-3 sm:p-3 sm:pl-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-background text-xs sm:text-sm pr-10 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all shadow-sm"
           />
           <button 
-            onClick={handleNLP} 
-            disabled={isProcessing}
-            className="absolute right-1 top-1/2 -translate-y-1/2 text-primary p-2 rounded-full hover:bg-primary/10 transition-colors"
+            onClick={() => handleNLP()} 
+            disabled={isProcessing || !nlpInput.trim()}
+            className="absolute right-1 top-1/2 -translate-y-1/2 text-primary p-2 rounded-full hover:bg-primary/10 transition-colors disabled:opacity-50"
           >
             ➤
           </button>

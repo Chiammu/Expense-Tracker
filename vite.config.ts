@@ -5,20 +5,21 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: 'dist',
-    chunkSizeWarningLimit: 2000, // Increased limit to suppress warnings
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       external: ['@google/genai'],
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom', 'recharts', 'jspdf', 'jspdf-autotable']
+          vendor: ['react', 'react-dom', 'recharts', 'jspdf', 'jspdf-autotable', '@supabase/supabase-js']
         }
       }
     }
   },
   define: {
-    // IMPORTANT: We map the Vercel Environment Variable 'GEMINI_API_KEY' to the internal 'process.env.API_KEY'.
-    // We removed the hardcoded fallback string because it was likely an invalid key causing the 400 error.
+    // API Keys configuration
     'process.env.API_KEY': JSON.stringify(process.env.GEMINI_API_KEY || process.env.VITE_API_KEY || ""),
+    'process.env.SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || ""),
+    'process.env.SUPABASE_ANON_KEY': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || ""),
     
     // Mock global process for library compatibility
     'process.version': JSON.stringify('1.0.0'),

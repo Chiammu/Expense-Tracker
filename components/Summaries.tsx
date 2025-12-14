@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { AppState, Expense } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { roastSpending } from '../services/geminiService';
 
 interface SummariesProps {
   state: AppState;
@@ -15,12 +16,23 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense }) =>
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'charts' | 'calendar'>('charts');
+  
+  // Roast State
+  const [roast, setRoast] = useState<string | null>(null);
+  const [loadingRoast, setLoadingRoast] = useState(false);
 
   const handlePaymentFilterClick = (mode: string) => {
     setPaymentFilter(mode);
     if (mode !== 'all' && filterType !== 'all') {
       setFilterType('all');
     }
+  };
+
+  const handleRoast = async () => {
+    setLoadingRoast(true);
+    const result = await roastSpending(state);
+    setRoast(result);
+    setLoadingRoast(false);
   };
 
   const filteredExpenses = useMemo(() => {
@@ -121,8 +133,25 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense }) =>
 
   return (
     <div className="pb-24">
+      {/* Roast Overlay Modal */}
+      {roast && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setRoast(null)}>
+          <div className="bg-surface p-6 rounded-2xl shadow-2xl max-w-sm w-full relative border-2 border-primary" onClick={e => e.stopPropagation()}>
+            <div className="text-4xl absolute -top-5 left-1/2 -translate-x-1/2 bg-surface p-2 rounded-full border border-primary">🔥</div>
+            <h3 className="text-center font-bold text-lg mt-4 mb-2">The AI Has Spoken</h3>
+            <p className="text-center text-gray-700 dark:text-gray-300 italic mb-6">"{roast}"</p>
+            <button 
+              onClick={() => setRoast(null)}
+              className="w-full bg-primary text-white py-3 rounded-xl font-bold"
+            >
+              I'll Do Better 😭
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Search Bar */}
-      <div className="bg-surface p-3 sm:p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 mb-4 sticky top-0 z-20">
+      <div className="bg-surface p-3 sm:p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 mb-4 sticky top-0 z-20 flex gap-2">
         <input 
           type="text" 
           placeholder="🔍 Search expenses..." 
@@ -130,6 +159,14 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense }) =>
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
         />
+        <button 
+          onClick={handleRoast}
+          disabled={loadingRoast}
+          className="bg-orange-500 text-white px-3 rounded-lg text-sm font-bold shadow hover:bg-orange-600 transition-colors active:scale-95 disabled:opacity-50"
+          title="Roast my spending"
+        >
+          {loadingRoast ? '...' : '🔥'}
+        </button>
       </div>
 
       <div className="bg-surface rounded-xl shadow-sm p-3 sm:p-4 mb-4 border border-gray-100 dark:border-gray-800 space-y-3">

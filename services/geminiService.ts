@@ -86,6 +86,82 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
 // NEW FEATURES
 // ------------------------------------------------------------------
 
+export const suggestSmartBudget = async (state: AppState): Promise<{totalBudget: number, categoryBudgets: Record<string, number>}> => {
+  try {
+    const ai = getAI();
+    // Calculate raw stats to send (avoid sending full expense object list to save tokens/privacy)
+    const categoryTotals = state.expenses.reduce((acc, curr) => {
+      acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    const totalIncome = state.incomePerson1 + state.incomePerson2;
+
+    const prompt = `
+      Analyze this couple's spending patterns and income.
+      Total Income: ${totalIncome}
+      Historical Category Spending (Total over all time): ${JSON.stringify(categoryTotals)}
+      
+      Suggest a realistic MONTHLY budget plan that encourages 20% savings if possible.
+      1. Suggest a 'totalBudget'.
+      2. Suggest 'categoryBudgets' for each category found in the history.
+      
+      Return purely JSON.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            totalBudget: { type: Type.NUMBER },
+            categoryBudgets: { 
+              type: Type.OBJECT, 
+              // We can't strictly define keys here as they are dynamic, 
+              // but Gemini handles Record<string, number> well with just OBJECT type usually.
+              // For strictness we'd need to know categories beforehand, but let's try generic object.
+            }
+          }
+        }
+      }
+    });
+
+    return JSON.parse(response.text || '{"totalBudget": 0, "categoryBudgets": {}}');
+  } catch (error) {
+    console.error("Budget AI Error", error);
+    throw error;
+  }
+};
+
+export const roastSpending = async (state: AppState): Promise<string> => {
+  try {
+    const ai = getAI();
+    const recentExpenses = state.expenses.slice(-15).map(e => `${e.category}: ${e.amount} (${e.note})`).join(', ');
+    
+    const prompt = `
+      You are a savage, funny stand-up comedian roasting a couple's finances.
+      Here are their recent expenses: ${recentExpenses}.
+      
+      Give them a short, spicy, hilarious roast about their spending habits. 
+      Make fun of specific purchases if they look silly. 
+      Keep it under 280 characters like a tweet. 
+      Names: ${state.settings.person1Name} & ${state.settings.person2Name}.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+    
+    return response.text || "You guys are spending so boringly I can't even roast you.";
+  } catch (error) {
+    return "I'm too nice to roast you right now. (AI Error)";
+  }
+};
+
 export const parseReceiptImage = async (base64Image: string): Promise<Partial<Expense>> => {
   try {
     const ai = getAI();
