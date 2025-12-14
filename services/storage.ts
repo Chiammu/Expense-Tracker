@@ -21,6 +21,7 @@ export const saveToStorage = (state: AppState) => {
     if (state.settings.syncId && supabase && !isRemoteUpdate) {
       if (saveTimeout) clearTimeout(saveTimeout);
       
+      // Reduced debounce to 500ms for snappier chat experience
       saveTimeout = setTimeout(async () => {
         const { error } = await supabase
           .from('app_state')
@@ -31,8 +32,8 @@ export const saveToStorage = (state: AppState) => {
           });
           
         if (error) console.error("Cloud sync failed:", error);
-        else console.log("Cloud sync saved");
-      }, 1000); // Wait 1s after last change
+        // else console.log("Cloud sync saved");
+      }, 500); 
     }
     
     // Reset flag
@@ -82,7 +83,7 @@ export const fetchCloudState = async (syncId: string): Promise<AppState | null> 
     .single();
 
   if (error || !data) {
-    console.log("No cloud data found or error", error);
+    // console.log("No cloud data found or error", error);
     return null;
   }
   
@@ -100,7 +101,7 @@ export const subscribeToChanges = (syncId: string, onUpdate: (newState: AppState
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'app_state', filter: `id=eq.${syncId}` },
       (payload) => {
-        console.log("Received cloud update:", payload);
+        console.log("Received cloud update");
         if (payload.new && payload.new.data) {
           isRemoteUpdate = true; // Set flag to prevent echo-save
           onUpdate(mergeState(payload.new.data));

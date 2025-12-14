@@ -113,40 +113,48 @@ function App() {
     prevSyncIdRef.current = currentSyncId;
   }, [state.settings.syncId, loaded]);
 
-  // 3. Subscribe to Realtime Changes AND Polling Fallback
+  // 3. Subscribe to Realtime Changes (Stable Subscription)
   useEffect(() => {
     if (!loaded || !state.settings.syncId) return;
 
-    // A. Realtime Subscription
     const unsubscribe = subscribeToChanges(state.settings.syncId, (newState) => {
       setState(newState);
     });
 
-    // B. Polling Fallback (Every 3 seconds)
-    // This ensures that if the socket drops (common in free tier), we still get messages.
+    return () => {
+      unsubscribe();
+    };
+  }, [loaded, state.settings.syncId]);
+
+  // 4. Polling Fallback (Dynamic Frequency)
+  useEffect(() => {
+    if (!loaded || !state.settings.syncId) return;
+
+    // Poll faster (every 2s) if in Chat, else slow (every 8s) to keep alive
+    const intervalMs = activeSection === 'partner-chat' ? 2000 : 8000;
+
     const pollInterval = setInterval(async () => {
+      if (document.hidden) return; // Save resources
+      
       try {
         if(state.settings.syncId) {
            const cloudData = await fetchCloudState(state.settings.syncId);
            if (cloudData) {
-             // We merge strictly to avoid overwriting if user is typing, 
-             // but since AppState is monolithic, we mostly replace it.
-             // Ideally we check timestamps, but for this app, latest fetch wins.
+             // Merging cloud state. Using functional update to ensure we don't clobber very recent local interactions if possible,
+             // although AppState is monolithic.
+             // We intentionally do NOT check deep equality here to ensure we always get the latest messages.
              setState(prev => ({...prev, ...cloudData})); 
            }
         }
       } catch(e) {
-        // Silent fail on poll
+        // Silent fail
       }
-    }, 3000);
+    }, intervalMs);
 
-    return () => {
-      unsubscribe();
-      clearInterval(pollInterval);
-    };
-  }, [loaded, state.settings.syncId]);
+    return () => clearInterval(pollInterval);
+  }, [loaded, state.settings.syncId, activeSection]);
 
-  // 4. Save to Storage (Local + Cloud)
+  // 5. Save to Storage (Local + Cloud)
   useEffect(() => {
     if (loaded) {
       saveToStorage(state);
@@ -396,15 +404,19 @@ function App() {
 
           <BottomNav activeSection={activeSection} setSection={setActiveSection} />
           
-          <button 
-            onClick={() => setShowChat(true)}
-            className="fixed bottom-24 right-4 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-tr from-primary to-purple-600 text-white rounded-full shadow-lg shadow-primary/30 flex items-center justify-center text-xl sm:text-2xl z-40 hover:scale-110 active:scale-90 transition-all duration-300 animate-scale-in"
-            title="Ask AI"
-          >
-            🤖
-          </button>
+          {/* Ask AI Button - Hidden in Chat */}
+          {activeSection !== 'partner-chat' && (
+            <button 
+              onClick={() => setShowChat(true)}
+              className="fixed bottom-24 right-4 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-tr from-primary to-purple-600 text-white rounded-full shadow-lg shadow-primary/30 flex items-center justify-center text-xl sm:text-2xl z-40 hover:scale-110 active:scale-90 transition-all duration-300 animate-scale-in"
+              title="Ask AI"
+            >
+              🤖
+            </button>
+          )}
           
-          {activeSection !== 'add-expense' && (
+          {/* Add Expense Button - Hidden in Add Expense and Chat */}
+          {activeSection !== 'add-expense' && activeSection !== 'partner-chat' && (
             <button 
               onClick={() => setActiveSection('add-expense')}
               className="fixed bottom-24 left-4 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-tr from-secondary to-cyan-500 text-white rounded-full shadow-lg shadow-secondary/30 flex items-center justify-center text-xl sm:text-2xl z-40 sm:hidden hover:scale-110 active:scale-90 transition-all duration-300 animate-scale-in"

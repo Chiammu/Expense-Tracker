@@ -31,7 +31,6 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Generate QR when ID changes
   useEffect(() => {
     if (state.settings.syncId) {
       QRCode.toDataURL(state.settings.syncId)
@@ -42,7 +41,6 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
     }
   }, [state.settings.syncId]);
 
-  // Handle Scanning Logic
   useEffect(() => {
     let stream: MediaStream | null = null;
     let animationFrameId: number;
@@ -78,9 +76,9 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
           const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
           
           if (code) {
-             if (code.data.length > 5) { // Basic validation
+             if (code.data.length > 5) {
                updateSettings({ syncId: code.data });
-               showToast("QR Code Scanned! Connecting...", 'success');
+               showToast("QR Code Scanned!", 'success');
                setIsScanning(false);
                return; 
              }
@@ -127,14 +125,13 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
     if (newCat && !state.settings.customCategories.includes(newCat)) {
       updateSettings({ customCategories: [...state.settings.customCategories, newCat] });
       setNewCat('');
-      showToast(`Category "${newCat}" added`);
+      showToast(`Category added`);
     }
   };
 
   const removeCategory = (cat: string) => {
     if (window.confirm(`Delete category "${cat}"?`)) {
       updateSettings({ customCategories: state.settings.customCategories.filter(c => c !== cat) });
-      showToast("Category removed");
     }
   };
 
@@ -149,8 +146,7 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
   };
 
   const generateSyncCode = () => {
-    const newCode = crypto.randomUUID();
-    updateSettings({ syncId: newCode });
+    updateSettings({ syncId: crypto.randomUUID() });
     showToast("Code generated!", 'success');
   };
 
@@ -158,82 +154,62 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
     if (syncCodeInput.length > 5) {
       updateSettings({ syncId: syncCodeInput });
       setSyncCodeInput('');
+      showToast("Sync ID Set", 'success');
     } else {
       showToast("Invalid Sync Code.", 'error');
     }
   };
 
-  return (
-    <div className="pb-24 max-w-2xl mx-auto space-y-6">
-      
-      {/* 1. Sync & Devices Card */}
-      <section className="bg-surface rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
-         <div className="bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-4 text-white flex justify-between items-center">
-            <h3 className="font-bold flex items-center gap-2 text-lg">
-              <span>☁️</span> Cloud Sync
-            </h3>
-            {state.settings.syncId && <span className="bg-white/20 text-xs px-2 py-1 rounded-full font-medium">Active</span>}
-         </div>
+  // UI Helper for Sections
+  const SectionHeader = ({ icon, title }: { icon: string, title: string }) => (
+    <div className="flex items-center gap-2 mb-4">
+       <span className="text-xl">{icon}</span>
+       <h3 className="text-lg font-bold text-text">{title}</h3>
+    </div>
+  );
 
-         <div className="p-6">
+  return (
+    <div className="pb-24 max-w-xl mx-auto space-y-8 animate-fade-in">
+      
+      {/* SYNC SECTION */}
+      <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+         <SectionHeader icon="☁️" title="Partner Sync" />
+         
+         <div className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl p-5 border border-gray-100 dark:border-gray-700/50">
             {state.settings.syncId ? (
-              <div className="space-y-4">
-                <div className="flex flex-col items-center">
-                  <div className="bg-white p-3 rounded-xl shadow-inner border border-gray-100 mb-3">
-                     {qrUrl ? <img src={qrUrl} alt="Sync QR" className="w-40 h-40 mix-blend-multiply dark:mix-blend-normal" /> : <div className="w-40 h-40 bg-gray-100 animate-pulse rounded-lg"></div>}
-                  </div>
-                  <p className="text-sm text-text-light text-center mb-2">Scan on your partner's phone to link.</p>
-                  
-                  <div className="w-full bg-gray-100 dark:bg-gray-800 p-3 rounded-lg flex justify-between items-center group cursor-pointer" onClick={() => { navigator.clipboard.writeText(state.settings.syncId || ''); showToast("Copied ID"); }}>
-                     <code className="text-xs font-mono text-text truncate max-w-[200px]">{state.settings.syncId}</code>
-                     <span className="text-primary text-xs font-bold group-hover:underline">Copy</span>
-                  </div>
-                </div>
-                
-                <button 
-                  onClick={() => { 
-                    if(confirm("Disconnect sync? Updates will stop.")) {
-                      updateSettings({ syncId: null });
-                      showToast("Disconnected.");
-                    }
-                  }}
-                  className="w-full py-2.5 text-sm text-red-500 font-bold border border-red-100 dark:border-red-900/30 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                >
-                  Unlink Device
-                </button>
+              <div className="flex flex-col items-center gap-4">
+                 <div className="bg-white p-3 rounded-2xl shadow-sm">
+                   {qrUrl ? <img src={qrUrl} alt="QR" className="w-32 h-32" /> : <div className="w-32 h-32 bg-gray-100 animate-pulse rounded-xl" />}
+                 </div>
+                 <div className="text-center">
+                    <p className="text-sm font-medium text-green-500 mb-1">● Synced Active</p>
+                    <p className="text-xs text-text-light font-mono cursor-pointer hover:text-primary" onClick={() => {navigator.clipboard.writeText(state.settings.syncId!); showToast("Copied");}}>
+                      {state.settings.syncId.slice(0, 8)}...
+                    </p>
+                 </div>
+                 <button onClick={() => { if(confirm("Unlink device?")) updateSettings({syncId: null}); }} className="text-xs text-red-500 font-bold px-4 py-2 bg-red-50 dark:bg-red-900/10 rounded-full hover:bg-red-100 transition-colors">
+                   Disconnect
+                 </button>
               </div>
             ) : (
               <div className="space-y-4">
-                 <p className="text-sm text-text-light leading-relaxed">
-                   Link two devices to share expenses and chat in real-time. Data is synced securely.
-                 </p>
-                 
+                 <p className="text-sm text-text-light text-center">Scan to link with your partner.</p>
                  {isScanning ? (
-                    <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
+                    <div className="relative rounded-xl overflow-hidden bg-black aspect-video shadow-lg">
                        <video ref={videoRef} className="w-full h-full object-cover"></video>
                        <canvas ref={canvasRef} className="hidden"></canvas>
-                       <button onClick={() => setIsScanning(false)} className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1.5">✕</button>
+                       <button onClick={() => setIsScanning(false)} className="absolute top-3 right-3 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md">✕</button>
                     </div>
                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                       <button onClick={generateSyncCode} className="py-3 bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 font-bold rounded-xl border border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100 transition-all active:scale-95 text-sm">
-                         Generate Code
-                       </button>
-                       <button onClick={() => setIsScanning(true)} className="py-3 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 font-bold rounded-xl border border-blue-100 dark:border-blue-800 hover:bg-blue-100 transition-all active:scale-95 text-sm">
-                         Scan QR
-                       </button>
+                    <div className="grid grid-cols-2 gap-3">
+                       <button onClick={() => setIsScanning(true)} className="py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all">Scan QR</button>
+                       <button onClick={generateSyncCode} className="py-3 bg-white dark:bg-gray-800 text-text font-bold rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 active:scale-95 transition-all">Show Code</button>
                     </div>
                  )}
-
                  {!isScanning && (
-                   <div className="flex gap-2 items-center pt-2">
-                     <input 
-                       value={syncCodeInput}
-                       onChange={e => setSyncCodeInput(e.target.value)}
-                       placeholder="Or paste code here..."
-                       className="flex-1 p-2 text-sm border-b border-gray-300 dark:border-gray-700 bg-transparent focus:border-primary outline-none"
-                     />
-                     <button onClick={joinSyncSession} className="text-sm font-bold text-primary disabled:opacity-50" disabled={syncCodeInput.length < 5}>Link</button>
+                   <div className="flex gap-2">
+                     <input value={syncCodeInput} onChange={e => setSyncCodeInput(e.target.value)} placeholder="Paste code..." className="flex-1 bg-white dark:bg-gray-800 p-3 rounded-xl text-sm border-none focus:ring-2 focus:ring-primary/20 outline-none" />
+                     <button onClick={joinSyncSession} disabled={syncCodeInput.length < 5} className="bg-gray-200 dark:bg-gray-700 px-4 rounded-xl font-bold text-sm disabled:opacity-50">→</button>
                    </div>
                  )}
               </div>
@@ -241,177 +217,95 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
          </div>
       </section>
 
-      {/* 2. Customization Card */}
-      <section className="bg-surface rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
-         <h3 className="font-bold text-lg text-text mb-4 flex items-center gap-2">
-            <span>🎨</span> Personalize
-         </h3>
+      {/* APPEARANCE */}
+      <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+         <SectionHeader icon="🎨" title="Look & Feel" />
          
          <div className="space-y-6">
-            {/* Theme & Colors */}
-            <div className="space-y-3">
-               <label className="text-xs font-bold text-text-light uppercase tracking-wider">Appearance</label>
-               <div className="flex gap-3">
-                  <button 
-                    onClick={() => updateSettings({ theme: 'light' })}
-                    className={`flex-1 py-2 px-4 rounded-xl text-sm font-semibold border transition-all ${state.settings.theme === 'light' ? 'bg-gray-100 border-gray-300 text-black' : 'border-gray-200 text-gray-500'}`}
-                  >
-                    Light
-                  </button>
-                  <button 
-                    onClick={() => updateSettings({ theme: 'dark' })}
-                    className={`flex-1 py-2 px-4 rounded-xl text-sm font-semibold border transition-all ${state.settings.theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white' : 'border-gray-200 text-gray-500'}`}
-                  >
-                    Dark
-                  </button>
-               </div>
-               
-               <div className="flex flex-wrap gap-2 pt-2">
-                  {COLORS.map(c => (
-                     <button 
-                       key={c} 
-                       style={{ backgroundColor: c }}
-                       onClick={() => updateSettings({ primaryColor: c })}
-                       className={`w-8 h-8 rounded-full transition-transform ${state.settings.primaryColor === c ? 'scale-110 ring-2 ring-offset-2 ring-gray-300 dark:ring-gray-600' : 'hover:scale-110'}`}
-                     />
-                  ))}
-               </div>
+            <div>
+              <label className="text-xs font-bold text-text-light uppercase mb-3 block">Theme</label>
+              <div className="flex gap-2 bg-gray-100 dark:bg-gray-900/50 p-1.5 rounded-xl">
+                 <button onClick={() => updateSettings({ theme: 'light' })} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${state.settings.theme === 'light' ? 'bg-white shadow-sm text-black' : 'text-gray-400'}`}>Light</button>
+                 <button onClick={() => updateSettings({ theme: 'dark' })} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${state.settings.theme === 'dark' ? 'bg-gray-800 shadow-sm text-white' : 'text-gray-400'}`}>Dark</button>
+              </div>
             </div>
 
-            {/* Names */}
-            <div className="space-y-3">
-               <label className="text-xs font-bold text-text-light uppercase tracking-wider">Display Names</label>
-               <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                     <span className="text-[10px] text-text-light">Me</span>
-                     <input 
-                       className="w-full p-2 border-b border-gray-200 dark:border-gray-700 bg-transparent text-sm font-medium focus:border-primary outline-none transition-colors"
-                       value={state.settings.person1Name}
-                       onChange={e => updateSettings({ person1Name: e.target.value })}
-                       placeholder="Person 1"
-                     />
-                  </div>
-                  <div className="space-y-1">
-                     <span className="text-[10px] text-text-light">Partner</span>
-                     <input 
-                       className="w-full p-2 border-b border-gray-200 dark:border-gray-700 bg-transparent text-sm font-medium focus:border-primary outline-none transition-colors"
-                       value={state.settings.person2Name}
-                       onChange={e => updateSettings({ person2Name: e.target.value })}
-                       placeholder="Person 2"
-                     />
-                  </div>
-               </div>
-            </div>
-            
-            {/* Categories */}
-            <div className="space-y-3">
-               <label className="text-xs font-bold text-text-light uppercase tracking-wider">Categories</label>
-               <div className="flex flex-wrap gap-2">
-                  {state.settings.customCategories.map(cat => (
-                     <span key={cat} className="inline-flex items-center px-2 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-md text-xs">
-                        {cat}
-                        <button onClick={() => removeCategory(cat)} className="ml-1.5 text-gray-400 hover:text-red-500">×</button>
-                     </span>
-                  ))}
-                  <div className="inline-flex items-center bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2">
-                     <input 
-                        className="w-20 bg-transparent text-xs py-1 outline-none"
-                        placeholder="New..."
-                        value={newCat}
-                        onChange={e => setNewCat(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && addCategory()}
-                     />
-                     <button onClick={addCategory} className="text-primary font-bold text-sm">+</button>
-                  </div>
-               </div>
+            <div>
+              <label className="text-xs font-bold text-text-light uppercase mb-3 block">Accent Color</label>
+              <div className="flex flex-wrap gap-3">
+                 {COLORS.map(c => (
+                    <button key={c} onClick={() => updateSettings({ primaryColor: c })} style={{ backgroundColor: c }} className={`w-9 h-9 rounded-full transition-transform ${state.settings.primaryColor === c ? 'scale-110 ring-4 ring-gray-100 dark:ring-gray-800' : 'hover:scale-110'}`} />
+                 ))}
+              </div>
             </div>
 
-            {/* Cover Photo */}
-            <div className="space-y-2">
-               <label className="text-xs font-bold text-text-light uppercase tracking-wider">Cover Photo</label>
-               <label className="flex items-center justify-center w-full p-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                  <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-                  <span className="text-sm text-text-light flex items-center gap-2">
-                     <span>🖼️</span> {state.settings.coverPhotoData ? 'Change Cover Photo' : 'Upload Cover Photo'}
-                  </span>
-               </label>
+            <div>
+              <label className="text-xs font-bold text-text-light uppercase mb-3 block">Profiles</label>
+              <div className="grid grid-cols-2 gap-4">
+                 <input className="bg-gray-50 dark:bg-gray-900/50 border-none rounded-xl p-3 text-sm font-medium focus:ring-2 focus:ring-primary/20" value={state.settings.person1Name} onChange={e => updateSettings({ person1Name: e.target.value })} placeholder="Name 1" />
+                 <input className="bg-gray-50 dark:bg-gray-900/50 border-none rounded-xl p-3 text-sm font-medium focus:ring-2 focus:ring-primary/20" value={state.settings.person2Name} onChange={e => updateSettings({ person2Name: e.target.value })} placeholder="Name 2" />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-text-light uppercase mb-3 block">Categories</label>
+              <div className="flex flex-wrap gap-2">
+                 {state.settings.customCategories.map(cat => (
+                    <span key={cat} onClick={() => removeCategory(cat)} className="px-3 py-1.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg text-xs font-medium border border-gray-100 dark:border-gray-800 hover:border-red-200 cursor-pointer select-none transition-colors">{cat}</span>
+                 ))}
+                 <input className="px-3 py-1.5 bg-transparent border-b border-gray-200 dark:border-gray-700 text-xs w-24 focus:border-primary outline-none" placeholder="+ Add New" value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCategory()} />
+              </div>
             </div>
          </div>
       </section>
 
-      {/* 3. Security & Data Card */}
-      <section className="bg-surface rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
-         <h3 className="font-bold text-lg text-text mb-4 flex items-center gap-2">
-            <span>🛡️</span> Security & Data
-         </h3>
+      {/* DATA & SECURITY */}
+      <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+         <SectionHeader icon="🛡️" title="Data & Privacy" />
          
-         <div className="space-y-6">
-            {/* PIN */}
-            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/30 rounded-xl">
+         <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl">
                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl ${state.settings.pin ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-500'}`}>
-                     {state.settings.pin ? '🔒' : '🔓'}
-                  </div>
-                  <div>
-                     <div className="font-bold text-sm text-text">App Lock</div>
-                     <div className="text-xs text-text-light">{state.settings.pin ? 'Active' : 'Disabled'}</div>
-                  </div>
+                  <div className="text-2xl">{state.settings.pin ? '🔒' : '🔓'}</div>
+                  <div className="text-sm font-bold">App Lock</div>
                </div>
-               
                {state.settings.pin ? (
-                  <button onClick={() => { updateSettings({ pin: null }); showToast("PIN removed"); }} className="text-red-500 text-xs font-bold px-3 py-1 bg-red-50 rounded-lg">Disable</button>
+                  <button onClick={() => {updateSettings({ pin: null }); showToast("Unlocked");}} className="text-xs bg-red-100 text-red-600 px-3 py-1.5 rounded-lg font-bold">Remove</button>
                ) : (
-                  <div className="flex gap-2">
-                     <input 
-                       className="w-16 p-1 text-center bg-white dark:bg-black/20 border border-gray-200 dark:border-gray-700 rounded text-sm"
-                       placeholder="1234"
-                       maxLength={4}
-                       type="password"
-                       value={pinInput}
-                       onChange={e => setPinInput(e.target.value.replace(/[^0-9]/g, ''))}
-                     />
-                     <button onClick={setPin} disabled={pinInput.length !== 4} className="text-primary text-xs font-bold">Set</button>
+                  <div className="flex items-center gap-2">
+                     <input type="password" maxLength={4} className="w-14 p-1.5 text-center text-sm rounded-lg border-none bg-white dark:bg-gray-800 shadow-sm" placeholder="PIN" value={pinInput} onChange={e => setPinInput(e.target.value)} />
+                     <button onClick={setPin} disabled={pinInput.length !== 4} className="text-primary text-xs font-bold px-2">Set</button>
                   </div>
                )}
             </div>
 
-            {/* Export Actions */}
             <div className="grid grid-cols-2 gap-3">
-               <button onClick={() => exportToPDF(state)} className="p-3 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex flex-col items-center gap-1">
-                  <span className="text-xl">📄</span>
-                  <span className="text-xs font-bold text-text">PDF Report</span>
-               </button>
-               <button onClick={() => exportToCSV(state.expenses)} className="p-3 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex flex-col items-center gap-1">
-                  <span className="text-xl">📊</span>
-                  <span className="text-xs font-bold text-text">CSV Export</span>
-               </button>
-               <button onClick={() => shareBackup(state)} className="p-3 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex flex-col items-center gap-1">
-                  <span className="text-xl">📤</span>
-                  <span className="text-xs font-bold text-text">Backup File</span>
-               </button>
-               <label className="p-3 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex flex-col items-center gap-1 cursor-pointer">
-                  <input type="file" accept=".json" onChange={handleImport} className="hidden" />
-                  <span className="text-xl">📥</span>
-                  <span className="text-xs font-bold text-text">Restore</span>
-               </label>
+               <button onClick={() => exportToPDF(state)} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl text-sm font-bold text-text-light hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">📄 PDF Report</button>
+               <button onClick={() => exportToCSV(state.expenses)} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl text-sm font-bold text-text-light hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">📊 CSV Data</button>
             </div>
             
-            {/* Install App */}
-            {canInstall && !isStandalone && (
-               <button onClick={installApp} className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-black font-bold rounded-xl shadow-md active:scale-95 transition-transform flex items-center justify-center gap-2">
-                  <span>📲</span> Install App
-               </button>
-            )}
-
-            {/* Reset */}
-            <div className="pt-2 border-t border-gray-100 dark:border-gray-800 text-center">
-               <button onClick={resetData} className="text-red-400 text-xs hover:text-red-600 underline decoration-red-200">
-                  Reset Everything
-               </button>
+            <div className="flex gap-3 justify-center pt-2">
+               <button onClick={() => shareBackup(state)} className="text-xs font-bold text-primary hover:underline">Backup</button>
+               <span className="text-gray-300">|</span>
+               <label className="text-xs font-bold text-primary hover:underline cursor-pointer">
+                  Restore <input type="file" accept=".json" onChange={handleImport} className="hidden" />
+               </label>
+               <span className="text-gray-300">|</span>
+               <button onClick={resetData} className="text-xs font-bold text-red-400 hover:text-red-600">Reset App</button>
             </div>
          </div>
       </section>
 
+      {/* PWA INSTALL */}
+      {canInstall && !isStandalone && (
+         <button onClick={installApp} className="w-full py-4 bg-black dark:bg-white text-white dark:text-black rounded-2xl font-bold shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2">
+            <span>📲</span> Install App
+         </button>
+      )}
+
+      <div className="text-center text-[10px] text-gray-300 pt-4">
+         v1.2.0 • Safe & Secure • Local-First
+      </div>
     </div>
   );
 };
