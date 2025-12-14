@@ -123,14 +123,29 @@ export const subscribeToChanges = (syncId: string, onUpdate: (newState: AppState
 // --- Exports ---
 
 export const exportData = (state: AppState) => {
-  const data = JSON.stringify(state, null, 2);
-  const blob = new Blob([data], { type: 'application/json' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `couple-expense-backup-${new Date().toISOString().split('T')[0]}.json`;
-  a.click();
-  window.URL.revokeObjectURL(url);
+  try {
+    const data = JSON.stringify(state, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = `couple-expense-backup-${new Date().toISOString().split('T')[0]}.json`;
+    
+    // Crucial: Append to body to ensure click works in all browsers
+    document.body.appendChild(a);
+    a.click();
+    
+    // Cleanup
+    setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    }, 100);
+  } catch(e) {
+      console.error("Export failed:", e);
+      alert("Failed to export data.");
+  }
 };
 
 export const shareBackup = async (state: AppState): Promise<boolean> => {
@@ -147,8 +162,10 @@ export const shareBackup = async (state: AppState): Promise<boolean> => {
       });
       return true;
     } catch (err) {
-      console.error('Error sharing:', err);
-      return false; // User likely cancelled or error occurred
+      console.error('Error sharing, falling back to download:', err);
+      // Fallback to download if sharing fails/is cancelled
+      exportData(state);
+      return false; 
     }
   } else {
     // Fallback to standard download if sharing isn't supported
@@ -158,26 +175,35 @@ export const shareBackup = async (state: AppState): Promise<boolean> => {
 };
 
 export const exportToCSV = (expenses: AppState['expenses']) => {
-  let csv = 'Date,Person,Category,Amount,Payment Mode,Note\n';
-  expenses.forEach(exp => {
-      const row = [
-          exp.date,
-          exp.person,
-          exp.category,
-          exp.amount,
-          exp.paymentMode,
-          `"${(exp.note || '').replace(/"/g, '""')}"`
-      ].join(',');
-      csv += row + '\n';
-  });
+  try {
+      let csv = 'Date,Person,Category,Amount,Payment Mode,Note\n';
+      expenses.forEach(exp => {
+          const row = [
+              exp.date,
+              exp.person,
+              exp.category,
+              exp.amount,
+              exp.paymentMode,
+              `"${(exp.note || '').replace(/"/g, '""')}"`
+          ].join(',');
+          csv += row + '\n';
+      });
 
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `expenses-${new Date().toISOString().split('T')[0]}.csv`;
-  a.click();
-  window.URL.revokeObjectURL(url);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `expenses-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+      }, 100);
+  } catch(e) {
+      console.error("CSV Export failed", e);
+  }
 };
 
 export const exportToPDF = (state: AppState) => {

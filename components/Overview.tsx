@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AppState, Expense } from '../types';
-import { generateFinancialInsights, suggestSmartBudget } from '../services/geminiService';
+import { generateFinancialInsights } from '../services/geminiService';
 
 interface OverviewProps {
   state: AppState;
@@ -16,7 +16,6 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
   const [goalForm, setGoalForm] = useState({ name: '', target: '', current: '' });
   const [insight, setInsight] = useState<string | null>(null);
   const [loadingInsight, setLoadingInsight] = useState(false);
-  const [loadingBudget, setLoadingBudget] = useState(false);
   const [showCatBudgets, setShowCatBudgets] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -101,29 +100,6 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
     setLoadingInsight(false);
   };
 
-  const handleSmartBudget = async () => {
-    if (state.expenses.length < 5) {
-      alert("Please add at least 5 expenses so I can learn your habits!");
-      return;
-    }
-    if (!confirm("AI will analyze your history and overwrite your current budget settings. Continue?")) return;
-    
-    setLoadingBudget(true);
-    try {
-      const result = await suggestSmartBudget(state);
-      if (result.totalBudget > 0) {
-        updateBudget(result.totalBudget);
-        updateState({ categoryBudgets: result.categoryBudgets || {} });
-        setShowCatBudgets(true);
-      }
-    } catch (e: any) {
-      console.error(e);
-      alert(`Failed to generate budget plan. ${e.message || ''}`);
-    } finally {
-      setLoadingBudget(false);
-    }
-  };
-
   return (
     <div className="pb-24 space-y-4 sm:space-y-6">
       
@@ -163,13 +139,6 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
              <span>📉</span> Monthly Budget
            </h3>
            <div className="flex gap-2">
-            <button 
-              onClick={handleSmartBudget}
-              disabled={loadingBudget}
-              className="text-xs bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 font-bold px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors flex items-center gap-1 active:scale-95"
-            >
-              {loadingBudget ? <span className="animate-spin">🌀</span> : '🪄'} Auto-Plan
-            </button>
             <button onClick={() => setShowCatBudgets(!showCatBudgets)} className="text-xs text-secondary font-medium hover:bg-secondary/10 px-2 py-1 rounded transition-colors">
               {showCatBudgets ? 'Hide Categories' : 'Category Budgets'}
             </button>

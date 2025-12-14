@@ -87,48 +87,8 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
 // ------------------------------------------------------------------
 
 export const suggestSmartBudget = async (state: AppState): Promise<{totalBudget: number, categoryBudgets: Record<string, number>}> => {
-  try {
-    const ai = getAI();
-    // Calculate raw stats to send (avoid sending full expense object list to save tokens/privacy)
-    const categoryTotals = state.expenses.reduce((acc, curr) => {
-      acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    const totalIncome = state.incomePerson1 + state.incomePerson2;
-
-    const prompt = `
-      Analyze this couple's spending patterns and income.
-      Total Income: ${totalIncome}
-      Historical Category Spending (Total over all time): ${JSON.stringify(categoryTotals)}
-      
-      Suggest a realistic MONTHLY budget plan that encourages 20% savings if possible.
-      1. Suggest a 'totalBudget' (number).
-      2. Suggest 'categoryBudgets' (object where keys are category names and values are numbers).
-      
-      Return purely JSON with no markdown formatting.
-      Example:
-      {
-        "totalBudget": 50000,
-        "categoryBudgets": { "Food": 5000, "Travel": 2000 }
-      }
-    `;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        // Note: responseSchema is omitted here because 'categoryBudgets' has dynamic keys (user categories),
-        // which makes strict schema definition difficult. Gemini 2.5 Flash handles JSON well without it.
-      }
-    });
-
-    return JSON.parse(response.text || '{"totalBudget": 0, "categoryBudgets": {}}');
-  } catch (error) {
-    console.error("Budget AI Error", error);
-    throw error;
-  }
+    // Deprecated functionality, kept stub for type safety if imported elsewhere, but logic removed per request.
+    return {totalBudget: 0, categoryBudgets: {}};
 };
 
 export const roastSpending = async (state: AppState): Promise<string> => {
@@ -192,12 +152,25 @@ export const parseReceiptImage = async (base64Image: string): Promise<Partial<Ex
   }
 };
 
-export const parseNaturalLanguageExpense = async (text: string): Promise<Partial<Expense>> => {
+export const parseNaturalLanguageExpense = async (text: string, person1Name: string, person2Name: string): Promise<Partial<Expense>> => {
   try {
     const ai = getAI();
+    const prompt = `
+      Parse this expense text into JSON: "${text}". 
+      Today is ${new Date().toISOString().split('T')[0]}. 
+      
+      Rules for "person":
+      - Person1 Name: "${person1Name}" -> Set person to "Person1"
+      - Person2 Name: "${person2Name}" -> Set person to "Person2"
+      - If text implies shared or both, set person to "Both"
+      - If ambiguous, do not set person.
+
+      Categories: Groceries, Rent, Bills, EMIs, Shopping, Travel, Food, Entertainment, Medical, Education, Investments, Others.
+    `;
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: `Parse this expense text into JSON: "${text}". Today is ${new Date().toISOString().split('T')[0]}. Categories: Groceries, Rent, Bills, EMIs, Shopping, Travel, Food, Entertainment, Medical, Education, Investments, Others.`,
+      contents: prompt,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -207,7 +180,8 @@ export const parseNaturalLanguageExpense = async (text: string): Promise<Partial
             date: { type: Type.STRING },
             category: { type: Type.STRING },
             paymentMode: { type: Type.STRING },
-            note: { type: Type.STRING }
+            note: { type: Type.STRING },
+            person: { type: Type.STRING, enum: ["Person1", "Person2", "Both"] }
           }
         }
       }

@@ -68,8 +68,10 @@ export const useChat = (syncId: string | null) => {
   const sendMessage = async (text: string, sender: 'Person1' | 'Person2') => {
     if (!syncId || !supabase) return;
     
-    // 1. Optimistic Update (Show immediately)
+    // 1. Generate ID client-side
     const tempId = crypto.randomUUID();
+
+    // 2. Optimistic Update (Show immediately)
     const tempMsg: ChatMessage = {
         id: tempId,
         sender,
@@ -79,8 +81,10 @@ export const useChat = (syncId: string | null) => {
     
     setMessages(prev => [...prev, tempMsg]);
 
-    // 2. Send to Supabase
+    // 3. Send to Supabase WITH the generated ID
+    // This ensures the Realtime event returns the SAME ID, preventing duplicates.
     const { error } = await supabase.from('messages').insert({
+        id: tempId, 
         sync_id: syncId,
         sender,
         content: text

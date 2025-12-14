@@ -118,9 +118,16 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
     
     setIsProcessing(true);
     try {
-      const data = await parseNaturalLanguageExpense(textToProcess);
+      // Pass the user names to the NLP service to recognize person
+      const data = await parseNaturalLanguageExpense(
+          textToProcess, 
+          state.settings.person1Name, 
+          state.settings.person2Name
+      );
+
       setFormData(prev => ({
         ...prev,
+        person: data.person || prev.person,
         amount: data.amount?.toString() || prev.amount,
         date: data.date || prev.date,
         category: (data.category && state.settings.customCategories.includes(data.category)) ? data.category : prev.category,
@@ -243,7 +250,7 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
           <div className="relative group flex-1">
             <input 
               type="text"
-              placeholder="Type or say '500 for lunch'..."
+              placeholder={`Type or say '${state.settings.person1Name} spent 500 for lunch'...`}
               value={nlpInput}
               onChange={e => setNlpInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleNLP()}
