@@ -20,6 +20,20 @@ const getAI = () => {
   return new GoogleGenAI({ apiKey });
 };
 
+// Error Helper
+const handleGeminiError = (error: any) => {
+  console.error("Gemini API Error details:", error);
+  const msg = error.toString().toLowerCase() + (error.message || "").toLowerCase();
+  
+  if (msg.includes("429") || msg.includes("quota") || msg.includes("resource_exhausted")) {
+    return "⚠️ Daily Limit Reached. Please try again tomorrow.";
+  }
+  if (msg.includes("api key")) {
+    return "⚠️ Configuration Error: API Key missing.";
+  }
+  return `⚠️ AI Error: ${error.message || "Connection failed"}`;
+};
+
 export const generateFinancialInsights = async (state: AppState): Promise<string> => {
   try {
     const ai = getAI();
@@ -73,12 +87,7 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
     return response.text || "No insights generated.";
 
   } catch (error: any) {
-    console.error("Gemini API Error details:", error);
-    // Return a user-friendly error string that will be displayed in the UI
-    if (error.message.includes("API Key is missing")) {
-      return "Configuration Error: API Key missing. Check Vercel settings.";
-    }
-    return `AI Error: ${error.message || error.statusText || 'Connection failed'}`;
+    return handleGeminiError(error);
   }
 };
 
@@ -113,7 +122,8 @@ export const roastSpending = async (state: AppState): Promise<string> => {
     
     return response.text || "You guys are spending so boringly I can't even roast you.";
   } catch (error) {
-    return "I'm too nice to roast you right now. (AI Error)";
+    // Return the friendly error message directly as the roast text
+    return handleGeminiError(error);
   }
 };
 
@@ -223,10 +233,6 @@ export const chatWithFinances = async (history: {role: string, content: string}[
 
     return response.text || "I didn't catch that.";
   } catch (error: any) {
-    console.error("Chat Error:", error);
-    if (error.message.includes("API Key is missing")) {
-      return "Error: API Key is missing. Please check your Vercel configuration.";
-    }
-    return `Connection Error: ${error.message || "Unable to reach AI"}`;
+    return handleGeminiError(error);
   }
 };

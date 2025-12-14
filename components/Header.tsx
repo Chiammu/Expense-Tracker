@@ -8,7 +8,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ settings }) => {
   return (
     <div 
-      className="relative w-full py-5 sm:py-8 px-4 text-center text-white mb-4 sm:mb-6 rounded-b-xl shadow-md overflow-hidden transition-all duration-500"
+      className="relative w-full py-4 sm:py-6 px-4 text-center text-white mb-4 sm:mb-6 rounded-b-xl shadow-md overflow-hidden transition-all duration-500"
       style={{
         background: settings.coverPhotoData 
           ? `url(${settings.coverPhotoData}) center/cover no-repeat`
@@ -30,7 +30,7 @@ export const Header: React.FC<HeaderProps> = ({ settings }) => {
       </div>
       
       <div className="relative z-10">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-0 shadow-sm drop-shadow-md">
+        <h1 className="text-xl sm:text-2xl font-bold mb-0 shadow-sm drop-shadow-md">
           {settings.headerTitle}
         </h1>
       </div>

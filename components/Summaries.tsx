@@ -121,18 +121,21 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
       
       {/* Search Bar & Toggle (Persistent) */}
       <div className="bg-surface rounded-xl p-2 shadow-sm border border-gray-100 dark:border-gray-800 flex gap-2">
-        <input 
-          className="flex-1 bg-transparent p-2 text-sm focus:outline-none placeholder:text-text-light"
-          placeholder="Search expenses..."
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-        />
+        <div className="flex-1 flex items-center bg-gray-50 dark:bg-gray-900/50 rounded-lg px-3">
+          <span className="text-gray-400 mr-2">🔍</span>
+          <input 
+            className="flex-1 bg-transparent py-2.5 text-sm focus:outline-none placeholder:text-text-light"
+            placeholder="Search expenses..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          />
+        </div>
         <button 
            onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}
-           className="w-10 h-9 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700 text-primary hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors shadow-sm"
+           className="w-12 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-primary hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shadow-sm"
            title={viewMode === 'list' ? "Switch to Calendar" : "Switch to List"}
         >
-           {viewMode === 'list' ? '📅' : '☰'}
+           {viewMode === 'list' ? <span className="text-xl">📅</span> : <span className="text-xl">☰</span>}
         </button>
       </div>
 

@@ -406,28 +406,6 @@ function App() {
           
           <Header settings={state.settings} />
           
-          <div className="hidden sm:flex justify-center gap-4 mb-8">
-             {[
-               {id: 'add-expense', label: 'Add Expense'},
-               {id: 'summaries', label: 'Summaries'},
-               {id: 'partner-chat', label: 'Chat'},
-               {id: 'overview', label: 'Overview'},
-               {id: 'settings', label: 'Settings'},
-             ].map(item => (
-               <button
-                 key={item.id}
-                 onClick={() => setActiveSection(item.id as Section)}
-                 className={`px-6 py-2 rounded-full font-medium transition-all duration-300 transform active:scale-95 ${
-                   activeSection === item.id 
-                     ? 'bg-white text-primary shadow-lg scale-105 dark:bg-gray-800 dark:text-primary' 
-                     : 'text-text-light hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary hover:shadow-sm'
-                 }`}
-               >
-                 {item.label}
-               </button>
-             ))}
-          </div>
-
           <main className="relative pb-24">
             <div key={activeSection} className="animate-slide-up">
               {activeSection === 'add-expense' && (
