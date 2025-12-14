@@ -1,17 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AppState, ChatMessage } from '../types';
+import { AppState } from '../types';
+import { useChat } from '../hooks/useChat';
 
 interface PartnerChatProps {
   state: AppState;
-  sendMessage: (msg: string, sender: 'Person1' | 'Person2') => void;
 }
 
-export const PartnerChat: React.FC<PartnerChatProps> = ({ state, sendMessage }) => {
+export const PartnerChat: React.FC<PartnerChatProps> = ({ state }) => {
   const [identity, setIdentity] = useState<'Person1' | 'Person2' | null>(null);
   const [inputText, setInputText] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
+  
+  // Use the new Hook
+  const { messages, loading, sendMessage } = useChat(state.settings.syncId);
 
-  // Load identity from local storage (this is device-specific, not synced)
+  // Load identity from local storage
   useEffect(() => {
     const savedIdentity = localStorage.getItem('deviceUserIdentity');
     if (savedIdentity === 'Person1' || savedIdentity === 'Person2') {
@@ -22,7 +25,7 @@ export const PartnerChat: React.FC<PartnerChatProps> = ({ state, sendMessage }) 
   // Auto-scroll to bottom
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [state.chatMessages, identity]);
+  }, [messages, identity]);
 
   const handleSetIdentity = (id: 'Person1' | 'Person2') => {
     localStorage.setItem('deviceUserIdentity', id);
@@ -81,9 +84,9 @@ export const PartnerChat: React.FC<PartnerChatProps> = ({ state, sendMessage }) 
       {/* Header */}
       <div className="p-3 bg-surface border-b border-gray-200 dark:border-gray-800 flex justify-between items-center shadow-sm z-10">
         <div className="flex items-center gap-2">
-           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+           <div className={`w-2 h-2 rounded-full ${loading ? 'bg-yellow-400' : 'bg-green-500 animate-pulse'}`}></div>
            <span className="text-xs font-bold text-text-light uppercase tracking-wide">
-             Chatting with {identity === 'Person1' ? state.settings.person2Name : state.settings.person1Name}
+             {loading ? 'Connecting...' : `Chatting with ${identity === 'Person1' ? state.settings.person2Name : state.settings.person1Name}`}
            </span>
         </div>
         <button 
@@ -96,14 +99,14 @@ export const PartnerChat: React.FC<PartnerChatProps> = ({ state, sendMessage }) 
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {state.chatMessages.length === 0 && (
+        {messages.length === 0 && !loading && (
           <div className="text-center py-10 opacity-30">
             <p>No messages yet.</p>
             <p className="text-xs mt-1">Say hello! 👋</p>
           </div>
         )}
         
-        {state.chatMessages.map((msg) => {
+        {messages.map((msg) => {
           const isMe = msg.sender === identity;
           return (
             <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-scale-in`}>

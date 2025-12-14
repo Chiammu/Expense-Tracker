@@ -126,33 +126,31 @@ function App() {
     };
   }, [loaded, state.settings.syncId]);
 
-  // 4. Polling Fallback (Dynamic Frequency)
+  // 4. Adaptive Polling Fallback
   useEffect(() => {
     if (!loaded || !state.settings.syncId) return;
 
-    // Poll faster (every 2s) if in Chat, else slow (every 8s) to keep alive
-    const intervalMs = activeSection === 'partner-chat' ? 2000 : 8000;
+    // We no longer need aggressive polling for chat since chat has its own socket
+    // Standard polling for expenses sync can remain slow (8s)
+    const intervalMs = 8000;
 
     const pollInterval = setInterval(async () => {
-      if (document.hidden) return; // Save resources
+      if (document.hidden) return; // Pause when app is backgrounded
       
       try {
         if(state.settings.syncId) {
            const cloudData = await fetchCloudState(state.settings.syncId);
            if (cloudData) {
-             // Merging cloud state. Using functional update to ensure we don't clobber very recent local interactions if possible,
-             // although AppState is monolithic.
-             // We intentionally do NOT check deep equality here to ensure we always get the latest messages.
              setState(prev => ({...prev, ...cloudData})); 
            }
         }
       } catch(e) {
-        // Silent fail
+        // Silent fail, retrying next tick
       }
     }, intervalMs);
 
     return () => clearInterval(pollInterval);
-  }, [loaded, state.settings.syncId, activeSection]);
+  }, [loaded, state.settings.syncId]);
 
   // 5. Save to Storage (Local + Cloud)
   useEffect(() => {
@@ -270,21 +268,6 @@ function App() {
     reader.readAsText(file);
   };
 
-  const sendChatMessage = (text: string, sender: 'Person1' | 'Person2') => {
-    const newMessage = {
-      id: crypto.randomUUID(),
-      sender,
-      text,
-      timestamp: new Date().toISOString()
-    };
-    
-    // Append message and slice to keep only last 50 (prevents bloat)
-    setState(prev => {
-      const updatedMessages = [...(prev.chatMessages || []), newMessage].slice(-50);
-      return { ...prev, chatMessages: updatedMessages };
-    });
-  };
-
   const handleInstallClick = () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
@@ -371,10 +354,7 @@ function App() {
                 />
               )}
               {activeSection === 'partner-chat' && (
-                <PartnerChat 
-                  state={state}
-                  sendMessage={sendChatMessage}
-                />
+                <PartnerChat state={state} />
               )}
               {activeSection === 'overview' && (
                 <Overview 
@@ -404,7 +384,7 @@ function App() {
 
           <BottomNav activeSection={activeSection} setSection={setActiveSection} />
           
-          {/* Ask AI Button - Hidden in Chat */}
+          {/* Ask AI Button - Hidden when in Partner Chat */}
           {activeSection !== 'partner-chat' && (
             <button 
               onClick={() => setShowChat(true)}
@@ -415,7 +395,7 @@ function App() {
             </button>
           )}
           
-          {/* Add Expense Button - Hidden in Add Expense and Chat */}
+          {/* Add Expense Button - Hidden in Add Expense AND Partner Chat */}
           {activeSection !== 'add-expense' && activeSection !== 'partner-chat' && (
             <button 
               onClick={() => setActiveSection('add-expense')}

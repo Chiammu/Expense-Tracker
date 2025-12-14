@@ -104,11 +104,16 @@ export const subscribeToChanges = (syncId: string, onUpdate: (newState: AppState
         console.log("Received cloud update");
         if (payload.new && payload.new.data) {
           isRemoteUpdate = true; // Set flag to prevent echo-save
+          // Directly use the payload data if available for instant update
           onUpdate(mergeState(payload.new.data));
         }
       }
     )
-    .subscribe();
+    .subscribe((status) => {
+       if (status === 'SUBSCRIBED') {
+         // console.log("Realtime connection established");
+       }
+    });
 
   return () => {
     supabase.removeChannel(channel);
