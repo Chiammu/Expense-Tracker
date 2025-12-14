@@ -5,13 +5,24 @@ import { parseReceiptImage, parseNaturalLanguageExpense } from '../services/gemi
 interface AddExpenseProps {
   state: AppState;
   addExpense: (expense: Omit<Expense, 'id'>) => void;
+  updateExpense?: (expense: Expense) => void;
+  expenseToEdit?: Expense | null;
+  cancelEdit?: () => void;
   switchTab: (tab: any) => void;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 const PAYMENT_MODES = ["UPI", "Card", "Cash", "Netbanking", "Wallet", "Other"];
 
-export const AddExpense: React.FC<AddExpenseProps> = ({ state, addExpense, switchTab, showToast }) => {
+export const AddExpense: React.FC<AddExpenseProps> = ({ 
+  state, 
+  addExpense, 
+  updateExpense,
+  expenseToEdit, 
+  cancelEdit,
+  switchTab, 
+  showToast 
+}) => {
   const [formData, setFormData] = useState({
     person: '',
     date: new Date().toISOString().split('T')[0],
@@ -25,9 +36,33 @@ export const AddExpense: React.FC<AddExpenseProps> = ({ state, addExpense, switc
   const [isListening, setIsListening] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Load data if editing
+  useEffect(() => {
+    if (expenseToEdit) {
+      setFormData({
+        person: expenseToEdit.person,
+        date: expenseToEdit.date,
+        amount: expenseToEdit.amount.toString(),
+        category: expenseToEdit.category,
+        paymentMode: expenseToEdit.paymentMode,
+        note: expenseToEdit.note
+      });
+    } else {
+      // Reset if not editing
+      setFormData({
+        person: '',
+        date: new Date().toISOString().split('T')[0],
+        amount: '',
+        category: '',
+        paymentMode: '',
+        note: ''
+      });
+    }
+  }, [expenseToEdit]);
+
   // Category Prediction Logic
   useEffect(() => {
-    if (!formData.category && formData.note.length > 3) {
+    if (!expenseToEdit && !formData.category && formData.note.length > 3) {
       const lowerNote = formData.note.toLowerCase();
       const categories = state.settings.customCategories;
       // Simple heuristic prediction
@@ -48,7 +83,7 @@ export const AddExpense: React.FC<AddExpenseProps> = ({ state, addExpense, switc
         }
       }
     }
-  }, [formData.note, state.settings.customCategories, formData.category]);
+  }, [formData.note, state.settings.customCategories, formData.category, expenseToEdit]);
 
   const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -144,83 +179,106 @@ export const AddExpense: React.FC<AddExpenseProps> = ({ state, addExpense, switc
       showToast("Please fill all required fields", 'error');
       return;
     }
-    
-    addExpense({
+
+    const payload = {
       person: formData.person,
       date: formData.date,
       amount: parseFloat(formData.amount),
       category: formData.category,
       paymentMode: formData.paymentMode,
       note: formData.note
-    });
-
-    setFormData({
-      ...formData,
-      amount: '',
-      note: '',
-      category: '',
-      paymentMode: ''
-    });
+    };
+    
+    if (expenseToEdit && updateExpense) {
+      updateExpense({
+        ...payload,
+        id: expenseToEdit.id
+      });
+    } else {
+      addExpense(payload);
+      // Only reset if adding new
+      setFormData({
+        person: '',
+        date: new Date().toISOString().split('T')[0],
+        amount: '',
+        category: '',
+        paymentMode: '',
+        note: ''
+      });
+    }
   };
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Quick Actions Bar - Flex Container */}
-      <div className="flex gap-2 mb-4 sm:mb-6">
-        
-        {/* Camera Button (Reduced Size) */}
-        <button 
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isProcessing}
-          className="shrink-0 w-12 h-12 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors active:scale-95 flex items-center justify-center shadow-sm"
-          title="Scan Receipt"
-        >
-          {isProcessing ? (
-             <span className="animate-spin text-lg">🌀</span>
-          ) : (
-             <span className="text-xl">📷</span>
-          )}
-        </button>
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleReceiptUpload} />
-
-        {/* Voice Record Button */}
-        <button 
-          onClick={startVoiceInput}
-          disabled={isProcessing || isListening}
-          className={`shrink-0 w-12 h-12 rounded-xl border transition-all active:scale-95 flex items-center justify-center shadow-sm ${
-            isListening 
-              ? 'bg-red-50 border-red-200 text-red-500 animate-pulse ring-2 ring-red-200' 
-              : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100'
-          }`}
-          title="Record Expense"
-        >
-          <span className="text-xl">🎙️</span>
-        </button>
-        
-        {/* NLP Input */}
-        <div className="relative group flex-1">
-          <input 
-            type="text"
-            placeholder="Type or say '500 for lunch'..."
-            value={nlpInput}
-            onChange={e => setNlpInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleNLP()}
-            disabled={isProcessing}
-            className="w-full h-full p-2 pl-3 sm:p-3 sm:pl-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-background text-xs sm:text-sm pr-10 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all shadow-sm"
-          />
+      {/* Quick Actions Bar - Flex Container (Only show if NOT editing) */}
+      {!expenseToEdit && (
+        <div className="flex gap-2 mb-4 sm:mb-6">
           <button 
-            onClick={() => handleNLP()} 
-            disabled={isProcessing || !nlpInput.trim()}
-            className="absolute right-1 top-1/2 -translate-y-1/2 text-primary p-2 rounded-full hover:bg-primary/10 transition-colors disabled:opacity-50"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isProcessing}
+            className="shrink-0 w-12 h-12 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors active:scale-95 flex items-center justify-center shadow-sm"
+            title="Scan Receipt"
           >
-            ➤
+            {isProcessing ? (
+              <span className="animate-spin text-lg">🌀</span>
+            ) : (
+              <span className="text-xl">📷</span>
+            )}
           </button>
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleReceiptUpload} />
+
+          <button 
+            onClick={startVoiceInput}
+            disabled={isProcessing || isListening}
+            className={`shrink-0 w-12 h-12 rounded-xl border transition-all active:scale-95 flex items-center justify-center shadow-sm ${
+              isListening 
+                ? 'bg-red-50 border-red-200 text-red-500 animate-pulse ring-2 ring-red-200' 
+                : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100'
+            }`}
+            title="Record Expense"
+          >
+            <span className="text-xl">🎙️</span>
+          </button>
+          
+          <div className="relative group flex-1">
+            <input 
+              type="text"
+              placeholder="Type or say '500 for lunch'..."
+              value={nlpInput}
+              onChange={e => setNlpInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleNLP()}
+              disabled={isProcessing}
+              className="w-full h-full p-2 pl-3 sm:p-3 sm:pl-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-background text-xs sm:text-sm pr-10 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all shadow-sm"
+            />
+            <button 
+              onClick={() => handleNLP()} 
+              disabled={isProcessing || !nlpInput.trim()}
+              className="absolute right-1 top-1/2 -translate-y-1/2 text-primary p-2 rounded-full hover:bg-primary/10 transition-colors disabled:opacity-50"
+            >
+              ➤
+            </button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Edit Mode Header */}
+      {expenseToEdit && (
+        <div className="flex justify-between items-center mb-4 bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg border border-orange-100 dark:border-orange-800">
+           <div className="flex items-center gap-2 text-orange-700 dark:text-orange-400 font-bold">
+             <span>✏️</span> Editing Expense
+           </div>
+           <button 
+             onClick={cancelEdit}
+             className="text-xs bg-white dark:bg-black/20 px-3 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
+           >
+             Cancel
+           </button>
+        </div>
+      )}
 
       <div className="bg-surface rounded-xl shadow-sm p-4 sm:p-6 mb-20 sm:mb-6 border border-gray-100 dark:border-gray-800 transition-shadow hover:shadow-md">
         <h3 className="text-base sm:text-lg font-bold text-primary mb-3 sm:mb-4 flex items-center gap-2">
-           <span>➕</span> Add New Expense
+           <span>{expenseToEdit ? '📝' : '➕'}</span> {expenseToEdit ? 'Edit Expense' : 'Add New Expense'}
         </h3>
         <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-5">
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
@@ -312,9 +370,13 @@ export const AddExpense: React.FC<AddExpenseProps> = ({ state, addExpense, switc
           <div className="pt-2 sm:pt-4 flex gap-3">
              <button 
               type="submit" 
-              className="flex-1 bg-gradient-to-r from-primary to-pink-600 text-white py-3 sm:py-3.5 rounded-xl font-bold shadow-lg shadow-primary/30 hover:shadow-xl hover:scale-[1.02] transition-all active:scale-[0.98] text-sm sm:text-base"
+              className={`flex-1 text-white py-3 sm:py-3.5 rounded-xl font-bold shadow-lg transition-all active:scale-[0.98] text-sm sm:text-base ${
+                expenseToEdit 
+                  ? 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/30' 
+                  : 'bg-gradient-to-r from-primary to-pink-600 shadow-primary/30 hover:shadow-xl hover:scale-[1.02]'
+              }`}
             >
-              Add Expense
+              {expenseToEdit ? 'Update Expense' : 'Add Expense'}
             </button>
             <button
               type="button"

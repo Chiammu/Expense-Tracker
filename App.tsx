@@ -18,6 +18,9 @@ function App() {
   const [isLocked, setIsLocked] = useState(false);
   const [showChat, setShowChat] = useState(false);
   
+  // Edit State
+  const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
+
   // Track previous sync ID to detect changes
   const prevSyncIdRef = useRef<string | null>(null);
   
@@ -160,6 +163,25 @@ function App() {
     showToast("Expense added successfully!", 'success');
   };
 
+  const editExpense = (expense: Expense) => {
+    setExpenseToEdit(expense);
+    setActiveSection('add-expense');
+  };
+
+  const updateExpense = (updatedExpense: Expense) => {
+    setState(prev => ({
+      ...prev,
+      expenses: prev.expenses.map(e => e.id === updatedExpense.id ? updatedExpense : e)
+    }));
+    setExpenseToEdit(null);
+    showToast("Expense updated!", 'success');
+    setActiveSection('summaries'); // Redirect back to see change
+  };
+
+  const cancelEdit = () => {
+    setExpenseToEdit(null);
+  };
+
   const deleteExpense = (id: number) => {
     if (window.confirm("Delete this expense?")) {
       setState(prev => ({ ...prev, expenses: prev.expenses.filter(e => e.id !== id) }));
@@ -300,12 +322,19 @@ function App() {
                 <AddExpense 
                   state={state} 
                   addExpense={addExpense} 
+                  updateExpense={updateExpense}
+                  expenseToEdit={expenseToEdit}
+                  cancelEdit={cancelEdit}
                   switchTab={setActiveSection}
                   showToast={showToast}
                 />
               )}
               {activeSection === 'summaries' && (
-                <Summaries state={state} deleteExpense={deleteExpense} />
+                <Summaries 
+                  state={state} 
+                  deleteExpense={deleteExpense} 
+                  editExpense={editExpense}
+                />
               )}
               {activeSection === 'overview' && (
                 <Overview 
