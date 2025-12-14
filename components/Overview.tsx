@@ -116,8 +116,9 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
         updateState({ categoryBudgets: result.categoryBudgets || {} });
         setShowCatBudgets(true);
       }
-    } catch (e) {
-      alert("Failed to generate budget plan.");
+    } catch (e: any) {
+      console.error(e);
+      alert(`Failed to generate budget plan. ${e.message || ''}`);
     } finally {
       setLoadingBudget(false);
     }

@@ -103,10 +103,15 @@ export const suggestSmartBudget = async (state: AppState): Promise<{totalBudget:
       Historical Category Spending (Total over all time): ${JSON.stringify(categoryTotals)}
       
       Suggest a realistic MONTHLY budget plan that encourages 20% savings if possible.
-      1. Suggest a 'totalBudget'.
-      2. Suggest 'categoryBudgets' for each category found in the history.
+      1. Suggest a 'totalBudget' (number).
+      2. Suggest 'categoryBudgets' (object where keys are category names and values are numbers).
       
-      Return purely JSON.
+      Return purely JSON with no markdown formatting.
+      Example:
+      {
+        "totalBudget": 50000,
+        "categoryBudgets": { "Food": 5000, "Travel": 2000 }
+      }
     `;
 
     const response = await ai.models.generateContent({
@@ -114,18 +119,8 @@ export const suggestSmartBudget = async (state: AppState): Promise<{totalBudget:
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            totalBudget: { type: Type.NUMBER },
-            categoryBudgets: { 
-              type: Type.OBJECT, 
-              // We can't strictly define keys here as they are dynamic, 
-              // but Gemini handles Record<string, number> well with just OBJECT type usually.
-              // For strictness we'd need to know categories beforehand, but let's try generic object.
-            }
-          }
-        }
+        // Note: responseSchema is omitted here because 'categoryBudgets' has dynamic keys (user categories),
+        // which makes strict schema definition difficult. Gemini 2.5 Flash handles JSON well without it.
       }
     });
 
