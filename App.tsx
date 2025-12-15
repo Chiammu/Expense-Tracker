@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { loadFromStorage, saveToStorage, fetchCloudState, subscribeToChanges } from './services/storage';
+import { loadFromStorage, saveToStorage, fetchCloudState, subscribeToChanges, forceCloudSync, mergeAppState } from './services/storage';
 import { AppState, INITIAL_STATE, Section, Expense, FixedPayment } from './types';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
@@ -30,6 +30,9 @@ function App() {
   // Track previous sync ID to detect changes
   const prevSyncIdRef = useRef<string | null>(null);
   
+  // Track source of update to prevent echo loops
+  const lastUpdateWasRemote = useRef(false);
+  
   // PWA Install State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isIos, setIsIos] = useState(false);
@@ -53,8 +56,9 @@ function App() {
         try {
           const cloudData = await fetchCloudState(localData.settings.syncId);
           if (cloudData) {
-            currentState = cloudData;
-            console.log("Loaded cloud data on mount");
+            // Merge cloud data with local data on startup to catch anything missed
+            currentState = mergeAppState(localData, cloudData);
+            console.log("Loaded and merged cloud data on mount");
           }
         } catch (e) {
           console.error("Cloud fetch failed on mount", e);
@@ -78,9 +82,6 @@ function App() {
         const now = new Date();
         const due: FixedPayment[] = [];
 
-        // Check each day from last check until today
-        // Simple logic: if payment day falls in the range (lastCheck < day <= now)
-        // We only care about day-of-month for simplicity as requested
         const todayDay = now.getDate();
         const lastDay = lastCheck.getDate();
         
@@ -93,9 +94,6 @@ function App() {
              if (p.day > lastDay && p.day <= todayDay) due.push(p);
            });
         } else {
-           // Different month - check all payments that are <= today OR > lastDay
-           // This is a simplified logic. Properly we'd add all if a whole month passed.
-           // Let's just catch payments <= today to be safe and simple.
            currentState.fixedPayments.forEach(p => {
              if (p.day <= todayDay) due.push(p);
            });
@@ -145,14 +143,18 @@ function App() {
         note: `Fixed: ${p.name}`
       }));
 
-      setState(prev => ({
-        ...prev,
-        expenses: [...prev.expenses, ...newExpenses],
-        settings: { ...prev.settings, lastFixedPaymentCheck: new Date().toISOString() }
-      }));
+      setState(prev => {
+        const next = {
+          ...prev,
+          expenses: [...prev.expenses, ...newExpenses],
+          settings: { ...prev.settings, lastFixedPaymentCheck: new Date().toISOString() }
+        };
+        // Important: Force sync for critical updates
+        forceCloudSync(next);
+        return next;
+      });
       showToast(`${toAdd.length} payments added`, 'success');
     } else {
-      // Just update the check time
       setState(prev => ({
         ...prev,
         settings: { ...prev.settings, lastFixedPaymentCheck: new Date().toISOString() }
@@ -162,7 +164,6 @@ function App() {
   };
 
   const handleRecurringCancel = () => {
-    // Update check time so we don't ask again immediately
     setState(prev => ({
       ...prev,
       settings: { ...prev.settings, lastFixedPaymentCheck: new Date().toISOString() }
@@ -184,7 +185,8 @@ function App() {
         try {
           const cloudData = await fetchCloudState(currentSyncId);
           if (cloudData) {
-            setState(cloudData);
+            lastUpdateWasRemote.current = true;
+            setState(prev => mergeAppState(prev, cloudData));
             showToast("Connected! Data synced.", 'success');
           } else {
             // New session, data will be uploaded by the saveToStorage effect
@@ -204,8 +206,10 @@ function App() {
   useEffect(() => {
     if (!loaded || !state.settings.syncId) return;
 
-    const unsubscribe = subscribeToChanges(state.settings.syncId, (newState) => {
-      setState(newState);
+    const unsubscribe = subscribeToChanges(state.settings.syncId, (incomingState) => {
+      // Merge incoming state with current state instead of overwriting
+      lastUpdateWasRemote.current = true;
+      setState(current => mergeAppState(current, incomingState));
     });
 
     return () => {
@@ -213,65 +217,28 @@ function App() {
     };
   }, [loaded, state.settings.syncId]);
 
-  // 4. Adaptive Polling Fallback
-  useEffect(() => {
-    if (!loaded || !state.settings.syncId) return;
-
-    // We no longer need aggressive polling for chat since chat has its own socket
-    // Standard polling for expenses sync can remain slow (8s)
-    const intervalMs = 8000;
-
-    const pollInterval = setInterval(async () => {
-      if (document.hidden) return; // Pause when app is backgrounded
-      
-      try {
-        if(state.settings.syncId) {
-           const cloudData = await fetchCloudState(state.settings.syncId);
-           if (cloudData) {
-             setState(prev => ({...prev, ...cloudData})); 
-           }
-        }
-      } catch(e) {
-        // Silent fail, retrying next tick
-      }
-    }, intervalMs);
-
-    return () => clearInterval(pollInterval);
-  }, [loaded, state.settings.syncId]);
-
   // 5. Save to Storage (Local + Cloud)
   useEffect(() => {
     if (loaded) {
-      saveToStorage(state);
+      if (lastUpdateWasRemote.current) {
+        // If the update came from remote, only save to local storage, DO NOT push back to cloud
+        saveToStorage(state, 'remote');
+        lastUpdateWasRemote.current = false;
+      } else {
+        // Local change: Save to local and push to cloud (debounced)
+        saveToStorage(state, 'local');
+      }
     }
   }, [state, loaded]);
-
-  // Theme & Styles
-  useEffect(() => {
-    const root = document.documentElement;
-    const { primaryColor, secondaryColor, accentColor, theme, fontStyle, fontSize } = state.settings;
-
-    if (theme === 'dark') root.classList.add('dark');
-    else root.classList.remove('dark');
-
-    root.style.setProperty('--primary', primaryColor);
-    root.style.setProperty('--secondary', secondaryColor);
-    root.style.setProperty('--accent', accentColor);
-
-    let fontFamily = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
-    if (fontStyle === 'playful') fontFamily = "'Comic Sans MS', 'Trebuchet MS', cursive";
-    else if (fontStyle === 'serif') fontFamily = "'Georgia', 'Times New Roman', serif";
-    root.style.setProperty('--font-family', fontFamily);
-
-    if (fontSize === 'small') root.style.fontSize = '14px';
-    else if (fontSize === 'large') root.style.fontSize = '18px';
-    else root.style.fontSize = '16px';
-  }, [state.settings]);
 
   // Actions
   const addExpense = (expense: Omit<Expense, 'id'>) => {
     const newExpense: Expense = { ...expense, id: Date.now() };
-    setState(prev => ({ ...prev, expenses: [...prev.expenses, newExpense] }));
+    setState(prev => {
+        const next = { ...prev, expenses: [...prev.expenses, newExpense] };
+        forceCloudSync(next); // Force sync
+        return next;
+    });
     showToast("Expense added successfully!", 'success');
   };
 
@@ -281,13 +248,17 @@ function App() {
   };
 
   const updateExpense = (updatedExpense: Expense) => {
-    setState(prev => ({
-      ...prev,
-      expenses: prev.expenses.map(e => e.id === updatedExpense.id ? updatedExpense : e)
-    }));
+    setState(prev => {
+      const next = {
+        ...prev,
+        expenses: prev.expenses.map(e => e.id === updatedExpense.id ? updatedExpense : e)
+      };
+      forceCloudSync(next); // Force sync
+      return next;
+    });
     setExpenseToEdit(null);
     showToast("Expense updated!", 'success');
-    setActiveSection('summaries'); // Redirect back to see change
+    setActiveSection('summaries'); 
   };
 
   const cancelEdit = () => {
@@ -296,7 +267,11 @@ function App() {
 
   const deleteExpense = (id: number) => {
     if (window.confirm("Delete this expense?")) {
-      setState(prev => ({ ...prev, expenses: prev.expenses.filter(e => e.id !== id) }));
+      setState(prev => {
+          const next = { ...prev, expenses: prev.expenses.filter(e => e.id !== id) };
+          forceCloudSync(next); // Force sync
+          return next;
+      });
       showToast("Expense deleted", 'info');
     }
   };
@@ -314,15 +289,23 @@ function App() {
   };
 
   const addFixedPayment = (name: string, amount: number, day: number) => {
-    setState(prev => ({
-      ...prev,
-      fixedPayments: [...prev.fixedPayments, { id: Date.now(), name, amount, day }]
-    }));
+    setState(prev => {
+        const next = {
+            ...prev,
+            fixedPayments: [...prev.fixedPayments, { id: Date.now(), name, amount, day }]
+        };
+        forceCloudSync(next);
+        return next;
+    });
     showToast("Fixed payment added", 'success');
   };
 
   const removeFixedPayment = (id: number) => {
-    setState(prev => ({ ...prev, fixedPayments: prev.fixedPayments.filter(p => p.id !== id) }));
+    setState(prev => {
+        const next = { ...prev, fixedPayments: prev.fixedPayments.filter(p => p.id !== id) };
+        forceCloudSync(next);
+        return next;
+    });
     showToast("Payment removed", 'info');
   };
 
@@ -339,14 +322,16 @@ function App() {
     reader.onload = (e) => {
       try {
         const imported = JSON.parse(e.target?.result as string);
-        setState({
+        const newState = {
             ...INITIAL_STATE,
             ...imported,
             settings: { ...INITIAL_STATE.settings, ...(imported.settings || {}) },
             savingsGoals: imported.savingsGoals || [],
             categoryBudgets: imported.categoryBudgets || {},
             chatMessages: imported.chatMessages || [],
-        });
+        };
+        setState(newState);
+        forceCloudSync(newState); // Import is a major change, sync immediately
         showToast("Data imported successfully!", 'success');
       } catch (err) {
         showToast("Invalid backup file.", 'error');
@@ -429,7 +414,13 @@ function App() {
               {activeSection === 'investments' && (
                 <Investments 
                   state={state} 
-                  updateState={updates => setState(prev => ({ ...prev, ...updates }))}
+                  updateState={updates => setState(prev => {
+                      const next = { ...prev, ...updates };
+                      // Investments might be frequent (typing), rely on effect debounce usually, 
+                      // but if it's a critical update we can force. 
+                      // For inputs, setState is fine.
+                      return next;
+                  })}
                   showToast={showToast}
                 />
               )}

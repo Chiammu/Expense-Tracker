@@ -9,35 +9,42 @@ const STORAGE_KEY = 'coupleExpenseTrackerV4_React';
 
 // Debounce timer for cloud saves
 let saveTimeout: any = null;
-let isRemoteUpdate = false;
 
-export const saveToStorage = (state: AppState) => {
+const triggerCloudSave = async (state: AppState) => {
+  if (!state.settings.syncId || !supabase) return;
+  
+  // console.log("Pushing to cloud...");
+  const { error } = await supabase
+    .from('app_state')
+    .upsert({ 
+      id: state.settings.syncId, 
+      data: state, 
+      updated_at: new Date().toISOString() 
+    });
+    
+  if (error) console.error("Cloud sync failed:", error);
+};
+
+export const forceCloudSync = (state: AppState) => {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  triggerCloudSave(state);
+};
+
+export const saveToStorage = (state: AppState, origin: 'local' | 'remote' = 'local') => {
   try {
-    // 1. Save Local (Instant)
+    // 1. Save Local (Always Instant)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 
-    // 2. Save Cloud (Debounced) if Sync ID exists
-    // We check !isRemoteUpdate to prevent loops where receiving a cloud update triggers a cloud save
-    if (state.settings.syncId && supabase && !isRemoteUpdate) {
+    // 2. Save Cloud (Debounced) ONLY if origin is local
+    if (origin === 'local' && state.settings.syncId && supabase) {
       if (saveTimeout) clearTimeout(saveTimeout);
       
-      // Reduced debounce to 500ms for snappier chat experience
-      saveTimeout = setTimeout(async () => {
-        const { error } = await supabase
-          .from('app_state')
-          .upsert({ 
-            id: state.settings.syncId, 
-            data: state, 
-            updated_at: new Date().toISOString() 
-          });
-          
-        if (error) console.error("Cloud sync failed:", error);
-        // else console.log("Cloud sync saved");
+      // Debounce to prevent flooding DB on text inputs
+      // 500ms is a good balance
+      saveTimeout = setTimeout(() => {
+        triggerCloudSave(state);
       }, 500); 
     }
-    
-    // Reset flag
-    isRemoteUpdate = false;
   } catch (e) {
     console.error("Failed to save state", e);
   }
@@ -57,6 +64,7 @@ export const loadFromStorage = (): AppState => {
 };
 
 // Helper to ensure structure matches AppState even if loading old data
+// This is for structural integrity (schema migration), not content merging
 const mergeState = (parsed: any): AppState => {
   return {
     ...INITIAL_STATE,
@@ -73,6 +81,56 @@ const mergeState = (parsed: any): AppState => {
       ...(parsed.investments || {})
     },
     loans: parsed.loans || [],
+  };
+};
+
+// --- DATA MERGING LOGIC ---
+
+/**
+ * Smartly merges two AppStates.
+ * Prioritizes preserving data from both sources using ID unions for arrays.
+ * For scalars/objects, remote typically wins in this context as it's the "latest" sync,
+ * but specific merge logic can be applied if needed.
+ */
+export const mergeAppState = (local: AppState, remote: AppState): AppState => {
+  // Helper to merge arrays of objects with 'id' property
+  const mergeArrays = <T extends { id: number | string }>(localArr: T[], remoteArr: T[]): T[] => {
+    const map = new Map<number | string, T>();
+    // Add local first
+    localArr.forEach(item => map.set(item.id, item));
+    // Add remote second (overwrites local if ID matches, effectively "latest wins" if we assume remote is newer)
+    // However, for a true union where we just want to ensure nothing is lost:
+    remoteArr.forEach(item => map.set(item.id, item));
+    return Array.from(map.values());
+  };
+
+  return {
+    ...remote, // Base on remote to catch setting changes/budget updates
+    
+    // Arrays: Union Logic
+    expenses: mergeArrays(local.expenses, remote.expenses),
+    fixedPayments: mergeArrays(local.fixedPayments, remote.fixedPayments),
+    otherIncome: mergeArrays(local.otherIncome, remote.otherIncome),
+    savingsGoals: mergeArrays(local.savingsGoals, remote.savingsGoals),
+    loans: mergeArrays(local.loans, remote.loans),
+    
+    // Investments: Shallow merge of sub-objects to prevent overwriting one person's bank update with another's stale data
+    // (This assumes bankBalance keys p1/p2 are updated atomistically, which isn't always true but better than replacing the whole object)
+    investments: {
+        ...remote.investments,
+        bankBalance: { ...local.investments.bankBalance, ...remote.investments.bankBalance },
+        mutualFunds: { ...local.investments.mutualFunds, ...remote.investments.mutualFunds },
+        stocks: { ...local.investments.stocks, ...remote.investments.stocks },
+        gold: { ...local.investments.gold, ...remote.investments.gold },
+        silver: { ...local.investments.silver, ...remote.investments.silver },
+    },
+
+    // Settings: Usually prefer remote, but keep local device specific stuff if we had any (we don't really)
+    settings: {
+        ...remote.settings,
+        // syncId is critical
+        syncId: local.settings.syncId || remote.settings.syncId, 
+    }
   };
 };
 
@@ -104,19 +162,18 @@ export const subscribeToChanges = (syncId: string, onUpdate: (newState: AppState
     .channel('room-' + syncId)
     .on(
       'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'app_state', filter: `id=eq.${syncId}` },
+      { event: '*', schema: 'public', table: 'app_state', filter: `id=eq.${syncId}` },
       (payload) => {
-        console.log("Received cloud update");
-        if (payload.new && payload.new.data) {
-          isRemoteUpdate = true; // Set flag to prevent echo-save
-          // Directly use the payload data if available for instant update
-          onUpdate(mergeState(payload.new.data));
+        console.log("Received cloud update event:", payload.eventType);
+        if (payload.new && (payload.new as any).data) {
+          // Directly use the payload data
+          onUpdate(mergeState((payload.new as any).data));
         }
       }
     )
     .subscribe((status) => {
        if (status === 'SUBSCRIBED') {
-         // console.log("Realtime connection established");
+         console.log("Realtime connection established");
        }
     });
 
