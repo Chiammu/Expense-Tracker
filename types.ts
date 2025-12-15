@@ -36,6 +36,36 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+// --- NEW TYPES FOR INVESTMENTS ---
+export interface AssetSplit {
+  p1: number;
+  p2: number;
+  shared: number;
+}
+
+export interface MetalAsset {
+  p1Grams: number;
+  p2Grams: number;
+  sharedGrams: number;
+}
+
+export interface Investments {
+  bankBalance: { p1: number; p2: number };
+  mutualFunds: AssetSplit;
+  stocks: AssetSplit;
+  gold: MetalAsset;
+  silver: MetalAsset;
+}
+
+export interface Loan {
+  id: number;
+  name: string;
+  totalAmount: number; // Original Principal
+  pendingAmount: number; // Currently pending
+  emiAmount: number; // Monthly payment
+  person: 'Person1' | 'Person2' | 'Both';
+}
+
 export interface AppSettings {
   theme: 'light' | 'dark';
   primaryColor: string;
@@ -49,10 +79,10 @@ export interface AppSettings {
   person1Name: string;
   person2Name: string;
   customCategories: string[];
-  categoryIcons: Record<string, string>; // New: Map category names to emojis
-  pin: string | null; // For Lock Screen
-  syncId: string | null; // UUID for Supabase Sync
-  lastFixedPaymentCheck: string | null; // New: ISO Date string of last check
+  categoryIcons: Record<string, string>;
+  pin: string | null; 
+  syncId: string | null; 
+  lastFixedPaymentCheck: string | null; 
 }
 
 export interface AppState {
@@ -66,9 +96,12 @@ export interface AppState {
   savingsGoals: SavingsGoal[];
   categoryBudgets: Record<string, number>;
   chatMessages: ChatMessage[];
+  // New State Fields
+  investments: Investments;
+  loans: Loan[];
 }
 
-export type Section = 'add-expense' | 'summaries' | 'partner-chat' | 'overview' | 'settings';
+export type Section = 'add-expense' | 'summaries' | 'investments' | 'overview' | 'settings';
 
 export const DEFAULT_CATEGORIES = [
   "Groceries", "Rent", "Bills", "EMIs", "Shopping", "Travel", "Food", 
@@ -100,6 +133,14 @@ export const DEFAULT_SETTINGS: AppSettings = {
   lastFixedPaymentCheck: new Date().toISOString(),
 };
 
+export const INITIAL_INVESTMENTS: Investments = {
+  bankBalance: { p1: 0, p2: 0 },
+  mutualFunds: { p1: 0, p2: 0, shared: 0 },
+  stocks: { p1: 0, p2: 0, shared: 0 },
+  gold: { p1Grams: 0, p2Grams: 0, sharedGrams: 0 },
+  silver: { p1Grams: 0, p2Grams: 0, sharedGrams: 0 },
+};
+
 export const INITIAL_STATE: AppState = {
   expenses: [],
   settings: DEFAULT_SETTINGS,
@@ -111,4 +152,6 @@ export const INITIAL_STATE: AppState = {
   savingsGoals: [],
   categoryBudgets: {},
   chatMessages: [],
+  investments: INITIAL_INVESTMENTS,
+  loans: [],
 };

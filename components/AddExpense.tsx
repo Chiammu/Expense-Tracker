@@ -14,6 +14,13 @@ interface AddExpenseProps {
 
 const PAYMENT_MODES = ["UPI", "Card", "Cash", "Netbanking", "Wallet", "Other"];
 
+// Helper to get local date string YYYY-MM-DD
+const getLocalDate = () => {
+  const d = new Date();
+  const offset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - offset).toISOString().split('T')[0];
+};
+
 export const AddExpense: React.FC<AddExpenseProps> = ({ 
   state, 
   addExpense, 
@@ -25,7 +32,7 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     person: '',
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDate(),
     amount: '',
     category: '',
     paymentMode: '',
@@ -51,7 +58,7 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
       // Reset if not editing
       setFormData({
         person: '',
-        date: new Date().toISOString().split('T')[0],
+        date: getLocalDate(),
         amount: '',
         category: '',
         paymentMode: '',
@@ -206,7 +213,7 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
       // Only reset if adding new
       setFormData({
         person: '',
-        date: new Date().toISOString().split('T')[0],
+        date: getLocalDate(),
         amount: '',
         category: '',
         paymentMode: '',

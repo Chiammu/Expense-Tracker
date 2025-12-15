@@ -1,4 +1,4 @@
-import { AppState, INITIAL_STATE } from '../types';
+import { AppState, INITIAL_STATE, INITIAL_INVESTMENTS } from '../types';
 import { supabase } from './supabaseClient';
 // @ts-ignore
 import jsPDF from 'jspdf';
@@ -68,6 +68,11 @@ const mergeState = (parsed: any): AppState => {
     savingsGoals: parsed.savingsGoals || [],
     categoryBudgets: parsed.categoryBudgets || {},
     chatMessages: parsed.chatMessages || [],
+    investments: {
+      ...INITIAL_INVESTMENTS,
+      ...(parsed.investments || {})
+    },
+    loans: parsed.loans || [],
   };
 };
 

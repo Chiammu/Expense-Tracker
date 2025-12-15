@@ -6,10 +6,10 @@ import { BottomNav } from './components/BottomNav';
 import { AddExpense } from './components/AddExpense';
 import { Summaries } from './components/Summaries';
 import { Overview } from './components/Overview';
+import { Investments } from './components/Investments';
 import { Settings } from './components/Settings';
 import { LockScreen } from './components/LockScreen';
 import { ChatAssistant } from './components/ChatAssistant';
-import { PartnerChat } from './components/PartnerChat';
 import { Toast } from './components/Toast';
 import { RecurringModal } from './components/RecurringModal';
 
@@ -137,7 +137,7 @@ function App() {
     if (toAdd.length > 0) {
       const newExpenses = toAdd.map(p => ({
         id: Date.now() + Math.random(),
-        date: new Date().toISOString().split('T')[0],
+        date: new Date().toISOString().split('T')[0], // Use generic Date logic here, safe for recurring
         amount: p.amount,
         category: 'Bills',
         person: 'Both',
@@ -426,8 +426,12 @@ function App() {
                   editExpense={editExpense}
                 />
               )}
-              {activeSection === 'partner-chat' && (
-                <PartnerChat state={state} />
+              {activeSection === 'investments' && (
+                <Investments 
+                  state={state} 
+                  updateState={updates => setState(prev => ({ ...prev, ...updates }))}
+                  showToast={showToast}
+                />
               )}
               {activeSection === 'overview' && (
                 <Overview 
@@ -457,19 +461,17 @@ function App() {
 
           <BottomNav activeSection={activeSection} setSection={setActiveSection} />
           
-          {/* Ask AI Button - Hidden when in Partner Chat */}
-          {activeSection !== 'partner-chat' && (
-            <button 
-              onClick={() => setShowChat(true)}
-              className="fixed bottom-24 right-4 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-tr from-primary to-purple-600 text-white rounded-full shadow-lg shadow-primary/30 flex items-center justify-center text-xl sm:text-2xl z-40 hover:scale-110 active:scale-90 transition-all duration-300 animate-scale-in"
-              title="Ask AI"
-            >
-              🤖
-            </button>
-          )}
+          {/* Ask AI Button */}
+          <button 
+            onClick={() => setShowChat(true)}
+            className="fixed bottom-24 right-4 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-tr from-primary to-purple-600 text-white rounded-full shadow-lg shadow-primary/30 flex items-center justify-center text-xl sm:text-2xl z-40 hover:scale-110 active:scale-90 transition-all duration-300 animate-scale-in"
+            title="Ask AI"
+          >
+            🤖
+          </button>
           
-          {/* Add Expense Button - Hidden in Add Expense AND Partner Chat */}
-          {activeSection !== 'add-expense' && activeSection !== 'partner-chat' && (
+          {/* Add Expense Button - Hidden in Add Expense */}
+          {activeSection !== 'add-expense' && (
             <button 
               onClick={() => setActiveSection('add-expense')}
               className="fixed bottom-24 left-4 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-tr from-secondary to-cyan-500 text-white rounded-full shadow-lg shadow-secondary/30 flex items-center justify-center text-xl sm:text-2xl z-40 sm:hidden hover:scale-110 active:scale-90 transition-all duration-300 animate-scale-in"

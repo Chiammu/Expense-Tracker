@@ -217,9 +217,9 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
                     </div>
                  )}
                  {!isScanning && (
-                   <div className="flex gap-2">
-                     <input value={syncCodeInput} onChange={e => setSyncCodeInput(e.target.value)} placeholder="Paste code..." className="flex-1 bg-white dark:bg-gray-800 p-3 rounded-xl text-sm border-none focus:ring-2 focus:ring-primary/20 outline-none" />
-                     <button onClick={joinSyncSession} disabled={syncCodeInput.length < 5} className="bg-gray-200 dark:bg-gray-700 px-4 rounded-xl font-bold text-sm disabled:opacity-50">→</button>
+                   <div className="flex flex-row gap-2 items-center">
+                     <input value={syncCodeInput} onChange={e => setSyncCodeInput(e.target.value)} placeholder="Paste code..." className="flex-1 min-w-0 bg-white dark:bg-gray-800 p-3 rounded-xl text-sm border-none focus:ring-2 focus:ring-primary/20 outline-none" />
+                     <button onClick={joinSyncSession} disabled={syncCodeInput.length < 5} className="shrink-0 bg-gray-200 dark:bg-gray-700 px-4 py-3 rounded-xl font-bold text-sm disabled:opacity-50 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">→</button>
                    </div>
                  )}
               </div>

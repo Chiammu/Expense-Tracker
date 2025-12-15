@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { AppState, Expense } from "../types";
+import { AppState, Expense, Loan } from "../types";
 
 // Helper to format currency
 const formatCurrency = (amount: number) => {
@@ -94,6 +94,35 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
 // ------------------------------------------------------------------
 // NEW FEATURES
 // ------------------------------------------------------------------
+
+export const analyzeLoanStrategy = async (loans: Loan[], surplus: number, person1: string, person2: string): Promise<string> => {
+  try {
+    const ai = getAI();
+    const loanData = loans.map(l => `${l.name}: Pending ₹${l.pendingAmount}, EMI ₹${l.emiAmount}`).join('\n');
+    
+    const prompt = `
+      You are a debt reduction expert. 
+      The couple ${person1} and ${person2} has a monthly surplus of ₹${surplus} (Income - Expenses).
+      
+      Here are their current Loans/EMIs:
+      ${loanData}
+      
+      Suggest a specific strategy to close these EMIs effectively (e.g., Avalanche vs Snowball).
+      Tell them which loan to target first with the surplus.
+      Keep the advice short, motivating, and actionable. Use emojis.
+      Do not use markdown bolding.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+
+    return response.text || "Could not analyze loans.";
+  } catch (error) {
+    return handleGeminiError(error);
+  }
+};
 
 export const suggestSmartBudget = async (state: AppState): Promise<{totalBudget: number, categoryBudgets: Record<string, number>}> => {
     // Deprecated functionality, kept stub for type safety if imported elsewhere, but logic removed per request.

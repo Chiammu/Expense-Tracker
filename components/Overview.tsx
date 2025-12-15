@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AppState, Expense } from '../types';
+import { AppState, Expense, OtherIncome } from '../types';
 import { generateFinancialInsights } from '../services/geminiService';
 
 interface OverviewProps {
@@ -19,13 +19,18 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
   const [showCatBudgets, setShowCatBudgets] = useState(false);
   const [mounted, setMounted] = useState(false);
 
+  // Other Income Form
+  const [otherIncForm, setOtherIncForm] = useState({ desc: '', amount: '' });
+  const [showOtherIncome, setShowOtherIncome] = useState(false);
+
   // Trigger animations on mount
   useEffect(() => {
     setTimeout(() => setMounted(true), 100);
   }, []);
 
   // Calculations
-  const totalIncome = state.incomePerson1 + state.incomePerson2 + state.otherIncome.reduce((sum, i) => sum + i.amount, 0);
+  const otherIncomeTotal = state.otherIncome.reduce((sum, i) => sum + i.amount, 0);
+  const totalIncome = state.incomePerson1 + state.incomePerson2 + otherIncomeTotal;
   const fixedTotal = state.fixedPayments.reduce((sum, p) => sum + p.amount, 0);
   
   // Expenses this month
@@ -92,6 +97,21 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
     updateState({ savingsGoals: state.savingsGoals.filter(g => g.id !== id) });
   };
 
+  const addOtherIncome = () => {
+    if (!otherIncForm.desc || !otherIncForm.amount) return;
+    const newInc: OtherIncome = {
+      id: Date.now(),
+      desc: otherIncForm.desc,
+      amount: parseFloat(otherIncForm.amount)
+    };
+    updateState({ otherIncome: [...state.otherIncome, newInc] });
+    setOtherIncForm({ desc: '', amount: '' });
+  };
+
+  const removeOtherIncome = (id: number) => {
+    updateState({ otherIncome: state.otherIncome.filter(i => i.id !== id) });
+  };
+
   const handleGenerateInsights = async () => {
     setLoadingInsight(true);
     setInsight(null);
@@ -105,10 +125,16 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
       
       {/* Income Section */}
       <div className="bg-surface rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100 dark:border-gray-800 transition-shadow hover:shadow-md">
-        <h3 className="text-lg font-bold text-primary mb-3 sm:mb-4 flex items-center gap-2">
-          <span>💰</span> Monthly Income
-        </h3>
-        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <div className="flex justify-between items-center mb-4">
+           <h3 className="text-lg font-bold text-primary flex items-center gap-2">
+             <span>💰</span> Monthly Income
+           </h3>
+           <div className="text-sm font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1 rounded-full">
+             Total: ₹{totalIncome.toLocaleString()}
+           </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
           <div className="group">
              <label className="text-xs text-text-light mb-1 block group-focus-within:text-primary transition-colors">{state.settings.person1Name}</label>
              <input 
@@ -130,41 +156,89 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
              />
           </div>
         </div>
+
+        {/* Other Income Toggle */}
+        <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
+          <button 
+             onClick={() => setShowOtherIncome(!showOtherIncome)}
+             className="text-xs font-bold text-text-light flex items-center gap-1 hover:text-primary transition-colors"
+          >
+             {showOtherIncome ? '▼' : '▶'} Other Income Sources (₹{otherIncomeTotal})
+          </button>
+          
+          {showOtherIncome && (
+            <div className="mt-3 animate-slide-up space-y-2">
+               {state.otherIncome.map(inc => (
+                 <div key={inc.id} className="flex justify-between items-center text-sm p-2 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                    <span>{inc.desc}</span>
+                    <div className="flex items-center gap-2">
+                       <span className="font-bold">₹{inc.amount}</span>
+                       <button onClick={() => removeOtherIncome(inc.id)} className="text-gray-400 hover:text-red-500">×</button>
+                    </div>
+                 </div>
+               ))}
+               <div className="flex gap-2">
+                 <input 
+                   className="flex-1 p-2 bg-background border border-gray-200 dark:border-gray-700 rounded-lg text-xs" 
+                   placeholder="Source (e.g. Freelance)"
+                   value={otherIncForm.desc}
+                   onChange={e => setOtherIncForm({...otherIncForm, desc: e.target.value})}
+                 />
+                 <input 
+                   className="w-20 p-2 bg-background border border-gray-200 dark:border-gray-700 rounded-lg text-xs" 
+                   type="number"
+                   placeholder="Amt"
+                   value={otherIncForm.amount}
+                   onChange={e => setOtherIncForm({...otherIncForm, amount: e.target.value})}
+                 />
+                 <button onClick={addOtherIncome} className="bg-secondary text-white px-3 rounded-lg text-lg leading-none hover:bg-secondary/90">+</button>
+               </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Budget Section */}
+      {/* Budget Section - REVERTED TO STANDARD INPUT */}
       <div className="bg-surface rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100 dark:border-gray-800 transition-shadow hover:shadow-md relative overflow-hidden">
          <div className="flex justify-between items-center mb-3 sm:mb-4">
            <h3 className="text-lg font-bold text-primary flex items-center gap-2">
              <span>📉</span> Monthly Budget
            </h3>
-           <div className="flex gap-2">
-            <button onClick={() => setShowCatBudgets(!showCatBudgets)} className="text-xs text-secondary font-medium hover:bg-secondary/10 px-2 py-1 rounded transition-colors">
-              {showCatBudgets ? 'Hide Categories' : 'Category Budgets'}
-            </button>
-           </div>
+           <button onClick={() => setShowCatBudgets(!showCatBudgets)} className="text-xs text-secondary font-medium hover:bg-secondary/10 px-3 py-1.5 rounded-full transition-colors bg-gray-50 dark:bg-gray-800">
+              {showCatBudgets ? 'Hide Breakdown' : 'Category Split'}
+           </button>
          </div>
          
-         <input 
-            type="number" 
-            className="w-full p-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-background mb-4 focus:border-secondary focus:ring-0 transition-all text-lg font-semibold"
-            value={state.monthlyBudget || ''}
-            onChange={e => updateBudget(parseFloat(e.target.value) || 0)}
-            placeholder="Set Total Monthly Budget"
-         />
+         <div className="mb-4">
+           <div className="relative">
+             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-light font-bold">₹</span>
+             <input 
+                type="number" 
+                className="w-full pl-8 pr-3 py-3 rounded-xl bg-gray-50 dark:bg-gray-900 border-none focus:ring-2 focus:ring-primary/20 transition-all text-xl font-bold text-text"
+                value={state.monthlyBudget || ''}
+                onChange={e => updateBudget(parseFloat(e.target.value) || 0)}
+                placeholder="0"
+             />
+           </div>
+           <p className="text-[10px] text-text-light mt-1.5 ml-1">Set your total spending limit for the month</p>
+         </div>
+
          {state.monthlyBudget > 0 && (
-           <div className="text-sm mt-2">
-             <div className="flex justify-between mb-1 text-text-light font-medium">
-               <span>Used: {((monthTotal / state.monthlyBudget) * 100).toFixed(0)}%</span>
-               <span className={monthTotal > state.monthlyBudget ? "text-red-500 font-bold" : "text-green-500"}>
-                 ₹{monthTotal} / ₹{state.monthlyBudget}
+           <div className="text-sm mt-4 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl">
+             <div className="flex justify-between mb-2 text-text font-medium">
+               <span>Spent: ₹{monthTotal}</span>
+               <span className={monthTotal > state.monthlyBudget ? "text-red-500" : "text-green-500"}>
+                 {((monthTotal / state.monthlyBudget) * 100).toFixed(0)}% Used
                </span>
              </div>
-             <div className="w-full bg-gray-100 rounded-full h-3 dark:bg-gray-700 overflow-hidden">
+             <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700 overflow-hidden">
                <div 
                  className={`h-full rounded-full transition-all duration-1000 ease-out ${monthTotal > state.monthlyBudget ? 'bg-red-500' : 'bg-gradient-to-r from-green-400 to-green-500'}`} 
                  style={{ width: mounted ? `${Math.min(((monthTotal / state.monthlyBudget) * 100), 100)}%` : '0%' }}
                ></div>
+             </div>
+             <div className="text-xs text-text-light mt-2 text-right">
+               Remaining: ₹{Math.max(state.monthlyBudget - monthTotal, 0)}
              </div>
            </div>
          )}
@@ -178,12 +252,14 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
                return (
                  <div key={cat} className="group">
                    <div className="flex justify-between text-xs mb-1 items-center">
-                     <span className="font-medium text-text">{cat}</span>
+                     <span className="font-medium text-text flex items-center gap-1">
+                        {state.settings.categoryIcons?.[cat]} {cat}
+                     </span>
                      <div className="flex gap-2 items-center">
                        <span className={spent > budget && budget > 0 ? "text-red-500 font-bold" : "text-text-light"}>₹{spent}</span>
                        <input 
                          type="number" 
-                         className="w-20 p-1 text-right border rounded bg-background focus:border-secondary transition-colors"
+                         className="w-20 p-1 text-right border-none rounded bg-gray-100 dark:bg-gray-800 focus:ring-1 focus:ring-secondary transition-all"
                          placeholder="Limit"
                          value={budget || ''}
                          onChange={e => updateState({ 
@@ -208,39 +284,38 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
       </div>
 
       {/* Savings Goals */}
-      <div className="bg-surface rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100 dark:border-gray-800 transition-shadow hover:shadow-md">
-        <h3 className="text-lg font-bold text-primary mb-3 sm:mb-4 flex items-center gap-2">
+      <div className="bg-surface rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-800 transition-shadow hover:shadow-md">
+        <h3 className="text-lg font-bold text-primary mb-4 flex items-center gap-2">
           <span>🎯</span> Savings Goals
         </h3>
-        <div className="space-y-3 mb-4 sm:mb-6">
+        <div className="space-y-3 mb-6">
           {state.savingsGoals.map(goal => {
             const pct = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
             return (
-              <div key={goal.id} className="p-3 sm:p-4 bg-background rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm relative overflow-hidden group">
-                 {/* Background pattern/effect could go here */}
+              <div key={goal.id} className="p-4 bg-background rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm relative overflow-hidden group">
                 <div className="flex justify-between mb-2 relative z-10">
-                  <span className="font-bold text-text text-sm sm:text-base">{goal.name}</span>
+                  <span className="font-bold text-text text-base">{goal.name}</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs sm:text-sm font-medium text-text-light">₹{goal.currentAmount} / ₹{goal.targetAmount}</span>
-                    <button onClick={() => deleteGoal(goal.id)} className="text-text-light hover:text-red-500 transition-colors p-1">✕</button>
+                    <span className="text-sm font-medium text-text-light">₹{goal.currentAmount} / ₹{goal.targetAmount}</span>
+                    <button onClick={() => deleteGoal(goal.id)} className="text-gray-300 hover:text-red-500 transition-colors p-1">✕</button>
                   </div>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2.5 mb-3 dark:bg-gray-700 overflow-hidden relative z-10">
+                <div className="w-full bg-gray-200 rounded-full h-3 mb-4 dark:bg-gray-700 overflow-hidden relative z-10">
                    <div className="bg-gradient-to-r from-accent to-orange-400 h-full rounded-full transition-all duration-1000 ease-out relative" style={{ width: mounted ? `${pct}%` : '0%' }}>
-                      {/* Shimmer effect */}
                       <div className="absolute top-0 left-0 bottom-0 right-0 bg-white/20 w-full animate-[shimmer_2s_infinite] translate-x-[-100%]"></div>
                    </div>
                 </div>
                 <div className="flex gap-2 justify-end relative z-10">
-                   <button onClick={() => updateGoal(goal.id, 500)} className="text-xs px-2 py-1 sm:px-3 sm:py-1.5 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors active:scale-95">+500</button>
-                   <button onClick={() => updateGoal(goal.id, 1000)} className="text-xs px-2 py-1 sm:px-3 sm:py-1.5 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors active:scale-95">+1k</button>
-                   <button onClick={() => updateGoal(goal.id, 5000)} className="text-xs px-2 py-1 sm:px-3 sm:py-1.5 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors active:scale-95">+5k</button>
+                   <button onClick={() => updateGoal(goal.id, 500)} className="text-xs px-3 py-1.5 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors active:scale-95 border border-green-200 dark:border-green-900">+500</button>
+                   <button onClick={() => updateGoal(goal.id, 1000)} className="text-xs px-3 py-1.5 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors active:scale-95 border border-green-200 dark:border-green-900">+1k</button>
+                   <button onClick={() => updateGoal(goal.id, 5000)} className="text-xs px-3 py-1.5 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors active:scale-95 border border-green-200 dark:border-green-900">+5k</button>
                 </div>
               </div>
             );
           })}
           {state.savingsGoals.length === 0 && (
-            <div className="text-center py-6 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 text-text-light text-sm">
+            <div className="text-center py-8 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 text-text-light text-sm">
+              <span className="text-2xl block mb-2">🏔️</span>
               No goals set. Start saving for that dream!
             </div>
           )}
@@ -248,47 +323,75 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
         
         <div className="flex gap-2 p-2 bg-background rounded-xl border border-gray-200 dark:border-gray-700">
           <input className="flex-1 p-2 bg-transparent text-sm focus:outline-none" placeholder="New Goal Name" value={goalForm.name} onChange={e => setGoalForm({...goalForm, name: e.target.value})} />
-          <input className="w-16 sm:w-20 p-2 bg-transparent text-sm border-l border-gray-200 dark:border-gray-700 focus:outline-none" type="number" placeholder="Target" value={goalForm.target} onChange={e => setGoalForm({...goalForm, target: e.target.value})} />
+          <input className="w-20 p-2 bg-transparent text-sm border-l border-gray-200 dark:border-gray-700 focus:outline-none text-center" type="number" placeholder="Target" value={goalForm.target} onChange={e => setGoalForm({...goalForm, target: e.target.value})} />
           <button onClick={handleAddGoal} className="bg-accent text-white w-10 h-10 rounded-lg flex items-center justify-center hover:bg-orange-600 transition-colors active:scale-90 shadow-md">
             <span>+</span>
           </button>
         </div>
       </div>
 
-      {/* Fixed Payments */}
-      <div className="bg-surface rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100 dark:border-gray-800 transition-shadow hover:shadow-md">
-        <h3 className="text-lg font-bold text-primary mb-3 sm:mb-4 flex items-center gap-2">
-           <span>📅</span> Fixed Monthly Payments
+      {/* Fixed Payments - IMPROVED LAYOUT */}
+      <div className="bg-surface rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-800 transition-all hover:shadow-md">
+        <h3 className="text-lg font-bold text-primary mb-4 flex items-center gap-2">
+           <span>📅</span> Fixed Payments
         </h3>
-        <div className="flex gap-2 mb-4 p-2 bg-background rounded-xl border border-gray-200 dark:border-gray-700">
-          <input className="flex-1 p-2 bg-transparent text-sm focus:outline-none" placeholder="Name" value={fixedPayForm.name} onChange={e => setFixedPayForm({...fixedPayForm, name: e.target.value})} />
-          <input className="w-14 sm:w-16 p-2 bg-transparent text-sm border-l border-gray-200 dark:border-gray-700 focus:outline-none" type="number" placeholder="Amt" value={fixedPayForm.amount} onChange={e => setFixedPayForm({...fixedPayForm, amount: e.target.value})} />
-          <input className="w-10 sm:w-12 p-2 bg-transparent text-sm border-l border-gray-200 dark:border-gray-700 focus:outline-none" type="number" placeholder="Day" max="31" value={fixedPayForm.day} onChange={e => setFixedPayForm({...fixedPayForm, day: e.target.value})} />
-          <button onClick={handleAddFixed} className="bg-secondary text-white w-10 h-10 rounded-lg flex items-center justify-center hover:bg-blue-600 transition-colors active:scale-90 shadow-md">
-             <span>+</span>
-          </button>
+        
+        {/* Grid-based Add Form */}
+        <div className="grid grid-cols-[1.5fr_1fr_0.8fr_auto] gap-2 mb-4">
+           <input 
+              className="bg-gray-50 dark:bg-gray-900/50 rounded-xl px-3 py-2 text-sm border-none focus:ring-2 focus:ring-primary/20 placeholder:text-gray-400"
+              placeholder="Name"
+              value={fixedPayForm.name}
+              onChange={e => setFixedPayForm({...fixedPayForm, name: e.target.value})}
+           />
+           <input 
+              type="number"
+              className="bg-gray-50 dark:bg-gray-900/50 rounded-xl px-3 py-2 text-sm border-none focus:ring-2 focus:ring-primary/20 placeholder:text-gray-400"
+              placeholder="₹ Amt"
+              value={fixedPayForm.amount}
+              onChange={e => setFixedPayForm({...fixedPayForm, amount: e.target.value})}
+           />
+           <input 
+              type="number"
+              max="31"
+              className="bg-gray-50 dark:bg-gray-900/50 rounded-xl px-3 py-2 text-sm border-none focus:ring-2 focus:ring-primary/20 text-center placeholder:text-gray-400"
+              placeholder="Day"
+              value={fixedPayForm.day}
+              onChange={e => setFixedPayForm({...fixedPayForm, day: e.target.value})}
+           />
+           <button onClick={handleAddFixed} className="bg-secondary text-white w-10 h-10 rounded-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shadow-sm">
+              +
+           </button>
         </div>
-        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+
+        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
            {state.fixedPayments.map(p => (
-             <div key={p.id} className="flex justify-between items-center text-sm p-3 bg-background rounded-lg border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition-colors group">
+             <div key={p.id} className="flex justify-between items-center text-sm p-3 bg-gray-50 dark:bg-gray-900/30 rounded-xl border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition-colors group">
                <div className="flex items-center gap-3">
-                 <span className="w-6 h-6 rounded-full bg-secondary/10 text-secondary flex items-center justify-center text-[10px] font-bold">{p.day}</span>
-                 <span>{p.name}</span>
+                 <div className="flex flex-col items-center justify-center bg-white dark:bg-gray-800 w-10 h-10 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
+                    <span className="text-[9px] text-text-light uppercase leading-none mt-0.5">Day</span>
+                    <span className="text-lg font-bold text-secondary leading-none">{p.day}</span>
+                 </div>
+                 <span className="font-bold text-text">{p.name}</span>
                </div>
-               <div className="flex items-center gap-2">
-                 <span className="font-bold">₹{p.amount}</span>
+               <div className="flex items-center gap-3">
+                 <span className="font-bold text-text">₹{p.amount}</span>
                  <button 
                    onClick={() => handleApplyFixedPayment(p.id)}
                    title="Add to Expenses"
-                   className="bg-primary/10 text-primary px-3 py-1 rounded-md text-xs font-medium hover:bg-primary hover:text-white transition-colors active:scale-95"
+                   className="w-8 h-8 flex items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors active:scale-95"
                  >
-                   Pay
+                   💸
                  </button>
-                 <button onClick={() => removeFixedPayment(p.id)} className="text-gray-300 hover:text-red-500 transition-colors p-1 opacity-0 group-hover:opacity-100">✕</button>
+                 <button onClick={() => removeFixedPayment(p.id)} className="text-gray-300 hover:text-red-500 transition-colors p-1">✕</button>
                </div>
              </div>
            ))}
-           {state.fixedPayments.length === 0 && <span className="text-text-light text-xs italic p-2 block text-center">No fixed payments added.</span>}
+           {state.fixedPayments.length === 0 && (
+             <div className="text-center py-6 text-text-light text-sm italic bg-gray-50 dark:bg-gray-900/20 rounded-xl border border-dashed border-gray-200 dark:border-gray-800">
+               No recurring payments set up.
+             </div>
+           )}
         </div>
       </div>
 

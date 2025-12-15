@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { AppState, Expense } from '../types';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { roastSpending } from '../services/geminiService';
 
 interface SummariesProps {
@@ -41,7 +41,9 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
 
   const filteredExpenses = useMemo(() => {
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // Normalize today to local YYYY-MM-DD to match storage
+    const offset = now.getTimezoneOffset() * 60000;
+    const todayStr = new Date(now.getTime() - offset).toISOString().split('T')[0];
     
     return state.expenses.filter(exp => {
       // Search Term
@@ -54,23 +56,18 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
         return false;
       }
 
-      // Date Filter - Only apply if NOT in calendar mode (calendar shows whole month based on its own logic if we want, or we can use this)
-      // Actually, for calendar view we want ALL expenses that match search/payment to be available, so we can place them on the grid.
+      // Date Filter
       if (viewMode === 'calendar') return true;
 
-      const expDate = new Date(exp.date);
-      const expDateOnly = new Date(expDate.getFullYear(), expDate.getMonth(), expDate.getDate());
-
       if (filterType === 'today') {
-        return expDateOnly.getTime() === today.getTime();
+        return exp.date === todayStr;
       } else if (filterType === 'week') {
-        const firstDay = new Date(now);
-        firstDay.setDate(now.getDate() - now.getDay()); // Sunday
-        const lastDay = new Date(firstDay);
-        lastDay.setDate(firstDay.getDate() + 6); // Saturday
-        return expDateOnly >= firstDay && expDateOnly <= lastDay;
+        const d = new Date(exp.date);
+        const diff = (now.getTime() - d.getTime()) / (1000 * 3600 * 24);
+        return diff <= 7 && diff >= 0;
       } else if (filterType === 'month') {
-        return expDateOnly.getMonth() === today.getMonth() && expDateOnly.getFullYear() === today.getFullYear();
+        const d = new Date(exp.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
       }
       return true;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -79,6 +76,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
   const stats = useMemo(() => {
     let p1 = 0, p2 = 0, shared = 0;
     const catMap: Record<string, number> = {};
+    const dailyMap: Record<string, number> = {};
 
     filteredExpenses.forEach(e => {
       if (e.person === 'Person1') p1 += e.amount;
@@ -86,19 +84,24 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
       else shared += e.amount;
 
       catMap[e.category] = (catMap[e.category] || 0) + e.amount;
+      
+      // Short date for bar chart
+      const day = new Date(e.date).toLocaleDateString(undefined, {weekday: 'short'});
+      dailyMap[day] = (dailyMap[day] || 0) + e.amount;
     });
 
     const total = p1 + p2 + shared;
     const p1Real = p1 + (shared / 2);
     const p2Real = p2 + (shared / 2);
 
-    const chartData = Object.keys(catMap).map(k => ({ name: k, value: catMap[k] }));
-    const personData = [
-      { name: state.settings.person1Name, value: p1Real },
-      { name: state.settings.person2Name, value: p2Real }
-    ];
+    const chartData = Object.keys(catMap)
+      .map(k => ({ name: k, value: catMap[k] }))
+      .sort((a,b) => b.value - a.value);
 
-    return { total, p1, p2, shared, p1Real, p2Real, chartData, personData };
+    // Last 7 entries for bar chart (just rough approximation for "Recent activity")
+    const barData = Object.keys(dailyMap).map(k => ({name: k, amount: dailyMap[k]})).slice(0, 7);
+
+    return { total, p1, p2, shared, p1Real, p2Real, chartData, barData };
   }, [filteredExpenses, state.settings]);
 
   // Calendar Helpers
@@ -216,34 +219,87 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
             </div>
           )}
 
-          {/* Charts */}
+          {/* Charts Section */}
           {stats.chartData.length > 0 && (
-            <div className="bg-surface rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-800">
-               <h4 className="text-sm font-bold text-text-light uppercase mb-4">Category Breakdown</h4>
-               <div className="h-64 w-full">
-                 <ResponsiveContainer width="100%" height="100%">
-                   <PieChart>
-                     <Pie
-                       data={stats.chartData}
-                       cx="50%"
-                       cy="50%"
-                       innerRadius={60}
-                       outerRadius={80}
-                       paddingAngle={5}
-                       dataKey="value"
-                     >
-                       {stats.chartData.map((entry, index) => (
-                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                       ))}
-                     </Pie>
-                     <Tooltip 
-                        contentStyle={{borderRadius: '10px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'}} 
-                        formatter={(value: number) => `₹${value}`}
-                     />
-                     <Legend verticalAlign="bottom" height={36} iconType="circle" />
-                   </PieChart>
-                 </ResponsiveContainer>
-               </div>
+            <div className="space-y-4">
+              
+              {/* Donut Chart */}
+              <div className="bg-surface rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-800">
+                 <h4 className="text-sm font-bold text-text-light uppercase mb-4">Expense Distribution</h4>
+                 <div className="h-64 w-full">
+                   <ResponsiveContainer width="100%" height="100%">
+                     <PieChart>
+                       <Pie
+                         data={stats.chartData}
+                         cx="50%"
+                         cy="50%"
+                         innerRadius={65}
+                         outerRadius={85}
+                         paddingAngle={3}
+                         dataKey="value"
+                         stroke="none"
+                       >
+                         {stats.chartData.map((entry, index) => (
+                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                         ))}
+                       </Pie>
+                       <Tooltip 
+                          contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 8px 16px rgba(0,0,0,0.1)', backgroundColor: 'var(--surface)', color: 'var(--text)'}} 
+                          formatter={(value: number) => `₹${value}`}
+                       />
+                       <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} />
+                     </PieChart>
+                   </ResponsiveContainer>
+                 </div>
+              </div>
+
+              {/* Breakdown Table */}
+              <div className="bg-surface rounded-xl shadow-sm overflow-hidden border border-gray-100 dark:border-gray-800">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-gray-50 dark:bg-gray-900/50 text-xs text-text-light uppercase">
+                    <tr>
+                      <th className="px-4 py-3 font-bold">Category</th>
+                      <th className="px-4 py-3 font-bold text-right">Amount</th>
+                      <th className="px-4 py-3 font-bold text-right">%</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {stats.chartData.map((item, idx) => {
+                      const percentage = ((item.value / stats.total) * 100).toFixed(1);
+                      return (
+                        <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                          <td className="px-4 py-3 flex items-center gap-2">
+                             <span className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: COLORS[idx % COLORS.length]}}></span>
+                             {item.name}
+                          </td>
+                          <td className="px-4 py-3 text-right font-medium">₹{item.value.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-right text-text-light text-xs">{percentage}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Bar Chart Trend */}
+              <div className="bg-surface rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-800">
+                <h4 className="text-sm font-bold text-text-light uppercase mb-4">Spending Activity</h4>
+                <div className="h-48 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={stats.barData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.1} />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#888'}} dy={10} />
+                      <YAxis hide />
+                      <Tooltip 
+                        cursor={{fill: 'rgba(0,0,0,0.05)'}}
+                        contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'}} 
+                      />
+                      <Bar dataKey="amount" fill="var(--secondary)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
             </div>
           )}
 
@@ -325,10 +381,11 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
              {getDaysInMonth(calendarMonth).map((date, idx) => {
                if (!date) return <div key={idx} className="aspect-square"></div>;
                
-               // Find data for this day
-               const dayStr = date.toISOString().split('T')[0];
+               // Fix: Match date strings correctly using local time logic
+               const offset = date.getTimezoneOffset() * 60000;
+               const dayStr = new Date(date.getTime() - offset).toISOString().split('T')[0];
                
-               // Use filteredExpenses instead of state.expenses so search works in calendar too!
+               // Use filteredExpenses so search works in calendar too
                const dailyTotal = filteredExpenses
                  .filter(e => e.date === dayStr)
                  .reduce((sum, e) => sum + e.amount, 0);

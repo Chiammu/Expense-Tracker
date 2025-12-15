@@ -10,8 +10,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeSection, setSection 
   const navItems: { id: Section; label: string; icon: string }[] = [
     { id: 'add-expense', label: 'Add', icon: '➕' },
     { id: 'summaries', label: 'Stats', icon: '📊' },
-    { id: 'partner-chat', label: 'Chat', icon: '💬' },
-    { id: 'overview', label: 'Plan', icon: '👫' },
+    { id: 'investments', label: 'Invest', icon: '📈' }, // New Tab
+    { id: 'overview', label: 'Plan', icon: '📅' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ];
 
