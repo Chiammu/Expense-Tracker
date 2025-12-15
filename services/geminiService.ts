@@ -95,6 +95,61 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
 // NEW FEATURES
 // ------------------------------------------------------------------
 
+export const getLatestMetalRates = async (): Promise<{gold: number, silver: number, source?: string}> => {
+  try {
+    const ai = getAI();
+    // Using Search Grounding to get real rates
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: "Find the current price of 24k Gold (per gram) and Silver (per gram) in India today in INR. Extract just the numbers. Output JSON format: { \"gold\": number, \"silver\": number }.",
+      config: {
+        tools: [{googleSearch: {}}],
+        // Note: responseMimeType JSON is not supported with search tools in some versions, 
+        // but we'll try to parse the text output manually if needed.
+      }
+    });
+    
+    const text = response.text || "";
+    // Clean up potential markdown code blocks
+    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    // Attempt parsing
+    try {
+      const start = cleanText.indexOf('{');
+      const end = cleanText.lastIndexOf('}') + 1;
+      if (start !== -1 && end !== -1) {
+        const jsonStr = cleanText.slice(start, end);
+        const data = JSON.parse(jsonStr);
+        return {
+          gold: Number(data.gold) || 7200, 
+          silver: Number(data.silver) || 90,
+          source: 'Live (Google Search)'
+        };
+      }
+    } catch (e) {
+      console.error("Failed to parse metal rates JSON", e);
+    }
+    
+    // Fallback if parsing fails but text exists (regex extraction)
+    const goldMatch = text.match(/gold.*?(\d[\d,]+\.?\d*)/i);
+    const silverMatch = text.match(/silver.*?(\d[\d,]+\.?\d*)/i);
+    
+    if (goldMatch) {
+       return {
+         gold: parseFloat(goldMatch[1].replace(/,/g, '')),
+         silver: silverMatch ? parseFloat(silverMatch[1].replace(/,/g, '')) : 90,
+         source: 'Live (Extracted)'
+       };
+    }
+
+    return { gold: 7300, silver: 92, source: 'Mock (Fallback)' };
+
+  } catch (error) {
+    console.error("Metal Rate Fetch Error", error);
+    return { gold: 7300, silver: 92, source: 'Offline' };
+  }
+};
+
 export const analyzeLoanStrategy = async (loans: Loan[], surplus: number, person1: string, person2: string): Promise<string> => {
   try {
     const ai = getAI();
@@ -125,7 +180,6 @@ export const analyzeLoanStrategy = async (loans: Loan[], surplus: number, person
 };
 
 export const suggestSmartBudget = async (state: AppState): Promise<{totalBudget: number, categoryBudgets: Record<string, number>}> => {
-    // Deprecated functionality, kept stub for type safety if imported elsewhere, but logic removed per request.
     return {totalBudget: 0, categoryBudgets: {}};
 };
 
@@ -151,7 +205,6 @@ export const roastSpending = async (state: AppState): Promise<string> => {
     
     return response.text || "You guys are spending so boringly I can't even roast you.";
   } catch (error) {
-    // Return the friendly error message directly as the roast text
     return handleGeminiError(error);
   }
 };
@@ -159,7 +212,6 @@ export const roastSpending = async (state: AppState): Promise<string> => {
 export const parseReceiptImage = async (base64Image: string): Promise<Partial<Expense>> => {
   try {
     const ai = getAI();
-    // Remove data URL prefix if present for API
     const base64Data = base64Image.split(',')[1] || base64Image;
 
     const response = await ai.models.generateContent({
@@ -236,8 +288,6 @@ export const parseNaturalLanguageExpense = async (text: string, person1Name: str
 export const chatWithFinances = async (history: {role: string, content: string}[], userMessage: string, state: AppState): Promise<string> => {
   try {
     const ai = getAI();
-    
-    // Provide context
     const context = `
       Context:
       Current Date: ${new Date().toLocaleDateString()}
@@ -246,7 +296,6 @@ export const chatWithFinances = async (history: {role: string, content: string}[
       Names: ${state.settings.person1Name}, ${state.settings.person2Name}
     `;
 
-    // Simple one-shot chat for now to keep it stateless in service
     const prompt = `
       ${context}
       
