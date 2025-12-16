@@ -128,6 +128,23 @@ function App() {
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
+  // 2. APPLY THEME & COLORS (Fix for Look & Feel)
+  useEffect(() => {
+    if (!loaded) return;
+
+    // Apply Dark/Light Mode
+    if (state.settings.theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+
+    // Apply Primary Color
+    if (state.settings.primaryColor) {
+      document.documentElement.style.setProperty('--primary', state.settings.primaryColor);
+    }
+  }, [state.settings.theme, state.settings.primaryColor, loaded]);
+
   // Handle Recurring Confirmation
   const handleRecurringConfirm = (selectedIds: number[]) => {
     const toAdd = duePayments.filter(p => selectedIds.includes(p.id));
@@ -171,7 +188,7 @@ function App() {
     setShowRecurringModal(false);
   };
 
-  // 2. Handle "Join Session" (Sync ID changes after load)
+  // 3. Handle "Join Session" (Sync ID changes after load)
   useEffect(() => {
     if (!loaded) return;
 
@@ -202,7 +219,7 @@ function App() {
     prevSyncIdRef.current = currentSyncId;
   }, [state.settings.syncId, loaded]);
 
-  // 3. Subscribe to Realtime Changes (Stable Subscription)
+  // 4. Subscribe to Realtime Changes (Stable Subscription)
   useEffect(() => {
     if (!loaded || !state.settings.syncId) return;
 

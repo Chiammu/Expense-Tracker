@@ -20,6 +20,21 @@ interface SettingsProps {
 
 const COLORS = ['#e91e63', '#f44336', '#ff6f00', '#ffc107', '#4caf50', '#2196f3', '#9c27b0', '#673ab7', '#3f51b5', '#00bcd4', '#009688', '#8bc34a'];
 
+// Robust UUID Generator
+const generateUUID = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    try {
+      return crypto.randomUUID();
+    } catch (e) {
+      console.warn("crypto.randomUUID failed, using fallback");
+    }
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, resetData, importData, showToast, installApp, canInstall, isIos, isStandalone }) => {
   const [newCatName, setNewCatName] = useState('');
   const [newCatIcon, setNewCatIcon] = useState('📦');
@@ -34,9 +49,13 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
 
   useEffect(() => {
     if (state.settings.syncId) {
-      QRCode.toDataURL(state.settings.syncId)
-        .then((url: string) => setQrUrl(url))
-        .catch((err: any) => console.error(err));
+      try {
+        QRCode.toDataURL(state.settings.syncId)
+          .then((url: string) => setQrUrl(url))
+          .catch((err: any) => console.error("QR Gen Error:", err));
+      } catch (e) {
+        console.error("QR Module Error:", e);
+      }
     } else {
       setQrUrl('');
     }
@@ -45,26 +64,34 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
   useEffect(() => {
     let stream: MediaStream | null = null;
     let animationFrameId: number;
+    let isActive = true;
 
     const startScan = async () => {
       if (isScanning && videoRef.current) {
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-          if (videoRef.current) {
+          // Attempt to get camera
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "environment" } 
+          });
+          
+          if (isActive && videoRef.current) {
             videoRef.current.srcObject = stream;
+            // Required for iOS
             videoRef.current.setAttribute("playsinline", "true"); 
-            videoRef.current.play();
+            await videoRef.current.play().catch(e => console.error("Video play error:", e));
             requestAnimationFrame(tick);
           }
         } catch (err) {
           console.error("Error accessing camera", err);
-          showToast("Camera access denied", 'error');
-          setIsScanning(false);
+          showToast("Camera access denied or unavailable", 'error');
+          if (isActive) setIsScanning(false);
         }
       }
     };
 
     const tick = () => {
+      if (!isActive) return;
+      
       if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA && canvasRef.current) {
         const canvas = canvasRef.current;
         const video = videoRef.current;
@@ -96,10 +123,11 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
     }
 
     return () => {
+      isActive = false;
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
-      cancelAnimationFrame(animationFrameId);
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
   }, [isScanning]);
 
@@ -156,7 +184,8 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
   };
 
   const generateSyncCode = () => {
-    updateSettings({ syncId: crypto.randomUUID() });
+    const code = generateUUID();
+    updateSettings({ syncId: code });
     showToast("Code generated!", 'success');
   };
 
@@ -193,11 +222,11 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
                  </div>
                  <div className="text-center">
                     <p className="text-sm font-medium text-green-500 mb-1">● Synced Active</p>
-                    <p className="text-xs text-text-light font-mono cursor-pointer hover:text-primary" onClick={() => {navigator.clipboard.writeText(state.settings.syncId!); showToast("Copied");}}>
-                      {state.settings.syncId.slice(0, 8)}...
+                    <p className="text-xs text-text-light font-mono cursor-pointer hover:text-primary break-all" onClick={() => {navigator.clipboard.writeText(state.settings.syncId!); showToast("Copied");}}>
+                      {state.settings.syncId}
                     </p>
                  </div>
-                 <button onClick={() => { if(confirm("Unlink device?")) updateSettings({syncId: null}); }} className="text-xs text-red-500 font-bold px-4 py-2 bg-red-50 dark:bg-red-900/10 rounded-full hover:bg-red-100 transition-colors">
+                 <button type="button" onClick={() => { if(confirm("Unlink device?")) updateSettings({syncId: null}); }} className="text-xs text-red-500 font-bold px-4 py-2 bg-red-50 dark:bg-red-900/10 rounded-full hover:bg-red-100 transition-colors">
                    Disconnect
                  </button>
               </div>
@@ -206,20 +235,25 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
                  <p className="text-sm text-text-light text-center">Scan to link with your partner.</p>
                  {isScanning ? (
                     <div className="relative rounded-xl overflow-hidden bg-black aspect-video shadow-lg">
-                       <video ref={videoRef} className="w-full h-full object-cover"></video>
+                       <video ref={videoRef} className="w-full h-full object-cover" playsInline muted autoPlay></video>
                        <canvas ref={canvasRef} className="hidden"></canvas>
-                       <button onClick={() => setIsScanning(false)} className="absolute top-3 right-3 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md">✕</button>
+                       <button type="button" onClick={() => setIsScanning(false)} className="absolute top-3 right-3 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md z-10">✕</button>
                     </div>
                  ) : (
                     <div className="grid grid-cols-2 gap-3">
-                       <button onClick={() => setIsScanning(true)} className="py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all">Scan QR</button>
-                       <button onClick={generateSyncCode} className="py-3 bg-white dark:bg-gray-800 text-text font-bold rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 active:scale-95 transition-all">Show Code</button>
+                       <button type="button" onClick={() => setIsScanning(true)} className="py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all">Scan QR</button>
+                       <button type="button" onClick={generateSyncCode} className="py-3 bg-white dark:bg-gray-800 text-text font-bold rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 active:scale-95 transition-all">Show Code</button>
                     </div>
                  )}
                  {!isScanning && (
                    <div className="flex flex-row gap-2 items-center">
-                     <input value={syncCodeInput} onChange={e => setSyncCodeInput(e.target.value)} placeholder="Paste code..." className="flex-1 min-w-0 bg-white dark:bg-gray-800 p-3 rounded-xl text-sm border-none focus:ring-2 focus:ring-primary/20 outline-none" />
-                     <button onClick={joinSyncSession} disabled={syncCodeInput.length < 5} className="shrink-0 bg-gray-200 dark:bg-gray-700 px-4 py-3 rounded-xl font-bold text-sm disabled:opacity-50 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">→</button>
+                     <input 
+                       value={syncCodeInput} 
+                       onChange={e => setSyncCodeInput(e.target.value)} 
+                       placeholder="Paste code..." 
+                       className="flex-1 min-w-0 bg-white dark:bg-gray-800 p-3 rounded-xl text-sm border-none focus:ring-2 focus:ring-primary/20 outline-none" 
+                     />
+                     <button type="button" onClick={joinSyncSession} disabled={syncCodeInput.length < 5} className="shrink-0 bg-gray-200 dark:bg-gray-700 px-4 py-3 rounded-xl font-bold text-sm disabled:opacity-50 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">→</button>
                    </div>
                  )}
               </div>
@@ -333,7 +367,7 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
       )}
 
       <div className="text-center text-[10px] text-gray-300 pt-4">
-         v1.2.0 • Safe & Secure • Local-First
+         v1.2.1 • Safe & Secure • Local-First
       </div>
     </div>
   );
