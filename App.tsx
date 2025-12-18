@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { loadFromStorage, saveToStorage, fetchCloudState, subscribeToChanges, forceCloudSync, mergeAppState } from './services/storage';
 import { AppState, INITIAL_STATE, Section, Expense, FixedPayment } from './types';
@@ -12,38 +13,44 @@ import { LockScreen } from './components/LockScreen';
 import { ChatAssistant } from './components/ChatAssistant';
 import { Toast } from './components/Toast';
 import { RecurringModal } from './components/RecurringModal';
+import { Auth } from './components/Auth';
+import { supabase } from './services/supabaseClient';
 
 function App() {
+  const [session, setSession] = useState<any>(null);
   const [activeSection, setActiveSection] = useState<Section>('add-expense');
   const [state, setState] = useState<AppState>(INITIAL_STATE);
   const [loaded, setLoaded] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [showChat, setShowChat] = useState(false);
   
-  // Recurring Payment Modal State
   const [duePayments, setDuePayments] = useState<FixedPayment[]>([]);
   const [showRecurringModal, setShowRecurringModal] = useState(false);
-
-  // Edit State
   const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
-
-  // Track previous sync ID to detect changes
   const prevSyncIdRef = useRef<string | null>(null);
-  
-  // Track source of update to prevent echo loops
   const lastUpdateWasRemote = useRef(false);
-  
-  // PWA Install State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isIos, setIsIos] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
-
-  // Toast State
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
   };
+
+  // 0. Auth Session Management
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // 1. Initial Load & Recurring Check
   useEffect(() => {
@@ -51,14 +58,11 @@ function App() {
       const localData = loadFromStorage();
       let currentState = localData;
       
-      // If we have a Sync ID on startup, fetch latest cloud data
       if (localData.settings.syncId) {
         try {
           const cloudData = await fetchCloudState(localData.settings.syncId);
           if (cloudData) {
-            // Merge cloud data with local data on startup to catch anything missed
             currentState = mergeAppState(localData, cloudData);
-            console.log("Loaded and merged cloud data on mount");
           }
         } catch (e) {
           console.error("Cloud fetch failed on mount", e);
@@ -73,23 +77,18 @@ function App() {
         setIsLocked(true);
       }
 
-      // CHECK RECURRING PAYMENTS
+      // Check recurring
       if (currentState.fixedPayments.length > 0) {
         const lastCheck = currentState.settings.lastFixedPaymentCheck 
           ? new Date(currentState.settings.lastFixedPaymentCheck) 
           : new Date();
-        
         const now = new Date();
         const due: FixedPayment[] = [];
-
         const todayDay = now.getDate();
         const lastDay = lastCheck.getDate();
-        
-        // Handle Month Wrap: If month changed, check from lastDay to end of month, then 1 to today
         const monthDiff = (now.getFullYear() - lastCheck.getFullYear()) * 12 + (now.getMonth() - lastCheck.getMonth());
 
         if (monthDiff === 0) {
-           // Same month
            currentState.fixedPayments.forEach(p => {
              if (p.day > lastDay && p.day <= todayDay) due.push(p);
            });
@@ -103,7 +102,6 @@ function App() {
            setDuePayments(due);
            setShowRecurringModal(true);
         } else {
-           // Update check time even if nothing found
            setState(prev => ({ 
              ...prev, 
              settings: { ...prev.settings, lastFixedPaymentCheck: new Date().toISOString() } 
@@ -128,31 +126,26 @@ function App() {
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
-  // 2. APPLY THEME & COLORS (Fix for Look & Feel)
+  // 2. Theme & Colors
   useEffect(() => {
     if (!loaded) return;
-
-    // Apply Dark/Light Mode
     if (state.settings.theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-
-    // Apply Primary Color
     if (state.settings.primaryColor) {
       document.documentElement.style.setProperty('--primary', state.settings.primaryColor);
     }
   }, [state.settings.theme, state.settings.primaryColor, loaded]);
 
-  // Handle Recurring Confirmation
+  // Handlers
   const handleRecurringConfirm = (selectedIds: number[]) => {
     const toAdd = duePayments.filter(p => selectedIds.includes(p.id));
-    
     if (toAdd.length > 0) {
       const newExpenses = toAdd.map(p => ({
         id: Date.now() + Math.random(),
-        date: new Date().toISOString().split('T')[0], // Use generic Date logic here, safe for recurring
+        date: new Date().toISOString().split('T')[0],
         amount: p.amount,
         category: 'Bills',
         person: 'Both',
@@ -166,7 +159,6 @@ function App() {
           expenses: [...prev.expenses, ...newExpenses],
           settings: { ...prev.settings, lastFixedPaymentCheck: new Date().toISOString() }
         };
-        // Important: Force sync for critical updates
         forceCloudSync(next);
         return next;
       });
@@ -188,14 +180,10 @@ function App() {
     setShowRecurringModal(false);
   };
 
-  // 3. Handle "Join Session" (Sync ID changes after load)
   useEffect(() => {
     if (!loaded) return;
-
     const currentSyncId = state.settings.syncId;
     const prevSyncId = prevSyncIdRef.current;
-
-    // If Sync ID changed (and isn't null), fetch data immediately
     if (currentSyncId && currentSyncId !== prevSyncId) {
       const performSync = async () => {
         showToast("Syncing with partner...", 'info');
@@ -205,9 +193,6 @@ function App() {
             lastUpdateWasRemote.current = true;
             setState(prev => mergeAppState(prev, cloudData));
             showToast("Connected! Data synced.", 'success');
-          } else {
-            // New session, data will be uploaded by the saveToStorage effect
-            showToast("Connected to new session.", 'success');
           }
         } catch (e) {
           showToast("Could not sync data", 'error');
@@ -215,45 +200,34 @@ function App() {
       };
       performSync();
     }
-
     prevSyncIdRef.current = currentSyncId;
   }, [state.settings.syncId, loaded]);
 
-  // 4. Subscribe to Realtime Changes (Stable Subscription)
   useEffect(() => {
     if (!loaded || !state.settings.syncId) return;
-
     const unsubscribe = subscribeToChanges(state.settings.syncId, (incomingState) => {
-      // Merge incoming state with current state instead of overwriting
       lastUpdateWasRemote.current = true;
       setState(current => mergeAppState(current, incomingState));
     });
-
-    return () => {
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, [loaded, state.settings.syncId]);
 
-  // 5. Save to Storage (Local + Cloud)
   useEffect(() => {
     if (loaded) {
       if (lastUpdateWasRemote.current) {
-        // If the update came from remote, only save to local storage, DO NOT push back to cloud
         saveToStorage(state, 'remote');
         lastUpdateWasRemote.current = false;
       } else {
-        // Local change: Save to local and push to cloud (debounced)
         saveToStorage(state, 'local');
       }
     }
   }, [state, loaded]);
 
-  // Actions
   const addExpense = (expense: Omit<Expense, 'id'>) => {
     const newExpense: Expense = { ...expense, id: Date.now() };
     setState(prev => {
         const next = { ...prev, expenses: [...prev.expenses, newExpense] };
-        forceCloudSync(next); // Force sync
+        forceCloudSync(next);
         return next;
     });
     showToast("Expense added successfully!", 'success');
@@ -270,7 +244,7 @@ function App() {
         ...prev,
         expenses: prev.expenses.map(e => e.id === updatedExpense.id ? updatedExpense : e)
       };
-      forceCloudSync(next); // Force sync
+      forceCloudSync(next);
       return next;
     });
     setExpenseToEdit(null);
@@ -278,15 +252,13 @@ function App() {
     setActiveSection('summaries'); 
   };
 
-  const cancelEdit = () => {
-    setExpenseToEdit(null);
-  };
+  const cancelEdit = () => setExpenseToEdit(null);
 
   const deleteExpense = (id: number) => {
     if (window.confirm("Delete this expense?")) {
       setState(prev => {
           const next = { ...prev, expenses: prev.expenses.filter(e => e.id !== id) };
-          forceCloudSync(next); // Force sync
+          forceCloudSync(next);
           return next;
       });
       showToast("Expense deleted", 'info');
@@ -297,14 +269,9 @@ function App() {
     setState(prev => ({ ...prev, settings: { ...prev.settings, ...newSettings } }));
   };
 
-  const updateBudget = (budget: number) => {
-    setState(prev => ({ ...prev, monthlyBudget: budget }));
-  };
-
-  const updateIncome = (p1: number, p2: number) => {
-    setState(prev => ({ ...prev, incomePerson1: p1, incomePerson2: p2 }));
-  };
-
+  const updateBudget = (budget: number) => setState(prev => ({ ...prev, monthlyBudget: budget }));
+  const updateIncome = (p1: number, p2: number) => setState(prev => ({ ...prev, incomePerson1: p1, incomePerson2: p2 }));
+  
   const addFixedPayment = (name: string, amount: number, day: number) => {
     setState(prev => {
         const next = {
@@ -348,7 +315,7 @@ function App() {
             chatMessages: imported.chatMessages || [],
         };
         setState(newState);
-        forceCloudSync(newState); // Import is a major change, sync immediately
+        forceCloudSync(newState);
         showToast("Data imported successfully!", 'success');
       } catch (err) {
         showToast("Invalid backup file.", 'error');
@@ -377,6 +344,17 @@ function App() {
     </div>
   );
 
+  // AUTH GUARD
+  if (!session) {
+    return (
+      <>
+        <Auth onAuthSuccess={() => {}} showToast={showToast} />
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      </>
+    );
+  }
+
+  // PIN GUARD
   if (isLocked && state.settings.pin) {
     return <LockScreen pin={state.settings.pin} onUnlock={() => setIsLocked(false)} />;
   }
@@ -390,24 +368,12 @@ function App() {
           onCancel={handleRecurringCancel} 
         />
       )}
-
-      {showChat && (
-        <ChatAssistant state={state} onClose={() => setShowChat(false)} />
-      )}
-      
-      {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={() => setToast(null)} 
-        />
-      )}
+      {showChat && <ChatAssistant state={state} onClose={() => setShowChat(false)} />}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <div className="min-h-screen bg-background text-text transition-colors duration-300">
         <div className="max-w-3xl mx-auto px-3 sm:px-6 lg:px-8 pt-2 sm:pt-4">
-          
           <Header settings={state.settings} />
-          
           <main className="relative pb-24">
             <div key={activeSection} className="animate-slide-up">
               {activeSection === 'add-expense' && (
@@ -422,22 +388,12 @@ function App() {
                 />
               )}
               {activeSection === 'summaries' && (
-                <Summaries 
-                  state={state} 
-                  deleteExpense={deleteExpense} 
-                  editExpense={editExpense}
-                />
+                <Summaries state={state} deleteExpense={deleteExpense} editExpense={editExpense} />
               )}
               {activeSection === 'investments' && (
                 <Investments 
                   state={state} 
-                  updateState={updates => setState(prev => {
-                      const next = { ...prev, ...updates };
-                      // Investments might be frequent (typing), rely on effect debounce usually, 
-                      // but if it's a critical update we can force. 
-                      // For inputs, setState is fine.
-                      return next;
-                  })}
+                  updateState={updates => setState(prev => ({ ...prev, ...updates }))}
                   showToast={showToast}
                 />
               )}
@@ -466,28 +422,21 @@ function App() {
               )}
             </div>
           </main>
-
           <BottomNav activeSection={activeSection} setSection={setActiveSection} />
-          
-          {/* Ask AI Button */}
           <button 
             onClick={() => setShowChat(true)}
-            className="fixed bottom-24 right-4 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-tr from-primary to-purple-600 text-white rounded-full shadow-lg shadow-primary/30 flex items-center justify-center text-xl sm:text-2xl z-40 hover:scale-110 active:scale-90 transition-all duration-300 animate-scale-in"
-            title="Ask AI"
+            className="fixed bottom-24 right-4 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-tr from-primary to-purple-600 text-white rounded-full shadow-lg flex items-center justify-center text-xl z-40 hover:scale-110 transition-all"
           >
             🤖
           </button>
-          
-          {/* Add Expense Button - Hidden in Add Expense */}
           {activeSection !== 'add-expense' && (
             <button 
               onClick={() => setActiveSection('add-expense')}
-              className="fixed bottom-24 left-4 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-tr from-secondary to-cyan-500 text-white rounded-full shadow-lg shadow-secondary/30 flex items-center justify-center text-xl sm:text-2xl z-40 sm:hidden hover:scale-110 active:scale-90 transition-all duration-300 animate-scale-in"
+              className="fixed bottom-24 left-4 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-tr from-secondary to-cyan-500 text-white rounded-full shadow-lg flex items-center justify-center text-xl z-40 sm:hidden hover:scale-110 transition-all"
             >
               ➕
             </button>
           )}
-
         </div>
       </div>
     </>
