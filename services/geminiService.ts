@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { AppState, Expense, Loan } from "../types";
 
@@ -79,8 +80,9 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
       - Do NOT use markdown formatting like bold or headers, just plain text with emojis and newlines.
     `;
 
+    // Updated model to 'gemini-3-flash-preview' for basic text tasks
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
 
@@ -98,14 +100,12 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
 export const getLatestMetalRates = async (): Promise<{gold: number, silver: number, source?: string}> => {
   try {
     const ai = getAI();
-    // Using Search Grounding to get real rates
+    // Using Search Grounding to get real rates with recommended model
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: "Find the current price of 24k Gold (per gram) and Silver (per gram) in India today in INR. Extract just the numbers. Output JSON format: { \"gold\": number, \"silver\": number }.",
       config: {
         tools: [{googleSearch: {}}],
-        // Note: responseMimeType JSON is not supported with search tools in some versions, 
-        // but we'll try to parse the text output manually if needed.
       }
     });
     
@@ -168,8 +168,9 @@ export const analyzeLoanStrategy = async (loans: Loan[], surplus: number, person
       Do not use markdown bolding.
     `;
 
+    // Updated model to 'gemini-3-flash-preview' for text reasoning
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
 
@@ -198,8 +199,9 @@ export const roastSpending = async (state: AppState): Promise<string> => {
       Names: ${state.settings.person1Name} & ${state.settings.person2Name}.
     `;
 
+    // Updated model to 'gemini-3-flash-preview' for basic text tasks
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
     
@@ -214,8 +216,9 @@ export const parseReceiptImage = async (base64Image: string): Promise<Partial<Ex
     const ai = getAI();
     const base64Data = base64Image.split(',')[1] || base64Image;
 
+    // Updated model to 'gemini-3-flash-preview' for multimodal tasks
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
@@ -259,8 +262,9 @@ export const parseNaturalLanguageExpense = async (text: string, person1Name: str
       Categories: Groceries, Rent, Bills, EMIs, Shopping, Travel, Food, Entertainment, Medical, Education, Investments, Others.
     `;
 
+    // Updated model to 'gemini-3-flash-preview' for JSON output extraction
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -304,8 +308,9 @@ export const chatWithFinances = async (history: {role: string, content: string}[
       Answer as a helpful financial assistant. Keep it brief.
     `;
 
+    // Updated model to 'gemini-3-flash-preview' for conversational tasks
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
 

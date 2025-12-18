@@ -18,6 +18,7 @@ import { supabase } from './services/supabaseClient';
 
 function App() {
   const [session, setSession] = useState<any>(null);
+  const [authInitialized, setAuthInitialized] = useState(false);
   const [activeSection, setActiveSection] = useState<Section>('add-expense');
   const [state, setState] = useState<AppState>(INITIAL_STATE);
   const [loaded, setLoaded] = useState(false);
@@ -40,20 +41,38 @@ function App() {
 
   // 0. Auth Session Management
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase) {
+      setAuthInitialized(true);
+      return;
+    }
+    
+    // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      setAuthInitialized(true);
+    }).catch(() => {
+      setAuthInitialized(true);
     });
 
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      // If user logs out, clear the local app state
+      if (!session) {
+        setState(INITIAL_STATE);
+        prevSyncIdRef.current = null;
+        setLoaded(false);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // 1. Initial Load & Recurring Check
+  // 1. Initial Data Load & Recurring Check
   useEffect(() => {
+    // Only proceed to load data if we have an active session
+    if (!session || !authInitialized) return;
+
     const init = async () => {
       const localData = loadFromStorage();
       let currentState = localData;
@@ -77,7 +96,7 @@ function App() {
         setIsLocked(true);
       }
 
-      // Check recurring
+      // Check recurring payments
       if (currentState.fixedPayments.length > 0) {
         const lastCheck = currentState.settings.lastFixedPaymentCheck 
           ? new Date(currentState.settings.lastFixedPaymentCheck) 
@@ -111,8 +130,10 @@ function App() {
     };
 
     init();
+  }, [session, authInitialized]);
 
-    // PWA Check
+  // PWA & Platform Checks
+  useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -139,7 +160,6 @@ function App() {
     }
   }, [state.settings.theme, state.settings.primaryColor, loaded]);
 
-  // Handlers
   const handleRecurringConfirm = (selectedIds: number[]) => {
     const toAdd = duePayments.filter(p => selectedIds.includes(p.id));
     if (toAdd.length > 0) {
@@ -335,16 +355,19 @@ function App() {
     });
   };
 
-  if (!loaded) return (
-    <div className="flex h-screen items-center justify-center bg-background">
-      <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-        <div className="text-primary font-medium animate-pulse">Loading Finances...</div>
+  // 1. Initial Loader (Waiting for Auth)
+  if (!authInitialized) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <div className="text-primary font-medium animate-pulse">Checking Session...</div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
-  // AUTH GUARD
+  // 2. Auth Guard (No user found)
   if (!session) {
     return (
       <>
@@ -354,11 +377,24 @@ function App() {
     );
   }
 
-  // PIN GUARD
+  // 3. Data Loader (Waiting for state initialization after login)
+  if (!loaded) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <div className="text-primary font-medium animate-pulse">Loading Finances...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. PIN Guard
   if (isLocked && state.settings.pin) {
     return <LockScreen pin={state.settings.pin} onUnlock={() => setIsLocked(false)} />;
   }
 
+  // 5. Main App
   return (
     <>
       {showRecurringModal && (

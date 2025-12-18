@@ -4,7 +4,13 @@ import { supabase } from './supabaseClient';
 export const authService = {
   signUp: async (email: string, pass: string) => {
     if (!supabase) throw new Error("Supabase not configured");
-    return await supabase.auth.signUp({ email, password: pass });
+    return await supabase.auth.signUp({ 
+      email, 
+      password: pass,
+      options: {
+        emailRedirectTo: window.location.origin,
+      }
+    });
   },
 
   signIn: async (email: string, pass: string) => {
@@ -17,13 +23,17 @@ export const authService = {
     return await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin
+        redirectTo: window.location.origin,
+        queryParams: {
+          prompt: 'select_account'
+        }
       }
     });
   },
 
   signInWithPhone: async (phone: string) => {
     if (!supabase) throw new Error("Supabase not configured");
+    // Phone must be in E.164 format (+[country code][number])
     return await supabase.auth.signInWithOtp({ phone });
   },
 
