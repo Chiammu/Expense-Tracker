@@ -7,18 +7,13 @@ const formatCurrency = (amount: number) => {
   return '₹' + amount.toFixed(2);
 };
 
+// Fix: Strictly follow initialization guidelines by using process.env.API_KEY directly in the GoogleGenAI constructor.
 const getAI = () => {
-  // The key is injected by Vite at build time via vite.config.ts
-  const apiKey = process.env.API_KEY;
-  
-  // Debug log (Safe: only logs length or start)
-  console.log("Gemini Service Init. Key present:", !!apiKey, "Length:", apiKey?.length);
-
-  if (!apiKey) {
+  if (!process.env.API_KEY) {
     console.error("CRITICAL ERROR: API Key is missing in the build.");
-    throw new Error("API Key is missing. Please check Vercel Environment Variables (GEMINI_API_KEY) and redeploy.");
+    throw new Error("API Key is missing. Please check Environment Variables and redeploy.");
   }
-  return new GoogleGenAI({ apiKey });
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 // Error Helper
@@ -80,12 +75,13 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
       - Do NOT use markdown formatting like bold or headers, just plain text with emojis and newlines.
     `;
 
-    // Updated model to 'gemini-3-flash-preview' for basic text tasks
+    // Always use ai.models.generateContent to query GenAI with both the model name and prompt.
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
     });
 
+    // The GenerateContentResponse object features a text property that directly returns the string output.
     return response.text || "No insights generated.";
 
   } catch (error: any) {
@@ -100,7 +96,8 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
 export const getLatestMetalRates = async (): Promise<{gold: number, silver: number, source?: string}> => {
   try {
     const ai = getAI();
-    // Using Search Grounding to get real rates with recommended model
+    // Using Search Grounding to get real rates with recommended model. 
+    // googleSearch tool is permitted with Gemini models for recent info.
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: "Find the current price of 24k Gold (per gram) and Silver (per gram) in India today in INR. Extract just the numbers. Output JSON format: { \"gold\": number, \"silver\": number }.",
@@ -168,7 +165,7 @@ export const analyzeLoanStrategy = async (loans: Loan[], surplus: number, person
       Do not use markdown bolding.
     `;
 
-    // Updated model to 'gemini-3-flash-preview' for text reasoning
+    // Use gemini-3-flash-preview for simple text tasks
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
@@ -199,7 +196,6 @@ export const roastSpending = async (state: AppState): Promise<string> => {
       Names: ${state.settings.person1Name} & ${state.settings.person2Name}.
     `;
 
-    // Updated model to 'gemini-3-flash-preview' for basic text tasks
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
@@ -216,7 +212,7 @@ export const parseReceiptImage = async (base64Image: string): Promise<Partial<Ex
     const ai = getAI();
     const base64Data = base64Image.split(',')[1] || base64Image;
 
-    // Updated model to 'gemini-3-flash-preview' for multimodal tasks
+    // multimodal task using gemini-3-flash-preview
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
@@ -262,7 +258,6 @@ export const parseNaturalLanguageExpense = async (text: string, person1Name: str
       Categories: Groceries, Rent, Bills, EMIs, Shopping, Travel, Food, Entertainment, Medical, Education, Investments, Others.
     `;
 
-    // Updated model to 'gemini-3-flash-preview' for JSON output extraction
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
@@ -308,7 +303,6 @@ export const chatWithFinances = async (history: {role: string, content: string}[
       Answer as a helpful financial assistant. Keep it brief.
     `;
 
-    // Updated model to 'gemini-3-flash-preview' for conversational tasks
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,

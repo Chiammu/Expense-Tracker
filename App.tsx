@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { loadFromStorage, saveToStorage, fetchCloudState, subscribeToChanges, forceCloudSync, mergeAppState } from './services/storage';
-import { AppState, INITIAL_STATE, Section, Expense, FixedPayment } from './types';
+import { AppState, INITIAL_STATE, Section, Expense, FixedPayment, DEFAULT_CATEGORIES } from './types';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { AddExpense } from './components/AddExpense';
@@ -16,8 +16,52 @@ import { RecurringModal } from './components/RecurringModal';
 import { Auth } from './components/Auth';
 import { supabase } from './services/supabaseClient';
 
+const generateMockData = (): AppState => {
+  const categories = DEFAULT_CATEGORIES;
+  const persons = ['Person1', 'Person2', 'Both'];
+  const modes = ['UPI', 'Card', 'Cash', 'Netbanking'];
+  const notes = ['Lunch at cafe', 'Weekly groceries', 'Netflix sub', 'Airtel bill', 'Zomato order', 'Petrol refill', 'New shoes', 'Pharmacy', 'Movie night'];
+  
+  const mockExpenses: Expense[] = Array.from({ length: 15 }).map((_, i) => ({
+    id: Date.now() - (i * 86400000),
+    amount: Math.floor(Math.random() * 2000) + 100,
+    category: categories[Math.floor(Math.random() * categories.length)],
+    date: new Date(Date.now() - (Math.floor(Math.random() * 20) * 86400000)).toISOString().split('T')[0],
+    note: notes[Math.floor(Math.random() * notes.length)],
+    paymentMode: modes[Math.floor(Math.random() * modes.length)],
+    person: persons[Math.floor(Math.random() * persons.length)]
+  }));
+
+  return {
+    ...INITIAL_STATE,
+    expenses: mockExpenses,
+    incomePerson1: 85000,
+    incomePerson2: 72000,
+    monthlyBudget: 45000,
+    settings: {
+      ...INITIAL_STATE.settings,
+      person1Name: 'Alex',
+      person2Name: 'Jordan',
+      headerTitle: 'Demo: Alex & Jordan'
+    },
+    investments: {
+      bankBalance: { p1: 125000, p2: 98000 },
+      mutualFunds: { p1: 450000, p2: 320000, shared: 100000 },
+      stocks: { p1: 85000, p2: 42000, shared: 0 },
+      gold: { p1Grams: 10, p2Grams: 5, sharedGrams: 20 },
+      silver: { p1Grams: 100, p2Grams: 50, sharedGrams: 500 },
+    },
+    fixedPayments: [
+      { id: 1, name: 'Rent', amount: 25000, day: 1 },
+      { id: 2, name: 'Internet', amount: 1200, day: 10 },
+      { id: 3, name: 'Gym', amount: 3500, day: 5 }
+    ]
+  };
+};
+
 function App() {
   const [session, setSession] = useState<any>(null);
+  const [isGuest, setIsGuest] = useState(false);
   const [authInitialized, setAuthInitialized] = useState(false);
   const [activeSection, setActiveSection] = useState<Section>('add-expense');
   const [state, setState] = useState<AppState>(INITIAL_STATE);
@@ -46,7 +90,6 @@ function App() {
       return;
     }
     
-    // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthInitialized(true);
@@ -54,11 +97,9 @@ function App() {
       setAuthInitialized(true);
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      // If user logs out, clear the local app state
-      if (!session) {
+      if (!session && !isGuest) {
         setState(INITIAL_STATE);
         prevSyncIdRef.current = null;
         setLoaded(false);
@@ -66,14 +107,19 @@ function App() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [isGuest]);
 
   // 1. Initial Data Load & Recurring Check
   useEffect(() => {
-    // Only proceed to load data if we have an active session
-    if (!session || !authInitialized) return;
+    if ((!session && !isGuest) || !authInitialized) return;
 
     const init = async () => {
+      if (isGuest) {
+        setState(generateMockData());
+        setLoaded(true);
+        return;
+      }
+
       const localData = loadFromStorage();
       let currentState = localData;
       
@@ -130,78 +176,11 @@ function App() {
     };
 
     init();
-  }, [session, authInitialized]);
+  }, [session, isGuest, authInitialized]);
 
-  // PWA & Platform Checks
+  // Sync effect only for logged in users
   useEffect(() => {
-    const handleBeforeInstallPrompt = (e: any) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-    setIsIos(ios);
-    const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
-    setIsStandalone(standalone);
-
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-  }, []);
-
-  // 2. Theme & Colors
-  useEffect(() => {
-    if (!loaded) return;
-    if (state.settings.theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    if (state.settings.primaryColor) {
-      document.documentElement.style.setProperty('--primary', state.settings.primaryColor);
-    }
-  }, [state.settings.theme, state.settings.primaryColor, loaded]);
-
-  const handleRecurringConfirm = (selectedIds: number[]) => {
-    const toAdd = duePayments.filter(p => selectedIds.includes(p.id));
-    if (toAdd.length > 0) {
-      const newExpenses = toAdd.map(p => ({
-        id: Date.now() + Math.random(),
-        date: new Date().toISOString().split('T')[0],
-        amount: p.amount,
-        category: 'Bills',
-        person: 'Both',
-        paymentMode: 'Netbanking',
-        note: `Fixed: ${p.name}`
-      }));
-
-      setState(prev => {
-        const next = {
-          ...prev,
-          expenses: [...prev.expenses, ...newExpenses],
-          settings: { ...prev.settings, lastFixedPaymentCheck: new Date().toISOString() }
-        };
-        forceCloudSync(next);
-        return next;
-      });
-      showToast(`${toAdd.length} payments added`, 'success');
-    } else {
-      setState(prev => ({
-        ...prev,
-        settings: { ...prev.settings, lastFixedPaymentCheck: new Date().toISOString() }
-      }));
-    }
-    setShowRecurringModal(false);
-  };
-
-  const handleRecurringCancel = () => {
-    setState(prev => ({
-      ...prev,
-      settings: { ...prev.settings, lastFixedPaymentCheck: new Date().toISOString() }
-    }));
-    setShowRecurringModal(false);
-  };
-
-  useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || isGuest) return;
     const currentSyncId = state.settings.syncId;
     const prevSyncId = prevSyncIdRef.current;
     if (currentSyncId && currentSyncId !== prevSyncId) {
@@ -221,19 +200,19 @@ function App() {
       performSync();
     }
     prevSyncIdRef.current = currentSyncId;
-  }, [state.settings.syncId, loaded]);
+  }, [state.settings.syncId, loaded, isGuest]);
 
   useEffect(() => {
-    if (!loaded || !state.settings.syncId) return;
-    const unsubscribe = subscribeToChanges(state.settings.syncId, (incomingState) => {
+    if (loaded && !state.settings.syncId || isGuest) return;
+    const unsubscribe = subscribeToChanges(state.settings.syncId!, (incomingState) => {
       lastUpdateWasRemote.current = true;
       setState(current => mergeAppState(current, incomingState));
     });
     return () => unsubscribe();
-  }, [loaded, state.settings.syncId]);
+  }, [loaded, state.settings.syncId, isGuest]);
 
   useEffect(() => {
-    if (loaded) {
+    if (loaded && !isGuest) {
       if (lastUpdateWasRemote.current) {
         saveToStorage(state, 'remote');
         lastUpdateWasRemote.current = false;
@@ -241,13 +220,13 @@ function App() {
         saveToStorage(state, 'local');
       }
     }
-  }, [state, loaded]);
+  }, [state, loaded, isGuest]);
 
   const addExpense = (expense: Omit<Expense, 'id'>) => {
     const newExpense: Expense = { ...expense, id: Date.now() };
     setState(prev => {
         const next = { ...prev, expenses: [...prev.expenses, newExpense] };
-        forceCloudSync(next);
+        if (!isGuest) forceCloudSync(next);
         return next;
     });
     showToast("Expense added successfully!", 'success');
@@ -264,7 +243,7 @@ function App() {
         ...prev,
         expenses: prev.expenses.map(e => e.id === updatedExpense.id ? updatedExpense : e)
       };
-      forceCloudSync(next);
+      if (!isGuest) forceCloudSync(next);
       return next;
     });
     setExpenseToEdit(null);
@@ -278,7 +257,7 @@ function App() {
     if (window.confirm("Delete this expense?")) {
       setState(prev => {
           const next = { ...prev, expenses: prev.expenses.filter(e => e.id !== id) };
-          forceCloudSync(next);
+          if (!isGuest) forceCloudSync(next);
           return next;
       });
       showToast("Expense deleted", 'info');
@@ -298,7 +277,7 @@ function App() {
             ...prev,
             fixedPayments: [...prev.fixedPayments, { id: Date.now(), name, amount, day }]
         };
-        forceCloudSync(next);
+        if (!isGuest) forceCloudSync(next);
         return next;
     });
     showToast("Fixed payment added", 'success');
@@ -307,13 +286,17 @@ function App() {
   const removeFixedPayment = (id: number) => {
     setState(prev => {
         const next = { ...prev, fixedPayments: prev.fixedPayments.filter(p => p.id !== id) };
-        forceCloudSync(next);
+        if (!isGuest) forceCloudSync(next);
         return next;
     });
     showToast("Payment removed", 'info');
   };
 
   const resetData = () => {
+    if (isGuest) {
+      window.location.reload();
+      return;
+    }
     if (window.confirm("Are you sure you want to clear ALL data? This cannot be undone.")) {
       setState(INITIAL_STATE);
       localStorage.clear();
@@ -330,12 +313,9 @@ function App() {
             ...INITIAL_STATE,
             ...imported,
             settings: { ...INITIAL_STATE.settings, ...(imported.settings || {}) },
-            savingsGoals: imported.savingsGoals || [],
-            categoryBudgets: imported.categoryBudgets || {},
-            chatMessages: imported.chatMessages || [],
         };
         setState(newState);
-        forceCloudSync(newState);
+        if (!isGuest) forceCloudSync(newState);
         showToast("Data imported successfully!", 'success');
       } catch (err) {
         showToast("Invalid backup file.", 'error');
@@ -344,18 +324,43 @@ function App() {
     reader.readAsText(file);
   };
 
-  const handleInstallClick = () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.then((choiceResult: any) => {
-      if (choiceResult.outcome === 'accepted') {
-        setDeferredPrompt(null);
-        showToast("Installing app...", 'success');
-      }
+  // --- RECURRING MODAL HANDLERS ---
+  // Added handleRecurringConfirm to process selected fixed payments into expenses.
+  const handleRecurringConfirm = (selectedIds: number[]) => {
+    const selectedPayments = duePayments.filter(p => selectedIds.includes(p.id));
+    const newExpenses: Expense[] = selectedPayments.map(p => ({
+      id: Date.now() + Math.random(),
+      date: new Date().toISOString().split('T')[0],
+      amount: p.amount,
+      category: 'Bills',
+      person: 'Both',
+      paymentMode: 'Netbanking',
+      note: `Fixed: ${p.name}`
+    }));
+
+    setState(prev => {
+      const next = {
+        ...prev,
+        expenses: [...prev.expenses, ...newExpenses],
+        settings: { ...prev.settings, lastFixedPaymentCheck: new Date().toISOString() }
+      };
+      if (!isGuest) forceCloudSync(next);
+      return next;
     });
+    
+    setShowRecurringModal(false);
+    showToast(`Added ${newExpenses.length} recurring expenses`, 'success');
   };
 
-  // 1. Initial Loader (Waiting for Auth)
+  // Added handleRecurringCancel to dismiss the recurring payments modal.
+  const handleRecurringCancel = () => {
+    setState(prev => ({
+      ...prev,
+      settings: { ...prev.settings, lastFixedPaymentCheck: new Date().toISOString() }
+    }));
+    setShowRecurringModal(false);
+  };
+
   if (!authInitialized) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -367,17 +372,15 @@ function App() {
     );
   }
 
-  // 2. Auth Guard (No user found)
-  if (!session) {
+  if (!session && !isGuest) {
     return (
       <>
-        <Auth onAuthSuccess={() => {}} showToast={showToast} />
+        <Auth onAuthSuccess={() => {}} onGuestLogin={() => setIsGuest(true)} showToast={showToast} />
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       </>
     );
   }
 
-  // 3. Data Loader (Waiting for state initialization after login)
   if (!loaded) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -389,12 +392,10 @@ function App() {
     );
   }
 
-  // 4. PIN Guard
   if (isLocked && state.settings.pin) {
     return <LockScreen pin={state.settings.pin} onUnlock={() => setIsLocked(false)} />;
   }
 
-  // 5. Main App
   return (
     <>
       {showRecurringModal && (
@@ -410,6 +411,12 @@ function App() {
       <div className="min-h-screen bg-background text-text transition-colors duration-300">
         <div className="max-w-3xl mx-auto px-3 sm:px-6 lg:px-8 pt-2 sm:pt-4">
           <Header settings={state.settings} />
+          {isGuest && (
+            <div className="bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 px-4 py-2 rounded-xl text-xs font-bold mb-4 flex justify-between items-center shadow-sm">
+              <span>🚀 You are in Guest Mode with sample data.</span>
+              <button onClick={() => window.location.reload()} className="underline uppercase">Login</button>
+            </div>
+          )}
           <main className="relative pb-24">
             <div key={activeSection} className="animate-slide-up">
               {activeSection === 'add-expense' && (
@@ -450,8 +457,8 @@ function App() {
                   resetData={resetData}
                   importData={importData}
                   showToast={showToast}
-                  installApp={handleInstallClick}
-                  canInstall={!!deferredPrompt}
+                  installApp={() => {}} 
+                  canInstall={false}
                   isIos={isIos}
                   isStandalone={isStandalone}
                 />
@@ -465,14 +472,6 @@ function App() {
           >
             🤖
           </button>
-          {activeSection !== 'add-expense' && (
-            <button 
-              onClick={() => setActiveSection('add-expense')}
-              className="fixed bottom-24 left-4 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-tr from-secondary to-cyan-500 text-white rounded-full shadow-lg flex items-center justify-center text-xl z-40 sm:hidden hover:scale-110 transition-all"
-            >
-              ➕
-            </button>
-          )}
         </div>
       </div>
     </>
