@@ -12,6 +12,20 @@ interface SummariesProps {
 const COLORS = ['#e91e63', '#2196f3', '#ff9800', '#4caf50', '#9c27b0', '#00bcd4', '#795548', '#3f51b5', '#8bc34a', '#f44336'];
 const PAYMENT_MODES = ['all', 'UPI', 'Card', 'Cash', 'Netbanking', 'Wallet', 'Other'];
 
+// Major Indian Holidays (approx for 2024-2025)
+const INDIAN_HOLIDAYS: Record<string, string> = {
+  '01-01': 'New Year',
+  '01-26': 'Republic Day',
+  '03-14': 'Holi',
+  '03-31': 'Eid al-Fitr',
+  '04-14': 'Ambedkar Jayanti',
+  '05-01': 'May Day',
+  '08-15': 'Independence Day',
+  '10-02': 'Gandhi Jayanti',
+  '10-20': 'Diwali',
+  '12-25': 'Christmas'
+};
+
 export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, editExpense }) => {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [filterType, setFilterType] = useState<'today' | 'week' | 'month' | 'all'>('month');
@@ -41,22 +55,18 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
 
   const filteredExpenses = useMemo(() => {
     const now = new Date();
-    // Normalize today to local YYYY-MM-DD to match storage
     const offset = now.getTimezoneOffset() * 60000;
     const todayStr = new Date(now.getTime() - offset).toISOString().split('T')[0];
     
     return state.expenses.filter(exp => {
-      // Search Term
       if (searchTerm && !exp.note.toLowerCase().includes(searchTerm.toLowerCase()) && !String(exp.amount).includes(searchTerm)) {
         return false;
       }
       
-      // Payment Mode Filter
       if (paymentFilter !== 'all' && exp.paymentMode !== paymentFilter) {
         return false;
       }
 
-      // Date Filter
       if (viewMode === 'calendar') return true;
 
       if (filterType === 'today') {
@@ -85,7 +95,6 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
 
       catMap[e.category] = (catMap[e.category] || 0) + e.amount;
       
-      // Short date for bar chart
       const day = new Date(e.date).toLocaleDateString(undefined, {weekday: 'short'});
       dailyMap[day] = (dailyMap[day] || 0) + e.amount;
     });
@@ -98,7 +107,6 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
       .map(k => ({ name: k, value: catMap[k] }))
       .sort((a,b) => b.value - a.value);
 
-    // Last 7 entries for bar chart (just rough approximation for "Recent activity")
     const barData = Object.keys(dailyMap).map(k => ({name: k, amount: dailyMap[k]})).slice(0, 7);
 
     return { total, p1, p2, shared, p1Real, p2Real, chartData, barData };
@@ -112,11 +120,18 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
     const firstDay = new Date(year, month, 1).getDay();
     const days = [];
     
-    // Empty slots for start of month
     for(let i=0; i<firstDay; i++) days.push(null);
     for(let i=1; i<=daysInMonth; i++) days.push(new Date(year, month, i));
     
     return days;
+  };
+
+  const getLastWorkingDay = (year: number, month: number) => {
+    let date = new Date(year, month + 1, 0); // Start at last day of month
+    while (date.getDay() === 0 || date.getDay() === 6) { // While Sun or Sat
+      date.setDate(date.getDate() - 1);
+    }
+    return date.getDate();
   };
 
   return (
@@ -374,47 +389,84 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
           </div>
 
           <div className="grid grid-cols-7 gap-1 text-center mb-2">
-             {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => <div key={d} className="text-xs font-bold text-text-light uppercase">{d}</div>)}
+             {['Su','Mo','Tu','We','Th','Fr','Sa'].map((d, i) => (
+                <div key={d} className={`text-xs font-bold uppercase ${i === 0 || i === 6 ? 'text-red-500' : 'text-text-light'}`}>{d}</div>
+             ))}
           </div>
 
           <div className="grid grid-cols-7 gap-1">
              {getDaysInMonth(calendarMonth).map((date, idx) => {
                if (!date) return <div key={idx} className="aspect-square"></div>;
                
-               // Fix: Match date strings correctly using local time logic
                const offset = date.getTimezoneOffset() * 60000;
                const dayStr = new Date(date.getTime() - offset).toISOString().split('T')[0];
+               const dayShort = dayStr.substring(5); // MM-DD
                
-               // Use filteredExpenses so search works in calendar too
+               const holidayName = INDIAN_HOLIDAYS[dayShort];
+               const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+               const isSalaryDay = date.getDate() === getLastWorkingDay(date.getFullYear(), date.getMonth());
+               const isToday = new Date().toDateString() === date.toDateString();
+
                const dailyTotal = filteredExpenses
                  .filter(e => e.date === dayStr)
                  .reduce((sum, e) => sum + e.amount, 0);
                
                const fixedDue = state.fixedPayments.some(p => p.day === date.getDate());
 
-               const isToday = new Date().toDateString() === date.toDateString();
+               // Dynamic cell background based on priority
+               let cellBg = 'bg-background border-transparent';
+               if (isSalaryDay) {
+                 cellBg = 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-800';
+               } else if (holidayName) {
+                 cellBg = 'bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-800';
+               } else if (isWeekend) {
+                 cellBg = 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30';
+               } else if (isToday) {
+                 cellBg = 'bg-primary/10 border-primary ring-1 ring-primary/30';
+               }
 
                return (
-                 <div key={idx} className={`aspect-square rounded-lg border flex flex-col items-center justify-between p-1 transition-all hover:border-primary cursor-pointer relative ${isToday ? 'bg-primary/5 border-primary' : 'bg-background border-transparent'}`}>
-                    <span className={`text-[10px] sm:text-xs font-medium ${isToday ? 'text-primary font-bold' : 'text-text-light'}`}>{date.getDate()}</span>
+                 <div key={idx} className={`aspect-square rounded-lg border flex flex-col items-center justify-between p-1 transition-all hover:scale-105 hover:z-10 cursor-pointer relative overflow-hidden ${cellBg}`}>
+                    {/* Day Number */}
+                    <span className={`text-[10px] sm:text-xs font-black ${
+                      isToday ? 'text-primary underline decoration-2' : 
+                      isWeekend ? 'text-red-600' : 
+                      holidayName ? 'text-purple-700 dark:text-purple-400' :
+                      'text-text-light'
+                    }`}>{date.getDate()}</span>
                     
+                    {/* Expense Amount */}
                     {dailyTotal > 0 && (
-                      <span className="text-[8px] sm:text-[10px] font-bold text-text truncate w-full text-center">₹{dailyTotal >= 1000 ? (dailyTotal/1000).toFixed(1)+'k' : dailyTotal}</span>
+                      <span className="text-[8px] sm:text-[10px] font-black text-text-dark dark:text-white truncate w-full text-center leading-tight drop-shadow-sm">
+                        ₹{dailyTotal >= 1000 ? (dailyTotal/1000).toFixed(1)+'k' : dailyTotal}
+                      </span>
                     )}
 
-                    {/* Indicators */}
-                    <div className="flex gap-0.5">
-                      {fixedDue && <div className="w-1.5 h-1.5 rounded-full bg-secondary" title="Bill Due"></div>}
-                      {dailyTotal > 0 && <div className="w-1.5 h-1.5 rounded-full bg-primary" title="Spent"></div>}
+                    {/* Salary / Holiday Labels */}
+                    <div className="flex flex-col items-center gap-0.5 w-full">
+                      {isSalaryDay && (
+                        <span className="text-[5px] sm:text-[7px] uppercase font-black bg-green-600 text-white px-1.5 rounded-sm leading-none py-0.5 shadow-sm">Salary</span>
+                      )}
+                      {holidayName && (
+                        <span className="text-[5px] sm:text-[7px] uppercase font-black bg-purple-600 text-white px-1.5 rounded-sm leading-none py-0.5 truncate max-w-full shadow-sm" title={holidayName}>{holidayName}</span>
+                      )}
+                    </div>
+
+                    {/* Status Dots */}
+                    <div className="flex gap-0.5 pb-0.5">
+                      {fixedDue && <div className="w-1.5 h-1.5 rounded-full bg-secondary shadow-sm" title="Bill Due"></div>}
+                      {dailyTotal > 0 && <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-sm" title="Spent"></div>}
                     </div>
                  </div>
                );
              })}
           </div>
           
-          <div className="mt-4 flex gap-4 justify-center text-xs text-text-light">
-             <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-primary"></div> Expense</div>
-             <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-secondary"></div> Fixed Bill</div>
+          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 justify-center text-[10px] text-text-light font-bold">
+             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-md bg-primary/20 border border-primary"></div> Today</div>
+             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-100"></div> Weekend</div>
+             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-md bg-purple-100 dark:bg-purple-900/30 border border-purple-300"></div> Holiday</div>
+             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-md bg-green-100 dark:bg-green-900/30 border border-green-300"></div> Salary Day</div>
           </div>
         </div>
       )}

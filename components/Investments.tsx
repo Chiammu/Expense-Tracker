@@ -14,6 +14,7 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
   const [fetchingRates, setFetchingRates] = useState(false);
   const [aiAdvice, setAiAdvice] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [isBalancesVisible, setIsBalancesVisible] = useState(true);
 
   // EMI Form State
   const [newLoan, setNewLoan] = useState({ name: '', pending: '', emi: '', person: 'Both' });
@@ -95,6 +96,12 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
     setAnalyzing(false);
   };
 
+  // Masking Helper
+  const formatValue = (val: number) => {
+    if (!isBalancesVisible) return '••••';
+    return `₹${val.toLocaleString()}`;
+  };
+
   // Calculations
   const goldVal = (state.investments.gold.p1Grams + state.investments.gold.p2Grams + state.investments.gold.sharedGrams) * metalRates.gold;
   const silverVal = (state.investments.silver.p1Grams + state.investments.silver.p2Grams + state.investments.silver.sharedGrams) * metalRates.silver;
@@ -115,40 +122,61 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
   return (
     <div className="pb-24 space-y-6 animate-fade-in">
       
-      {/* Top Toggle */}
-      <div className="bg-surface p-1 rounded-xl flex shadow-sm border border-gray-100 dark:border-gray-800 mx-auto max-w-sm">
-         <button 
-           onClick={() => setTab('assets')}
-           className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${tab === 'assets' ? 'bg-primary text-white shadow-md' : 'text-text-light hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-         >
-           💰 Wealth
-         </button>
-         <button 
-           onClick={() => setTab('liabilities')}
-           className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${tab === 'liabilities' ? 'bg-secondary text-white shadow-md' : 'text-text-light hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-         >
-           📉 EMIs
-         </button>
+      {/* Top Toggle Row */}
+      <div className="flex items-center gap-2 mx-auto max-w-sm">
+        <div className="bg-surface p-1 rounded-xl flex shadow-sm border border-gray-100 dark:border-gray-800 flex-1">
+           <button 
+             onClick={() => setTab('assets')}
+             className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${tab === 'assets' ? 'bg-primary text-white shadow-md' : 'text-text-light hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+           >
+             💰 Wealth
+           </button>
+           <button 
+             onClick={() => setTab('liabilities')}
+             className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${tab === 'liabilities' ? 'bg-secondary text-white shadow-md' : 'text-text-light hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+           >
+             📉 EMIs
+           </button>
+        </div>
+        
+        {/* Privacy Toggle Button */}
+        <button 
+          onClick={() => setIsBalancesVisible(!isBalancesVisible)}
+          className={`shrink-0 w-11 h-11 flex items-center justify-center rounded-xl shadow-sm border transition-all ${isBalancesVisible ? 'bg-white border-gray-100 text-text-light dark:bg-gray-800 dark:border-gray-700' : 'bg-primary text-white border-primary shadow-lg ring-2 ring-primary/20'}`}
+          title={isBalancesVisible ? "Hide Balances" : "Show Balances"}
+        >
+          {isBalancesVisible ? (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+              <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
+              <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
+            </svg>
+          )}
+        </button>
       </div>
 
       {/* Summary Card */}
-      <div className="bg-gradient-to-br from-gray-900 to-black text-white p-6 rounded-2xl shadow-xl relative overflow-hidden">
+      <div className="bg-gradient-to-br from-gray-900 to-black text-white p-6 rounded-2xl shadow-xl relative overflow-hidden transition-all duration-500">
         <div className="relative z-10">
           <div className="text-xs text-gray-400 uppercase tracking-widest mb-1">Total Net Worth</div>
-          <div className="text-3xl font-bold">₹{netWorth.toLocaleString()}</div>
+          <div className="text-3xl font-bold tracking-tight">{formatValue(netWorth)}</div>
           <div className="flex gap-4 mt-4 text-sm">
              <div>
                <span className="block text-gray-400 text-xs">Assets</span>
-               <span className="text-green-400 font-bold">₹{totalAssets.toLocaleString()}</span>
+               <span className="text-green-400 font-bold">{formatValue(totalAssets)}</span>
              </div>
              <div className="w-px bg-gray-700"></div>
              <div>
                <span className="block text-gray-400 text-xs">Liabilities</span>
-               <span className="text-red-400 font-bold">₹{totalLiabilities.toLocaleString()}</span>
+               <span className="text-red-400 font-bold">{formatValue(totalLiabilities)}</span>
              </div>
           </div>
         </div>
-        <div className="absolute -right-4 -bottom-10 text-9xl opacity-5">🏛️</div>
+        <div className="absolute -right-4 -bottom-10 text-9xl opacity-5 pointer-events-none">🏛️</div>
       </div>
 
       {tab === 'assets' ? (
@@ -159,17 +187,21 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
               <div className="grid grid-cols-2 gap-4">
                  <div>
                     <label className="text-[10px] uppercase text-text-light font-bold mb-1 block">{state.settings.person1Name}</label>
-                    <input type="number" className="w-full bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-sm font-bold" 
-                      value={state.investments.bankBalance.p1 || ''} 
-                      onChange={e => updateInv('bankBalance', 'p1', e.target.value)} 
+                    <input 
+                      type={isBalancesVisible ? "number" : "text"}
+                      className={`w-full bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-sm font-bold focus:ring-1 focus:ring-primary/20 outline-none transition-all ${!isBalancesVisible ? 'text-transparent bg-gray-200 dark:bg-gray-800' : ''}`}
+                      value={isBalancesVisible ? (state.investments.bankBalance.p1 || '') : '••••'} 
+                      onChange={e => isBalancesVisible && updateInv('bankBalance', 'p1', e.target.value)} 
                       placeholder="0"
                     />
                  </div>
                  <div>
                     <label className="text-[10px] uppercase text-text-light font-bold mb-1 block">{state.settings.person2Name}</label>
-                    <input type="number" className="w-full bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-sm font-bold" 
-                      value={state.investments.bankBalance.p2 || ''} 
-                      onChange={e => updateInv('bankBalance', 'p2', e.target.value)} 
+                    <input 
+                      type={isBalancesVisible ? "number" : "text"}
+                      className={`w-full bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-sm font-bold focus:ring-1 focus:ring-primary/20 outline-none transition-all ${!isBalancesVisible ? 'text-transparent bg-gray-200 dark:bg-gray-800' : ''}`}
+                      value={isBalancesVisible ? (state.investments.bankBalance.p2 || '') : '••••'} 
+                      onChange={e => isBalancesVisible && updateInv('bankBalance', 'p2', e.target.value)} 
                       placeholder="0"
                     />
                  </div>
@@ -183,18 +215,54 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
               <div className="mb-4">
                 <div className="text-xs font-bold text-text-light mb-2">Mutual Funds (Current Value)</div>
                 <div className="grid grid-cols-3 gap-2">
-                   <input className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder={state.settings.person1Name} value={state.investments.mutualFunds.p1 || ''} onChange={e => updateInv('mutualFunds', 'p1', e.target.value)} type="number" />
-                   <input className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder={state.settings.person2Name} value={state.investments.mutualFunds.p2 || ''} onChange={e => updateInv('mutualFunds', 'p2', e.target.value)} type="number" />
-                   <input className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="Shared" value={state.investments.mutualFunds.shared || ''} onChange={e => updateInv('mutualFunds', 'shared', e.target.value)} type="number" />
+                   <input 
+                    className={`bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs font-medium focus:ring-1 focus:ring-indigo-500/20 outline-none ${!isBalancesVisible ? 'text-transparent bg-gray-200 dark:bg-gray-800' : ''}`}
+                    placeholder={state.settings.person1Name} 
+                    value={isBalancesVisible ? (state.investments.mutualFunds.p1 || '') : '••••'} 
+                    onChange={e => isBalancesVisible && updateInv('mutualFunds', 'p1', e.target.value)} 
+                    type={isBalancesVisible ? "number" : "text"} 
+                   />
+                   <input 
+                    className={`bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs font-medium focus:ring-1 focus:ring-indigo-500/20 outline-none ${!isBalancesVisible ? 'text-transparent bg-gray-200 dark:bg-gray-800' : ''}`}
+                    placeholder={state.settings.person2Name} 
+                    value={isBalancesVisible ? (state.investments.mutualFunds.p2 || '') : '••••'} 
+                    onChange={e => isBalancesVisible && updateInv('mutualFunds', 'p2', e.target.value)} 
+                    type={isBalancesVisible ? "number" : "text"} 
+                   />
+                   <input 
+                    className={`bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs font-medium focus:ring-1 focus:ring-indigo-500/20 outline-none ${!isBalancesVisible ? 'text-transparent bg-gray-200 dark:bg-gray-800' : ''}`}
+                    placeholder="Shared" 
+                    value={isBalancesVisible ? (state.investments.mutualFunds.shared || '') : '••••'} 
+                    onChange={e => isBalancesVisible && updateInv('mutualFunds', 'shared', e.target.value)} 
+                    type={isBalancesVisible ? "number" : "text"} 
+                   />
                 </div>
               </div>
 
               <div>
                 <div className="text-xs font-bold text-text-light mb-2">Stocks (Invested Amount)</div>
                 <div className="grid grid-cols-3 gap-2">
-                   <input className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder={state.settings.person1Name} value={state.investments.stocks.p1 || ''} onChange={e => updateInv('stocks', 'p1', e.target.value)} type="number" />
-                   <input className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder={state.settings.person2Name} value={state.investments.stocks.p2 || ''} onChange={e => updateInv('stocks', 'p2', e.target.value)} type="number" />
-                   <input className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="Shared" value={state.investments.stocks.shared || ''} onChange={e => updateInv('stocks', 'shared', e.target.value)} type="number" />
+                   <input 
+                    className={`bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs font-medium focus:ring-1 focus:ring-indigo-500/20 outline-none ${!isBalancesVisible ? 'text-transparent bg-gray-200 dark:bg-gray-800' : ''}`}
+                    placeholder={state.settings.person1Name} 
+                    value={isBalancesVisible ? (state.investments.stocks.p1 || '') : '••••'} 
+                    onChange={e => isBalancesVisible && updateInv('stocks', 'p1', e.target.value)} 
+                    type={isBalancesVisible ? "number" : "text"} 
+                   />
+                   <input 
+                    className={`bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs font-medium focus:ring-1 focus:ring-indigo-500/20 outline-none ${!isBalancesVisible ? 'text-transparent bg-gray-200 dark:bg-gray-800' : ''}`}
+                    placeholder={state.settings.person2Name} 
+                    value={isBalancesVisible ? (state.investments.stocks.p2 || '') : '••••'} 
+                    onChange={e => isBalancesVisible && updateInv('stocks', 'p2', e.target.value)} 
+                    type={isBalancesVisible ? "number" : "text"} 
+                   />
+                   <input 
+                    className={`bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs font-medium focus:ring-1 focus:ring-indigo-500/20 outline-none ${!isBalancesVisible ? 'text-transparent bg-gray-200 dark:bg-gray-800' : ''}`}
+                    placeholder="Shared" 
+                    value={isBalancesVisible ? (state.investments.stocks.shared || '') : '••••'} 
+                    onChange={e => isBalancesVisible && updateInv('stocks', 'shared', e.target.value)} 
+                    type={isBalancesVisible ? "number" : "text"} 
+                   />
                 </div>
               </div>
            </div>
@@ -205,14 +273,14 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
                  <h3 className="font-bold text-yellow-600 dark:text-yellow-500 flex items-center gap-2">🥇 Precious Metals</h3>
                  <span className="text-[10px] text-text-light bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full flex items-center gap-1">
                    {fetchingRates ? <span className="animate-spin">🌀</span> : '📡'} 
-                   {fetchingRates ? 'AI Updating...' : `Gold ₹${metalRates.gold}/g`}
+                   {fetchingRates ? 'AI Updating...' : (isBalancesVisible ? `Gold ₹${metalRates.gold}/g` : 'Gold Rate Hidden')}
                  </span>
               </div>
 
               <div className="mb-4">
                 <div className="flex justify-between mb-1">
                    <label className="text-xs font-bold text-text-light">Gold (Grams)</label>
-                   <span className="text-xs font-bold text-yellow-600">Total: ₹{goldVal.toLocaleString()}</span>
+                   <span className="text-xs font-bold text-yellow-600">Total: {formatValue(goldVal)}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                    <input className="bg-yellow-50 dark:bg-yellow-900/10 p-2 rounded-lg text-xs" placeholder={`${state.settings.person1Name} (g)`} value={state.investments.gold.p1Grams || ''} onChange={e => updateInv('gold', 'p1Grams', e.target.value)} type="number" />
@@ -224,7 +292,7 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
               <div>
                 <div className="flex justify-between mb-1">
                    <label className="text-xs font-bold text-text-light">Silver (Grams)</label>
-                   <span className="text-xs font-bold text-gray-500">Total: ₹{silverVal.toLocaleString()}</span>
+                   <span className="text-xs font-bold text-gray-500">Total: {formatValue(silverVal)}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                    <input className="bg-gray-50 dark:bg-gray-900/10 p-2 rounded-lg text-xs" placeholder={`${state.settings.person1Name} (g)`} value={state.investments.silver.p1Grams || ''} onChange={e => updateInv('silver', 'p1Grams', e.target.value)} type="number" />
@@ -233,9 +301,11 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
                 </div>
               </div>
               
-              <div className="text-[10px] text-text-light text-right italic opacity-60">
-                Rates via {metalRates.source}
-              </div>
+              {isBalancesVisible && (
+                <div className="text-[10px] text-text-light text-right italic opacity-60">
+                  Rates via {metalRates.source}
+                </div>
+              )}
            </div>
         </div>
       ) : (
@@ -265,7 +335,7 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
              <div className="bg-red-50 dark:bg-red-900/10 p-3 rounded-xl border border-red-100 dark:border-red-900/30 flex justify-between items-center">
                <div>
                   <div className="text-xs text-red-600 font-bold uppercase">Monthly Outflow</div>
-                  <div className="text-lg font-bold text-red-700 dark:text-red-400">₹{totalMonthlyEMI.toLocaleString()}</div>
+                  <div className="text-lg font-bold text-red-700 dark:text-red-400">{formatValue(totalMonthlyEMI)}</div>
                </div>
                <div className="text-right">
                   <div className="text-xs text-red-600 font-bold uppercase">Of Income</div>
@@ -285,8 +355,8 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
                    <div className="text-xs text-text-light">{loan.person === 'Both' ? 'Shared' : (loan.person === 'Person1' ? state.settings.person1Name : state.settings.person2Name)}</div>
                  </div>
                  <div className="text-right shrink-0">
-                   <div className="text-sm font-bold text-red-500">₹{loan.pendingAmount.toLocaleString()} left</div>
-                   <div className="text-xs text-text-light">EMI: ₹{loan.emiAmount}/mo</div>
+                   <div className="text-sm font-bold text-red-500">{formatValue(loan.pendingAmount)} left</div>
+                   <div className="text-xs text-text-light">EMI: {formatValue(loan.emiAmount)}/mo</div>
                  </div>
                  <button onClick={() => removeLoan(loan.id)} className="ml-3 text-gray-300 hover:text-red-500 px-2">✕</button>
                </div>
@@ -308,7 +378,7 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
                 
                 {aiAdvice && (
                   <div className="mt-4 bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 text-sm leading-relaxed whitespace-pre-line text-indigo-900 dark:text-indigo-200 animate-slide-up">
-                    {aiAdvice}
+                    {isBalancesVisible ? aiAdvice : 'Strategy details hidden for privacy.'}
                   </div>
                 )}
              </div>

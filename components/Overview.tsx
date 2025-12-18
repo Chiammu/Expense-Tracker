@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { AppState, Expense, OtherIncome } from '../types';
 import { generateFinancialInsights } from '../services/geminiService';
@@ -40,15 +41,69 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
   
+  // Calculate spending per category for the current month
+  // Fix: Added missing categorySpending calculation
+  const categorySpending = monthExpenses.reduce((acc, curr) => {
+    acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
+    return acc;
+  }, {} as Record<string, number>);
+
   const monthTotal = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
   const moneyLeft = totalIncome - (monthTotal + fixedTotal);
   const savingsPercent = totalIncome > 0 ? ((moneyLeft / totalIncome) * 100).toFixed(1) : '0';
 
-  // Category Spending
-  const categorySpending = monthExpenses.reduce((acc, e) => {
-    acc[e.category] = (acc[e.category] || 0) + e.amount;
-    return acc;
-  }, {} as Record<string, number>);
+  // Salary Day Logic
+  const getSalaryInfo = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+
+    const getLastWorkingDay = (y: number, m: number) => {
+      let d = new Date(y, m + 1, 0);
+      while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
+      return d;
+    };
+
+    let targetDate = getLastWorkingDay(year, month);
+    
+    // If today is past this month's salary day, look at next month
+    if (today.getDate() > targetDate.getDate()) {
+      targetDate = getLastWorkingDay(year, month + 1);
+    }
+
+    const diffTime = targetDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    let color = 'from-blue-500 to-indigo-600';
+    let message = "Keep grinding!";
+    let subMessage = "Days until financial relief.";
+
+    if (diffDays === 0) {
+      color = 'from-green-500 to-emerald-600 animate-pulse';
+      message = "IT'S PAYDAY! 🤑";
+      subMessage = "Invest first, then enjoy (a little)!";
+    } else if (diffDays <= 3) {
+      color = 'from-yellow-400 to-orange-500';
+      message = "Almost there! 🦅";
+      subMessage = "Hold your horses, don't spend yet!";
+    } else if (diffDays <= 10) {
+      color = 'from-indigo-500 to-purple-600';
+      message = "Light at the tunnel! 🕯️";
+      subMessage = "You've survived the worst part.";
+    } else if (diffDays > 20) {
+      color = 'from-red-500 to-rose-600';
+      message = "Discouragingly far... 🍜";
+      subMessage = "Hide your credit cards. Seriously.";
+    } else {
+      color = 'from-slate-700 to-slate-900';
+      message = "The Mid-Month Crunch 🛡️";
+      subMessage = "Budgeting is a superpower. Use it.";
+    }
+
+    return { diffDays, color, message, subMessage, targetDate };
+  };
+
+  const salaryInfo = getSalaryInfo();
 
   const handleAddFixed = () => {
     if (!fixedPayForm.name || !fixedPayForm.amount || !fixedPayForm.day) return;
@@ -123,6 +178,35 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
   return (
     <div className="pb-24 space-y-4 sm:space-y-6">
       
+      {/* Salary Countdown Card */}
+      <div className={`bg-gradient-to-r ${salaryInfo.color} p-5 rounded-2xl text-white shadow-xl relative overflow-hidden transition-all duration-700`}>
+        <div className="relative z-10">
+          <div className="flex justify-between items-start">
+            <div>
+              <div className="text-[10px] uppercase font-black tracking-widest opacity-70">Next Salary Wave</div>
+              <h2 className="text-2xl font-black mb-1">{salaryInfo.message}</h2>
+            </div>
+            <div className="text-right">
+              <span className="text-4xl font-black leading-none">{salaryInfo.diffDays}</span>
+              <span className="block text-[10px] uppercase font-bold opacity-70">Days left</span>
+            </div>
+          </div>
+          <p className="text-xs font-medium opacity-90 mt-2">{salaryInfo.subMessage}</p>
+          
+          {/* Progress Bar */}
+          <div className="mt-4 h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
+             <div 
+               className="h-full bg-white transition-all duration-1000 ease-out"
+               style={{ width: `${Math.max(0, 100 - (salaryInfo.diffDays * 3.3))}%` }}
+             ></div>
+          </div>
+        </div>
+        {/* Large BG Icon */}
+        <div className="absolute -right-4 -bottom-6 text-8xl opacity-10 rotate-12 pointer-events-none">
+          {salaryInfo.diffDays === 0 ? '🍾' : (salaryInfo.diffDays <= 5 ? '🚁' : '⏳')}
+        </div>
+      </div>
+
       {/* Income Section */}
       <div className="bg-surface rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100 dark:border-gray-800 transition-shadow hover:shadow-md">
         <div className="flex justify-between items-center mb-4">
