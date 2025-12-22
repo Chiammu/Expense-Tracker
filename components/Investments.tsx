@@ -126,12 +126,12 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
 
   const formatValue = (val: number) => {
     if (!isBalancesVisible) return '••••';
-    return `₹${val.toLocaleString()}`;
+    return `₹${(val || 0).toLocaleString()}`;
   };
 
   const goldVal = (state.investments.gold.p1Grams + state.investments.gold.p2Grams + state.investments.gold.sharedGrams) * (state.investments.goldRate || 0);
   const silverVal = (state.investments.silver.p1Grams + state.investments.silver.p2Grams + state.investments.silver.sharedGrams) * (state.investments.silverRate || 0);
-  const totalBank = state.investments.bankBalance.p1 + state.investments.bankBalance.p2;
+  const totalBank = (state.investments.bankBalance?.p1 || 0) + (state.investments.bankBalance?.p2 || 0);
   const totalMF = state.investments.mutualFunds.p1 + state.investments.mutualFunds.p2 + state.investments.mutualFunds.shared;
   const totalStocks = state.investments.stocks.p1 + state.investments.stocks.p2 + state.investments.stocks.shared;
   
@@ -193,17 +193,16 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
 
       {tab === 'assets' && (
         <div className="space-y-4 animate-slide-up">
-           {/* Existing Assets Section... */}
            <div className="bg-surface rounded-xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
               <h3 className="font-bold text-primary mb-3 flex items-center gap-2">🏦 Bank Balance</h3>
               <div className="grid grid-cols-2 gap-4">
                  <div>
                     <label className="text-[10px] uppercase text-text-light font-bold mb-1 block">{state.settings.person1Name}</label>
-                    <input type={isBalancesVisible ? "number" : "text"} className={`w-full bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-sm font-bold outline-none transition-all ${!isBalancesVisible ? 'text-transparent' : ''}`} value={isBalancesVisible ? (state.investments.bankBalance.p1 || '') : '••••'} onChange={e => isBalancesVisible && updateInv('bankBalance', 'p1', e.target.value)} />
+                    <input type={isBalancesVisible ? "number" : "text"} className={`w-full bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-sm font-bold outline-none transition-all ${!isBalancesVisible ? 'text-transparent' : ''}`} value={isBalancesVisible ? (state.investments.bankBalance?.p1 || '') : '••••'} onChange={e => isBalancesVisible && updateInv('bankBalance', 'p1', e.target.value)} />
                  </div>
                  <div>
                     <label className="text-[10px] uppercase text-text-light font-bold mb-1 block">{state.settings.person2Name}</label>
-                    <input type={isBalancesVisible ? "number" : "text"} className={`w-full bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-sm font-bold outline-none transition-all ${!isBalancesVisible ? 'text-transparent' : ''}`} value={isBalancesVisible ? (state.investments.bankBalance.p2 || '') : '••••'} onChange={e => isBalancesVisible && updateInv('bankBalance', 'p2', e.target.value)} />
+                    <input type={isBalancesVisible ? "number" : "text"} className={`w-full bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-sm font-bold outline-none transition-all ${!isBalancesVisible ? 'text-transparent' : ''}`} value={isBalancesVisible ? (state.investments.bankBalance?.p2 || '') : '••••'} onChange={e => isBalancesVisible && updateInv('bankBalance', 'p2', e.target.value)} />
                  </div>
               </div>
            </div>
@@ -225,16 +224,30 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
            </div>
 
            <div className="bg-surface rounded-xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
-              <h3 className="font-bold text-yellow-600 mb-3">🪙 Precious Metals</h3>
+              <h3 className="font-bold text-yellow-600 mb-3 flex items-center gap-2"><span>🪙</span> Precious Metals</h3>
               <div className="grid grid-cols-2 gap-2 mb-4">
-                 <input type="number" className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="Gold Rate (₹/g)" value={state.investments.goldRate || ''} onChange={e => updateRate('goldRate', e.target.value)} />
-                 <input type="number" className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="Silver Rate (₹/g)" value={state.investments.silverRate || ''} onChange={e => updateRate('silverRate', e.target.value)} />
+                 <div className="space-y-1">
+                   <label className="text-[9px] uppercase font-bold text-text-light">Gold Rate (₹/g)</label>
+                   <input type="number" className="w-full bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="Gold Rate" value={state.investments.goldRate || ''} onChange={e => updateRate('goldRate', e.target.value)} />
+                 </div>
+                 <div className="space-y-1">
+                   <label className="text-[9px] uppercase font-bold text-text-light">Silver Rate (₹/g)</label>
+                   <input type="number" className="w-full bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="Silver Rate" value={state.investments.silverRate || ''} onChange={e => updateRate('silverRate', e.target.value)} />
+                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                 <div className="col-span-3 text-xs font-bold text-text-light mb-1">Gold (Grams)</div>
+              
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                 <div className="col-span-3 text-xs font-bold text-text-light mb-1">🥇 Gold (Grams)</div>
                  <input className="bg-yellow-50 dark:bg-yellow-900/10 p-2 rounded-lg text-xs" placeholder={state.settings.person1Name} value={state.investments.gold.p1Grams || ''} onChange={e => updateInv('gold', 'p1Grams', e.target.value)} />
                  <input className="bg-yellow-50 dark:bg-yellow-900/10 p-2 rounded-lg text-xs" placeholder={state.settings.person2Name} value={state.investments.gold.p2Grams || ''} onChange={e => updateInv('gold', 'p2Grams', e.target.value)} />
                  <input className="bg-yellow-50 dark:bg-yellow-900/10 p-2 rounded-lg text-xs" placeholder="Shared" value={state.investments.gold.sharedGrams || ''} onChange={e => updateInv('gold', 'sharedGrams', e.target.value)} />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                 <div className="col-span-3 text-xs font-bold text-text-light mb-1">🥈 Silver (Grams)</div>
+                 <input className="bg-gray-100 dark:bg-gray-800 p-2 rounded-lg text-xs" placeholder={state.settings.person1Name} value={state.investments.silver.p1Grams || ''} onChange={e => updateInv('silver', 'p1Grams', e.target.value)} />
+                 <input className="bg-gray-100 dark:bg-gray-800 p-2 rounded-lg text-xs" placeholder={state.settings.person2Name} value={state.investments.silver.p2Grams || ''} onChange={e => updateInv('silver', 'p2Grams', e.target.value)} />
+                 <input className="bg-gray-100 dark:bg-gray-800 p-2 rounded-lg text-xs" placeholder="Shared" value={state.investments.silver.sharedGrams || ''} onChange={e => updateInv('silver', 'sharedGrams', e.target.value)} />
               </div>
            </div>
         </div>
@@ -261,7 +274,7 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
                <div key={loan.id} className="bg-surface p-4 rounded-xl border-l-4 border-secondary shadow-sm flex justify-between items-center">
                  <div>
                    <div className="font-bold">{loan.name}</div>
-                   <div className="text-xs text-text-light">{loan.person} • EMI: ₹{loan.emiAmount}</div>
+                   <div className="text-xs text-text-light">{(loan.person === 'Both' ? 'Shared' : (loan.person === 'Person1' ? state.settings.person1Name : state.settings.person2Name))} • EMI: ₹{loan.emiAmount}</div>
                  </div>
                  <div className="text-right">
                    <div className="font-bold text-red-500">{formatValue(loan.pendingAmount)}</div>

@@ -78,6 +78,10 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [state.expenses, filterType, paymentFilter, searchTerm, viewMode]);
 
+  const recentExpenses = useMemo(() => {
+    return [...state.expenses].sort((a, b) => b.id - a.id).slice(0, 10);
+  }, [state.expenses]);
+
   const stats = useMemo(() => {
     let p1 = 0, p2 = 0, shared = 0;
     const catMap: Record<string, Expense[]> = {};
@@ -273,9 +277,38 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
                </div>
              )}
           </div>
+
+          {/* RECENTLY ADDED SECTION (Last 10) */}
+          <div className="pt-4">
+             <h3 className="text-xs font-black text-text-light uppercase tracking-widest mb-3 flex items-center gap-2">
+                <span>🕒</span> Recent Added Expense (Last 10)
+             </h3>
+             <div className="bg-surface rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 divide-y divide-gray-50 dark:divide-gray-900/50">
+                {recentExpenses.map(exp => (
+                   <div key={exp.id} className="p-3 flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                         <span className="text-xl">{state.settings.categoryIcons?.[exp.category] || '📦'}</span>
+                         <div>
+                            <div className="text-sm font-bold text-text truncate max-w-[120px] sm:max-w-xs">{exp.note || exp.category}</div>
+                            <div className="text-[10px] text-text-light uppercase font-black">
+                               {new Date(exp.date).toLocaleDateString()} • {exp.person === 'Both' ? 'Shared' : (exp.person === 'Person1' ? state.settings.person1Name : state.settings.person2Name)}
+                            </div>
+                         </div>
+                      </div>
+                      <div className="text-right">
+                         <div className="font-bold text-sm text-primary">₹{exp.amount}</div>
+                         <div className="text-[8px] text-text-light uppercase font-bold">{exp.paymentMode}</div>
+                      </div>
+                   </div>
+                ))}
+                {recentExpenses.length === 0 && (
+                   <div className="p-6 text-center text-xs text-text-light italic">No transactions yet.</div>
+                )}
+             </div>
+          </div>
         </>
       ) : (
-        /* Calendar View - Same logic as before */
+        /* Calendar View */
         <div className="bg-surface rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-2 sm:p-4 animate-fade-in">
           <div className="flex justify-between items-center mb-4">
              <button onClick={() => setCalendarMonth(new Date(calendarMonth.setMonth(calendarMonth.getMonth() - 1)))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">◀</button>
@@ -307,6 +340,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
                  .reduce((sum, e) => sum + e.amount, 0);
                
                const fixedDue = state.fixedPayments.some(p => p.day === date.getDate());
+               const cardBillDue = state.creditCards.some(c => c.billingDay === date.getDate());
 
                let cellBg = 'bg-background border-transparent';
                if (isSalaryDay) {
@@ -343,8 +377,9 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
                       )}
                     </div>
 
-                    <div className="flex gap-0.5 pb-0.5">
+                    <div className="flex gap-0.5 pb-0.5 flex-wrap justify-center">
                       {fixedDue && <div className="w-1.5 h-1.5 rounded-full bg-secondary shadow-sm" title="Bill Due"></div>}
+                      {cardBillDue && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-sm" title="CC Bill Generation"></div>}
                       {dailyTotal > 0 && <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-sm" title="Spent"></div>}
                     </div>
                  </div>
@@ -357,6 +392,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-100"></div> Weekend</div>
              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-md bg-purple-100 dark:bg-purple-900/30 border-purple-300"></div> Holiday</div>
              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-md bg-green-100 dark:bg-green-900/30 border-green-300"></div> Salary Day</div>
+             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-indigo-500"></div> CC Bill Generation</div>
           </div>
         </div>
       )}

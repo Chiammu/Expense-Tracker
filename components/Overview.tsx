@@ -31,7 +31,7 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
 
   // Calculations
   const otherIncomeTotal = state.otherIncome.reduce((sum, i) => sum + i.amount, 0);
-  const totalIncome = state.incomePerson1 + state.incomePerson2 + otherIncomeTotal;
+  const totalIncomeValue = (state.incomePerson1 || 0) + (state.incomePerson2 || 0) + otherIncomeTotal;
   const fixedTotal = state.fixedPayments.reduce((sum, p) => sum + p.amount, 0);
   
   // Expenses this month
@@ -42,15 +42,14 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
   });
   
   // Calculate spending per category for the current month
-  // Fix: Added missing categorySpending calculation
   const categorySpending = monthExpenses.reduce((acc, curr) => {
     acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
     return acc;
   }, {} as Record<string, number>);
 
   const monthTotal = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
-  const moneyLeft = totalIncome - (monthTotal + fixedTotal);
-  const savingsPercent = totalIncome > 0 ? ((moneyLeft / totalIncome) * 100).toFixed(1) : '0';
+  const moneyLeft = totalIncomeValue - (monthTotal + fixedTotal);
+  const savingsPercent = totalIncomeValue > 0 ? ((moneyLeft / totalIncomeValue) * 100).toFixed(1) : '0';
 
   // Salary Day Logic
   const getSalaryInfo = () => {
@@ -66,7 +65,6 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
 
     let targetDate = getLastWorkingDay(year, month);
     
-    // If today is past this month's salary day, look at next month
     if (today.getDate() > targetDate.getDate()) {
       targetDate = getLastWorkingDay(year, month + 1);
     }
@@ -193,7 +191,6 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
           </div>
           <p className="text-xs font-medium opacity-90 mt-2">{salaryInfo.subMessage}</p>
           
-          {/* Progress Bar */}
           <div className="mt-4 h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
              <div 
                className="h-full bg-white transition-all duration-1000 ease-out"
@@ -201,7 +198,6 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
              ></div>
           </div>
         </div>
-        {/* Large BG Icon */}
         <div className="absolute -right-4 -bottom-6 text-8xl opacity-10 rotate-12 pointer-events-none">
           {salaryInfo.diffDays === 0 ? '🍾' : (salaryInfo.diffDays <= 5 ? '🚁' : '⏳')}
         </div>
@@ -213,27 +209,27 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
            <h3 className="text-lg font-bold text-primary flex items-center gap-2">
              <span>💰</span> Monthly Income
            </h3>
-           <div className="text-sm font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1 rounded-full">
-             Total: ₹{totalIncome.toLocaleString()}
+           <div className="text-[10px] sm:text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 sm:px-3 py-1 rounded-full whitespace-nowrap">
+             Total: ₹{totalIncomeValue.toLocaleString()}
            </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
           <div className="group">
-             <label className="text-xs text-text-light mb-1 block group-focus-within:text-primary transition-colors">{state.settings.person1Name}</label>
+             <label className="text-[11px] font-bold text-text-light mb-1.5 block group-focus-within:text-primary transition-colors">{state.settings.person1Name}</label>
              <input 
                type="number" 
-               className="w-full p-2.5 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm sm:text-base"
+               className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold"
                value={state.incomePerson1 || ''}
                onChange={e => updateIncome(parseFloat(e.target.value) || 0, state.incomePerson2)}
                placeholder="0"
              />
           </div>
           <div className="group">
-             <label className="text-xs text-text-light mb-1 block group-focus-within:text-primary transition-colors">{state.settings.person2Name}</label>
+             <label className="text-[11px] font-bold text-text-light mb-1.5 block group-focus-within:text-primary transition-colors">{state.settings.person2Name}</label>
              <input 
                type="number" 
-               className="w-full p-2.5 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm sm:text-base"
+               className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold"
                value={state.incomePerson2 || ''}
                onChange={e => updateIncome(state.incomePerson1, parseFloat(e.target.value) || 0)}
                placeholder="0"
@@ -241,7 +237,6 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
           </div>
         </div>
 
-        {/* Other Income Toggle */}
         <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
           <button 
              onClick={() => setShowOtherIncome(!showOtherIncome)}
@@ -261,28 +256,30 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
                     </div>
                  </div>
                ))}
-               <div className="flex gap-2">
+               <div className="flex flex-col sm:flex-row gap-2">
                  <input 
                    className="flex-1 p-2 bg-background border border-gray-200 dark:border-gray-700 rounded-lg text-xs" 
                    placeholder="Source (e.g. Freelance)"
                    value={otherIncForm.desc}
                    onChange={e => setOtherIncForm({...otherIncForm, desc: e.target.value})}
                  />
-                 <input 
-                   className="w-20 p-2 bg-background border border-gray-200 dark:border-gray-700 rounded-lg text-xs" 
-                   type="number"
-                   placeholder="Amt"
-                   value={otherIncForm.amount}
-                   onChange={e => setOtherIncForm({...otherIncForm, amount: e.target.value})}
-                 />
-                 <button onClick={addOtherIncome} className="bg-secondary text-white px-3 rounded-lg text-lg leading-none hover:bg-secondary/90">+</button>
+                 <div className="flex gap-2">
+                   <input 
+                     className="flex-1 sm:w-20 p-2 bg-background border border-gray-200 dark:border-gray-700 rounded-lg text-xs" 
+                     type="number"
+                     placeholder="Amt"
+                     value={otherIncForm.amount}
+                     onChange={e => setOtherIncForm({...otherIncForm, amount: e.target.value})}
+                   />
+                   <button onClick={addOtherIncome} className="bg-secondary text-white px-4 rounded-lg text-lg leading-none hover:bg-secondary/90">+</button>
+                 </div>
                </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Budget Section - REVERTED TO STANDARD INPUT */}
+      {/* Budget Section */}
       <div className="bg-surface rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100 dark:border-gray-800 transition-shadow hover:shadow-md relative overflow-hidden">
          <div className="flex justify-between items-center mb-3 sm:mb-4">
            <h3 className="text-lg font-bold text-primary flex items-center gap-2">
@@ -414,16 +411,16 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
         </div>
       </div>
 
-      {/* Fixed Payments - IMPROVED LAYOUT */}
+      {/* Fixed Payments */}
       <div className="bg-surface rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-800 transition-all hover:shadow-md">
         <h3 className="text-lg font-bold text-primary mb-4 flex items-center gap-2">
            <span>📅</span> Fixed Payments
         </h3>
         
-        {/* Grid-based Add Form */}
-        <div className="grid grid-cols-[1.5fr_1fr_0.8fr_auto] gap-2 mb-4">
+        {/* Responsive Grid-based Add Form */}
+        <div className="grid grid-cols-2 sm:grid-cols-[2fr_1fr_1fr_auto] gap-2 mb-4">
            <input 
-              className="bg-gray-50 dark:bg-gray-900/50 rounded-xl px-3 py-2 text-sm border-none focus:ring-2 focus:ring-primary/20 placeholder:text-gray-400"
+              className="col-span-2 sm:col-span-1 bg-gray-50 dark:bg-gray-900/50 rounded-xl px-3 py-2 text-sm border-none focus:ring-2 focus:ring-primary/20 placeholder:text-gray-400"
               placeholder="Name"
               value={fixedPayForm.name}
               onChange={e => setFixedPayForm({...fixedPayForm, name: e.target.value})}
@@ -437,14 +434,15 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
            />
            <input 
               type="number"
+              min="1"
               max="31"
               className="bg-gray-50 dark:bg-gray-900/50 rounded-xl px-3 py-2 text-sm border-none focus:ring-2 focus:ring-primary/20 text-center placeholder:text-gray-400"
               placeholder="Day"
               value={fixedPayForm.day}
               onChange={e => setFixedPayForm({...fixedPayForm, day: e.target.value})}
            />
-           <button onClick={handleAddFixed} className="bg-secondary text-white w-10 h-10 rounded-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shadow-sm">
-              +
+           <button onClick={handleAddFixed} className="col-span-2 sm:col-span-1 bg-secondary text-white h-10 rounded-xl flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm font-bold">
+              Add Fixed Payment
            </button>
         </div>
 
