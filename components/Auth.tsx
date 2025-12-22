@@ -21,7 +21,7 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isConfigured) return showToast("Supabase is not configured", "error");
+    if (!isConfigured) return showToast("Supabase is not configured. Use Guest Mode.", "error");
     
     setLoading(true);
     try {
@@ -46,26 +46,6 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
     }
   };
 
-  if (!isConfigured) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-background text-center">
-        <div className="max-w-md bg-surface p-8 rounded-3xl shadow-xl border border-red-100">
-           <div className="text-5xl mb-4">⚠️</div>
-           <h2 className="text-xl font-bold text-red-600 mb-2">Supabase Missing</h2>
-           <p className="text-sm text-text-light mb-4">
-             Please provide <code className="bg-gray-100 p-1 rounded">VITE_SUPABASE_URL</code> and <code className="bg-gray-100 p-1 rounded">VITE_SUPABASE_ANON_KEY</code> to enable authentication and cloud sync.
-           </p>
-           <button 
-             onClick={onGuestLogin}
-             className="w-full py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-colors"
-           >
-             Continue as Guest (Offline)
-           </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <div className="w-full max-w-md bg-surface p-8 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 animate-scale-in">
@@ -83,14 +63,25 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
           </p>
         </div>
 
+        {!isConfigured && (
+          <div className="mb-6 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800 rounded-2xl flex items-center gap-3">
+            <span className="text-xl">☁️</span>
+            <div>
+              <p className="text-[10px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-wider">Cloud Offline</p>
+              <p className="text-[10px] text-orange-600 dark:text-orange-300">Credentials missing. Please use guest mode to explore.</p>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleEmailAuth} className="space-y-4 animate-fade-in">
           <div className="space-y-1">
             <label className="text-[10px] uppercase font-black text-text-light ml-1">Email Address</label>
             <input 
               type="email" 
               required 
+              disabled={!isConfigured}
               autoFocus
-              className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border-none focus:ring-2 focus:ring-primary/20 text-sm" 
+              className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border-none focus:ring-2 focus:ring-primary/20 text-sm disabled:opacity-50" 
               placeholder="you@example.com"
               value={email}
               onChange={e => setEmail(e.target.value)}
@@ -108,7 +99,8 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
               <input 
                 type="password" 
                 required 
-                className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border-none focus:ring-2 focus:ring-primary/20 text-sm" 
+                disabled={!isConfigured}
+                className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border-none focus:ring-2 focus:ring-primary/20 text-sm disabled:opacity-50" 
                 placeholder="••••••••"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
@@ -117,8 +109,8 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
           )}
 
           <button 
-            disabled={loading}
-            className="w-full py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all disabled:opacity-50"
+            disabled={loading || !isConfigured}
+            className="w-full py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
           >
             {loading ? (
                <span className="flex items-center justify-center gap-2">
@@ -136,9 +128,13 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
 
         <button 
           onClick={onGuestLogin}
-          className="w-full py-3 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-text font-bold rounded-xl shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all active:scale-95"
+          className={`w-full py-3 font-bold rounded-xl shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 ${
+            !isConfigured 
+              ? 'bg-gradient-to-r from-secondary to-cyan-500 text-white shadow-secondary/30' 
+              : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-text hover:bg-gray-50 dark:hover:bg-gray-700'
+          }`}
         >
-          Explore as Guest
+          <span>🚀</span> Explore as Guest
         </button>
 
         <div className="mt-8 text-center border-t border-gray-50 dark:border-gray-800 pt-6">
@@ -146,8 +142,9 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
             {mode === 'login' ? "Don't have an account?" : "Already have an account?"}
             <button 
               type="button"
+              disabled={!isConfigured}
               onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
-              className="ml-1 text-primary font-bold hover:underline"
+              className="ml-1 text-primary font-bold hover:underline disabled:opacity-50"
             >
               {mode === 'login' ? 'Sign Up' : 'Sign In'}
             </button>

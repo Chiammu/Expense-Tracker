@@ -7,6 +7,15 @@ export interface Expense {
   category: string;
   paymentMode: string;
   note: string;
+  cardId?: number; // Optional reference to a credit card
+}
+
+export interface CreditCard {
+  id: number;
+  name: string;
+  limit: number;
+  billingDay: number;
+  currentBalance: number;
 }
 
 export interface FixedPayment {
@@ -55,6 +64,8 @@ export interface Investments {
   stocks: AssetSplit;
   gold: MetalAsset;
   silver: MetalAsset;
+  goldRate: number; // Added: Current price per gram
+  silverRate: number; // Added: Current price per gram
 }
 
 export interface Loan {
@@ -96,9 +107,9 @@ export interface AppState {
   savingsGoals: SavingsGoal[];
   categoryBudgets: Record<string, number>;
   chatMessages: ChatMessage[];
-  // New State Fields
   investments: Investments;
   loans: Loan[];
+  creditCards: CreditCard[]; // Added field
 }
 
 export type Section = 'add-expense' | 'summaries' | 'investments' | 'overview' | 'settings';
@@ -139,6 +150,8 @@ export const INITIAL_INVESTMENTS: Investments = {
   stocks: { p1: 0, p2: 0, shared: 0 },
   gold: { p1Grams: 0, p2Grams: 0, sharedGrams: 0 },
   silver: { p1Grams: 0, p2Grams: 0, sharedGrams: 0 },
+  goldRate: 0,
+  silverRate: 0,
 };
 
 export const INITIAL_STATE: AppState = {
@@ -154,4 +167,5 @@ export const INITIAL_STATE: AppState = {
   chatMessages: [],
   investments: INITIAL_INVESTMENTS,
   loans: [],
+  creditCards: [],
 };

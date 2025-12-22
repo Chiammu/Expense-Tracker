@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, Expense } from '../types';
 import { parseReceiptImage, parseNaturalLanguageExpense } from '../services/geminiService';
@@ -14,7 +15,6 @@ interface AddExpenseProps {
 
 const PAYMENT_MODES = ["UPI", "Card", "Cash", "Netbanking", "Wallet", "Other"];
 
-// Helper to get local date string YYYY-MM-DD
 const getLocalDate = () => {
   const d = new Date();
   const offset = d.getTimezoneOffset() * 60000;
@@ -36,14 +36,14 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
     amount: '',
     category: '',
     paymentMode: '',
-    note: ''
+    note: '',
+    cardId: ''
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [nlpInput, setNlpInput] = useState('');
   const [isListening, setIsListening] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load data if editing
   useEffect(() => {
     if (expenseToEdit) {
       setFormData({
@@ -52,27 +52,26 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
         amount: expenseToEdit.amount.toString(),
         category: expenseToEdit.category,
         paymentMode: expenseToEdit.paymentMode,
-        note: expenseToEdit.note
+        note: expenseToEdit.note,
+        cardId: expenseToEdit.cardId?.toString() || ''
       });
     } else {
-      // Reset if not editing
       setFormData({
         person: '',
         date: getLocalDate(),
         amount: '',
         category: '',
         paymentMode: '',
-        note: ''
+        note: '',
+        cardId: ''
       });
     }
   }, [expenseToEdit]);
 
-  // Category Prediction Logic
   useEffect(() => {
     if (!expenseToEdit && !formData.category && formData.note.length > 3) {
       const lowerNote = formData.note.toLowerCase();
       const categories = state.settings.customCategories;
-      // Simple heuristic prediction
       const map: Record<string, string[]> = {
         'Groceries': ['mart', 'market', 'veg', 'fruit', 'milk', 'grocery'],
         'Food': ['burger', 'pizza', 'restaurant', 'cafe', 'coffee', 'dinner', 'lunch', 'swiggy', 'zomato'],
@@ -125,7 +124,6 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
     
     setIsProcessing(true);
     try {
-      // Pass the user names to the NLP service to recognize person
       const data = await parseNaturalLanguageExpense(
           textToProcess, 
           state.settings.person1Name, 
@@ -194,13 +192,19 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
       return;
     }
 
-    const payload = {
+    if (formData.paymentMode === 'Card' && !formData.cardId && state.creditCards.length > 0) {
+      showToast("Please select a credit card", 'error');
+      return;
+    }
+
+    const payload: Omit<Expense, 'id'> = {
       person: formData.person,
       date: formData.date,
       amount: parseFloat(formData.amount),
       category: formData.category,
       paymentMode: formData.paymentMode,
-      note: formData.note
+      note: formData.note,
+      cardId: formData.paymentMode === 'Card' ? parseInt(formData.cardId) : undefined
     };
     
     if (expenseToEdit && updateExpense) {
@@ -210,21 +214,20 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
       });
     } else {
       addExpense(payload);
-      // Only reset if adding new
       setFormData({
         person: '',
         date: getLocalDate(),
         amount: '',
         category: '',
         paymentMode: '',
-        note: ''
+        note: '',
+        cardId: ''
       });
     }
   };
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Quick Actions Bar - Flex Container (Only show if NOT editing) */}
       {!expenseToEdit && (
         <div className="flex gap-2 mb-4 sm:mb-6">
           <button 
@@ -275,7 +278,6 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
         </div>
       )}
 
-      {/* Edit Mode Header */}
       {expenseToEdit && (
         <div className="flex justify-between items-center mb-4 bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg border border-orange-100 dark:border-orange-800">
            <div className="flex items-center gap-2 text-orange-700 dark:text-orange-400 font-bold">
@@ -373,6 +375,25 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
                ))}
              </div>
           </div>
+
+          {formData.paymentMode === 'Card' && state.creditCards.length > 0 && (
+            <div className="animate-slide-up">
+              <label className="block text-[10px] sm:text-xs font-bold text-text-light mb-1 uppercase tracking-wide">Select Credit Card *</label>
+              <select 
+                required
+                className="w-full p-2.5 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background text-text focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all appearance-none text-sm"
+                value={formData.cardId}
+                onChange={e => setFormData({...formData, cardId: e.target.value})}
+              >
+                <option value="">Select Card...</option>
+                {state.creditCards.map(card => (
+                  <option key={card.id} value={card.id}>
+                    💳 {card.name} (Limit: ₹{card.limit})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-[10px] sm:text-xs font-bold text-text-light mb-1 uppercase tracking-wide">Description</label>

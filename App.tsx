@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { loadFromStorage, saveToStorage, fetchCloudState, subscribeToChanges, forceCloudSync, mergeAppState } from './services/storage';
-import { AppState, INITIAL_STATE, Section, Expense, FixedPayment, DEFAULT_CATEGORIES } from './types';
+import { AppState, INITIAL_STATE, Section, Expense, FixedPayment, DEFAULT_CATEGORIES, CreditCard } from './types';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { AddExpense } from './components/AddExpense';
@@ -29,7 +29,8 @@ const generateMockData = (): AppState => {
     date: new Date(Date.now() - (Math.floor(Math.random() * 20) * 86400000)).toISOString().split('T')[0],
     note: notes[Math.floor(Math.random() * notes.length)],
     paymentMode: modes[Math.floor(Math.random() * modes.length)],
-    person: persons[Math.floor(Math.random() * persons.length)]
+    person: persons[Math.floor(Math.random() * persons.length)],
+    cardId: modes[Math.floor(Math.random() * modes.length)] === 'Card' ? 1 : undefined
   }));
 
   return {
@@ -50,11 +51,16 @@ const generateMockData = (): AppState => {
       stocks: { p1: 85000, p2: 42000, shared: 0 },
       gold: { p1Grams: 10, p2Grams: 5, sharedGrams: 20 },
       silver: { p1Grams: 100, p2Grams: 50, sharedGrams: 500 },
+      goldRate: 7300,
+      silverRate: 90,
     },
     fixedPayments: [
       { id: 1, name: 'Rent', amount: 25000, day: 1 },
       { id: 2, name: 'Internet', amount: 1200, day: 10 },
       { id: 3, name: 'Gym', amount: 3500, day: 5 }
+    ],
+    creditCards: [
+      { id: 1, name: 'HDFC Regalia', limit: 500000, billingDay: 15, currentBalance: 12500 }
     ]
   };
 };
@@ -72,12 +78,13 @@ function App() {
   const [duePayments, setDuePayments] = useState<FixedPayment[]>([]);
   const [showRecurringModal, setShowRecurringModal] = useState(false);
   const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
-  const prevSyncIdRef = useRef<string | null>(null);
-  const lastUpdateWasRemote = useRef(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isIos, setIsIos] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
+  
+  const prevSyncIdRef = useRef<string | null>(null);
+  const lastUpdateWasRemote = useRef(false);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -85,16 +92,23 @@ function App() {
 
   // 0. Auth Session Management
   useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (!authInitialized) setAuthInitialized(true);
+    }, 5000);
+
     if (!supabase) {
       setAuthInitialized(true);
+      clearTimeout(timeout);
       return;
     }
     
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthInitialized(true);
+      clearTimeout(timeout);
     }).catch(() => {
       setAuthInitialized(true);
+      clearTimeout(timeout);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -106,7 +120,10 @@ function App() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, [isGuest]);
 
   // 1. Initial Data Load & Recurring Check
@@ -142,7 +159,6 @@ function App() {
         setIsLocked(true);
       }
 
-      // Check recurring payments
       if (currentState.fixedPayments.length > 0) {
         const lastCheck = currentState.settings.lastFixedPaymentCheck 
           ? new Date(currentState.settings.lastFixedPaymentCheck) 
@@ -225,7 +241,13 @@ function App() {
   const addExpense = (expense: Omit<Expense, 'id'>) => {
     const newExpense: Expense = { ...expense, id: Date.now() };
     setState(prev => {
-        const next = { ...prev, expenses: [...prev.expenses, newExpense] };
+        let updatedCards = prev.creditCards;
+        if (newExpense.paymentMode === 'Card' && newExpense.cardId) {
+          updatedCards = prev.creditCards.map(c => 
+            c.id === newExpense.cardId ? { ...c, currentBalance: c.currentBalance + newExpense.amount } : c
+          );
+        }
+        const next = { ...prev, expenses: [...prev.expenses, newExpense], creditCards: updatedCards };
         if (!isGuest) forceCloudSync(next);
         return next;
     });
@@ -239,9 +261,27 @@ function App() {
 
   const updateExpense = (updatedExpense: Expense) => {
     setState(prev => {
+      // Revert old card balance if it was a card expense
+      const oldExpense = prev.expenses.find(e => e.id === updatedExpense.id);
+      let updatedCards = prev.creditCards;
+      
+      if (oldExpense && oldExpense.paymentMode === 'Card' && oldExpense.cardId) {
+        updatedCards = updatedCards.map(c => 
+          c.id === oldExpense.cardId ? { ...c, currentBalance: c.currentBalance - oldExpense.amount } : c
+        );
+      }
+      
+      // Apply new card balance if new is a card expense
+      if (updatedExpense.paymentMode === 'Card' && updatedExpense.cardId) {
+        updatedCards = updatedCards.map(c => 
+          c.id === updatedExpense.cardId ? { ...c, currentBalance: c.currentBalance + updatedExpense.amount } : c
+        );
+      }
+
       const next = {
         ...prev,
-        expenses: prev.expenses.map(e => e.id === updatedExpense.id ? updatedExpense : e)
+        expenses: prev.expenses.map(e => e.id === updatedExpense.id ? updatedExpense : e),
+        creditCards: updatedCards
       };
       if (!isGuest) forceCloudSync(next);
       return next;
@@ -256,7 +296,14 @@ function App() {
   const deleteExpense = (id: number) => {
     if (window.confirm("Delete this expense?")) {
       setState(prev => {
-          const next = { ...prev, expenses: prev.expenses.filter(e => e.id !== id) };
+          const oldExpense = prev.expenses.find(e => e.id === id);
+          let updatedCards = prev.creditCards;
+          if (oldExpense && oldExpense.paymentMode === 'Card' && oldExpense.cardId) {
+            updatedCards = prev.creditCards.map(c => 
+              c.id === oldExpense.cardId ? { ...c, currentBalance: c.currentBalance - oldExpense.amount } : c
+            );
+          }
+          const next = { ...prev, expenses: prev.expenses.filter(e => e.id !== id), creditCards: updatedCards };
           if (!isGuest) forceCloudSync(next);
           return next;
       });
@@ -324,8 +371,6 @@ function App() {
     reader.readAsText(file);
   };
 
-  // --- RECURRING MODAL HANDLERS ---
-  // Added handleRecurringConfirm to process selected fixed payments into expenses.
   const handleRecurringConfirm = (selectedIds: number[]) => {
     const selectedPayments = duePayments.filter(p => selectedIds.includes(p.id));
     const newExpenses: Expense[] = selectedPayments.map(p => ({
@@ -352,7 +397,6 @@ function App() {
     showToast(`Added ${newExpenses.length} recurring expenses`, 'success');
   };
 
-  // Added handleRecurringCancel to dismiss the recurring payments modal.
   const handleRecurringCancel = () => {
     setState(prev => ({
       ...prev,
@@ -412,9 +456,12 @@ function App() {
         <div className="max-w-3xl mx-auto px-3 sm:px-6 lg:px-8 pt-2 sm:pt-4">
           <Header settings={state.settings} />
           {isGuest && (
-            <div className="bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 px-4 py-2 rounded-xl text-xs font-bold mb-4 flex justify-between items-center shadow-sm">
-              <span>🚀 You are in Guest Mode with sample data.</span>
-              <button onClick={() => window.location.reload()} className="underline uppercase">Login</button>
+            <div className="bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 px-4 py-3 rounded-xl text-xs font-bold mb-4 flex justify-between items-center shadow-sm animate-fade-in">
+              <span className="flex items-center gap-2">
+                <span className="text-lg">🚀</span> 
+                Guest Mode Active (Sample Data)
+              </span>
+              <button onClick={() => window.location.reload()} className="bg-amber-200 dark:bg-amber-800 px-3 py-1 rounded-lg hover:scale-105 transition-transform uppercase">Login</button>
             </div>
           )}
           <main className="relative pb-24">

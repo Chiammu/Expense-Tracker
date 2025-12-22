@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { AppState, Loan, Investments as InvestType } from '../types';
+import { AppState, Loan, Investments as InvestType, CreditCard } from '../types';
 import { analyzeLoanStrategy, getLatestMetalRates } from '../services/geminiService';
 
 interface InvestmentsProps {
@@ -9,36 +10,48 @@ interface InvestmentsProps {
 }
 
 export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, showToast }) => {
-  const [tab, setTab] = useState<'assets' | 'liabilities'>('assets');
-  const [metalRates, setMetalRates] = useState({ gold: 0, silver: 0, source: 'Offline' });
+  const [tab, setTab] = useState<'assets' | 'liabilities' | 'cards'>('assets');
   const [fetchingRates, setFetchingRates] = useState(false);
   const [aiAdvice, setAiAdvice] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
-  const [isBalancesVisible, setIsBalancesVisible] = useState(true);
+  
+  const [isBalancesVisible, setIsBalancesVisible] = useState(false);
 
-  // EMI Form State
+  // Form States
   const [newLoan, setNewLoan] = useState({ name: '', pending: '', emi: '', person: 'Both' });
+  const [newCard, setNewCard] = useState({ name: '', limit: '', billingDay: '' });
 
-  // 1. Fetch Metal Rates (Using AI Search)
   useEffect(() => {
     const fetchRates = async () => {
+      if (state.investments.goldRate > 0 && state.investments.silverRate > 0) return;
+
       setFetchingRates(true);
-      
       try {
         const rates = await getLatestMetalRates();
-        setMetalRates(rates);
+        updateState({
+          investments: {
+            ...state.investments,
+            goldRate: rates.gold,
+            silverRate: rates.silver
+          }
+        });
       } catch (e) {
-        // Fallback already handled in service, but safety net
-        setMetalRates({ gold: 7300, silver: 90, source: 'Offline' });
+        if (state.investments.goldRate === 0) {
+            updateState({
+              investments: {
+                ...state.investments,
+                goldRate: 7300,
+                silverRate: 90
+              }
+            });
+        }
       }
-      
       setFetchingRates(false);
     };
 
     fetchRates();
   }, []);
 
-  // Helpers
   const updateInv = (key: keyof InvestType, subKey: string, val: string) => {
     const num = parseFloat(val) || 0;
     const current = state.investments[key] as any;
@@ -54,6 +67,16 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
     });
   };
 
+  const updateRate = (metal: 'goldRate' | 'silverRate', val: string) => {
+    const num = parseFloat(val) || 0;
+    updateState({
+      investments: {
+        ...state.investments,
+        [metal]: num
+      }
+    });
+  };
+
   const addLoan = () => {
     if (!newLoan.name || !newLoan.pending || !newLoan.emi) {
       showToast('Fill all loan details', 'error');
@@ -62,7 +85,7 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
     const loan: Loan = {
       id: Date.now(),
       name: newLoan.name,
-      totalAmount: parseFloat(newLoan.pending), // Assuming total starts as pending for simplification in this UI
+      totalAmount: parseFloat(newLoan.pending), 
       pendingAmount: parseFloat(newLoan.pending),
       emiAmount: parseFloat(newLoan.emi),
       person: newLoan.person as any
@@ -78,88 +101,77 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
     }
   };
 
-  const handleAnalyzeEMI = async () => {
-    if (state.loans.length === 0) {
-      showToast("Add loans first", 'info');
+  const addCard = () => {
+    if (!newCard.name || !newCard.limit || !newCard.billingDay) {
+      showToast('Fill all card details', 'error');
       return;
     }
-    setAnalyzing(true);
-    setAiAdvice(null);
-    
-    // Calculate surplus (Income - Expense - Fixed Payments)
-    const totalIncome = state.incomePerson1 + state.incomePerson2 + state.otherIncome.reduce((s,i) => s + i.amount, 0);
-    const totalExpense = state.expenses.reduce((s,e) => s + e.amount, 0);
-    const surplus = totalIncome - totalExpense;
-
-    const advice = await analyzeLoanStrategy(state.loans, surplus, state.settings.person1Name, state.settings.person2Name);
-    setAiAdvice(advice);
-    setAnalyzing(false);
+    const card: CreditCard = {
+      id: Date.now(),
+      name: newCard.name,
+      limit: parseFloat(newCard.limit),
+      billingDay: parseInt(newCard.billingDay),
+      currentBalance: 0
+    };
+    updateState({ creditCards: [...state.creditCards, card] });
+    setNewCard({ name: '', limit: '', billingDay: '' });
+    showToast('Credit Card Added', 'success');
   };
 
-  // Masking Helper
+  const removeCard = (id: number) => {
+    if(confirm("Remove this card?")) {
+      updateState({ creditCards: state.creditCards.filter(c => c.id !== id) });
+    }
+  };
+
   const formatValue = (val: number) => {
     if (!isBalancesVisible) return '••••';
     return `₹${val.toLocaleString()}`;
   };
 
-  // Calculations
-  const goldVal = (state.investments.gold.p1Grams + state.investments.gold.p2Grams + state.investments.gold.sharedGrams) * metalRates.gold;
-  const silverVal = (state.investments.silver.p1Grams + state.investments.silver.p2Grams + state.investments.silver.sharedGrams) * metalRates.silver;
-  
+  const goldVal = (state.investments.gold.p1Grams + state.investments.gold.p2Grams + state.investments.gold.sharedGrams) * (state.investments.goldRate || 0);
+  const silverVal = (state.investments.silver.p1Grams + state.investments.silver.p2Grams + state.investments.silver.sharedGrams) * (state.investments.silverRate || 0);
   const totalBank = state.investments.bankBalance.p1 + state.investments.bankBalance.p2;
   const totalMF = state.investments.mutualFunds.p1 + state.investments.mutualFunds.p2 + state.investments.mutualFunds.shared;
   const totalStocks = state.investments.stocks.p1 + state.investments.stocks.p2 + state.investments.stocks.shared;
   
   const totalAssets = totalBank + totalMF + totalStocks + goldVal + silverVal;
-  const totalLiabilities = state.loans.reduce((sum, l) => sum + l.pendingAmount, 0);
+  const totalLiabilities = state.loans.reduce((sum, l) => sum + l.pendingAmount, 0) + state.creditCards.reduce((sum, c) => sum + c.currentBalance, 0);
   const netWorth = totalAssets - totalLiabilities;
-  
-  // EMI % Calculation
-  const totalMonthlyEMI = state.loans.reduce((sum, l) => sum + l.emiAmount, 0);
-  const totalIncome = state.incomePerson1 + state.incomePerson2 + state.otherIncome.reduce((sum, i) => sum + i.amount, 0);
-  const emiPercentage = totalIncome > 0 ? (totalMonthlyEMI / totalIncome) * 100 : 0;
 
   return (
     <div className="pb-24 space-y-6 animate-fade-in">
-      
-      {/* Top Toggle Row */}
-      <div className="flex items-center gap-2 mx-auto max-w-sm">
-        <div className="bg-surface p-1 rounded-xl flex shadow-sm border border-gray-100 dark:border-gray-800 flex-1">
-           <button 
-             onClick={() => setTab('assets')}
-             className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${tab === 'assets' ? 'bg-primary text-white shadow-md' : 'text-text-light hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-           >
-             💰 Wealth
-           </button>
-           <button 
-             onClick={() => setTab('liabilities')}
-             className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${tab === 'liabilities' ? 'bg-secondary text-white shadow-md' : 'text-text-light hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-           >
-             📉 EMIs
-           </button>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-2">
+          <div className="bg-surface p-1 rounded-xl flex shadow-sm border border-gray-100 dark:border-gray-800 flex-1 overflow-x-auto">
+             <button 
+               onClick={() => setTab('assets')}
+               className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${tab === 'assets' ? 'bg-primary text-white shadow-md' : 'text-text-light hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+             >
+               Wealth
+             </button>
+             <button 
+               onClick={() => setTab('liabilities')}
+               className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${tab === 'liabilities' ? 'bg-secondary text-white shadow-md' : 'text-text-light hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+             >
+               EMIs
+             </button>
+             <button 
+               onClick={() => setTab('cards')}
+               className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${tab === 'cards' ? 'bg-indigo-500 text-white shadow-md' : 'text-text-light hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+             >
+               Cards
+             </button>
+          </div>
+          <button 
+            onClick={() => setIsBalancesVisible(!isBalancesVisible)}
+            className={`shrink-0 w-11 h-11 flex items-center justify-center rounded-xl shadow-sm border transition-all ${isBalancesVisible ? 'bg-white border-gray-100 text-text-light dark:bg-gray-800 dark:border-gray-700' : 'bg-primary text-white border-primary shadow-lg ring-2 ring-primary/20'}`}
+          >
+            {isBalancesVisible ? '👁️' : '🙈'}
+          </button>
         </div>
-        
-        {/* Privacy Toggle Button */}
-        <button 
-          onClick={() => setIsBalancesVisible(!isBalancesVisible)}
-          className={`shrink-0 w-11 h-11 flex items-center justify-center rounded-xl shadow-sm border transition-all ${isBalancesVisible ? 'bg-white border-gray-100 text-text-light dark:bg-gray-800 dark:border-gray-700' : 'bg-primary text-white border-primary shadow-lg ring-2 ring-primary/20'}`}
-          title={isBalancesVisible ? "Hide Balances" : "Show Balances"}
-        >
-          {isBalancesVisible ? (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-              <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-            </svg>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
-              <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
-            </svg>
-          )}
-        </button>
       </div>
 
-      {/* Summary Card */}
       <div className="bg-gradient-to-br from-gray-900 to-black text-white p-6 rounded-2xl shadow-xl relative overflow-hidden transition-all duration-500">
         <div className="relative z-10">
           <div className="text-xs text-gray-400 uppercase tracking-widest mb-1">Total Net Worth</div>
@@ -179,210 +191,138 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
         <div className="absolute -right-4 -bottom-10 text-9xl opacity-5 pointer-events-none">🏛️</div>
       </div>
 
-      {tab === 'assets' ? (
-        <div className="space-y-4">
-           {/* Bank Balance */}
+      {tab === 'assets' && (
+        <div className="space-y-4 animate-slide-up">
+           {/* Existing Assets Section... */}
            <div className="bg-surface rounded-xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
               <h3 className="font-bold text-primary mb-3 flex items-center gap-2">🏦 Bank Balance</h3>
               <div className="grid grid-cols-2 gap-4">
                  <div>
                     <label className="text-[10px] uppercase text-text-light font-bold mb-1 block">{state.settings.person1Name}</label>
-                    <input 
-                      type={isBalancesVisible ? "number" : "text"}
-                      className={`w-full bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-sm font-bold focus:ring-1 focus:ring-primary/20 outline-none transition-all ${!isBalancesVisible ? 'text-transparent bg-gray-200 dark:bg-gray-800' : ''}`}
-                      value={isBalancesVisible ? (state.investments.bankBalance.p1 || '') : '••••'} 
-                      onChange={e => isBalancesVisible && updateInv('bankBalance', 'p1', e.target.value)} 
-                      placeholder="0"
-                    />
+                    <input type={isBalancesVisible ? "number" : "text"} className={`w-full bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-sm font-bold outline-none transition-all ${!isBalancesVisible ? 'text-transparent' : ''}`} value={isBalancesVisible ? (state.investments.bankBalance.p1 || '') : '••••'} onChange={e => isBalancesVisible && updateInv('bankBalance', 'p1', e.target.value)} />
                  </div>
                  <div>
                     <label className="text-[10px] uppercase text-text-light font-bold mb-1 block">{state.settings.person2Name}</label>
-                    <input 
-                      type={isBalancesVisible ? "number" : "text"}
-                      className={`w-full bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-sm font-bold focus:ring-1 focus:ring-primary/20 outline-none transition-all ${!isBalancesVisible ? 'text-transparent bg-gray-200 dark:bg-gray-800' : ''}`}
-                      value={isBalancesVisible ? (state.investments.bankBalance.p2 || '') : '••••'} 
-                      onChange={e => isBalancesVisible && updateInv('bankBalance', 'p2', e.target.value)} 
-                      placeholder="0"
-                    />
+                    <input type={isBalancesVisible ? "number" : "text"} className={`w-full bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-sm font-bold outline-none transition-all ${!isBalancesVisible ? 'text-transparent' : ''}`} value={isBalancesVisible ? (state.investments.bankBalance.p2 || '') : '••••'} onChange={e => isBalancesVisible && updateInv('bankBalance', 'p2', e.target.value)} />
                  </div>
               </div>
            </div>
 
-           {/* Market */}
            <div className="bg-surface rounded-xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
               <h3 className="font-bold text-indigo-500 mb-3 flex items-center gap-2">📈 Market Investments</h3>
-              
-              <div className="mb-4">
-                <div className="text-xs font-bold text-text-light mb-2">Mutual Funds (Current Value)</div>
-                <div className="grid grid-cols-3 gap-2">
-                   <input 
-                    className={`bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs font-medium focus:ring-1 focus:ring-indigo-500/20 outline-none ${!isBalancesVisible ? 'text-transparent bg-gray-200 dark:bg-gray-800' : ''}`}
-                    placeholder={state.settings.person1Name} 
-                    value={isBalancesVisible ? (state.investments.mutualFunds.p1 || '') : '••••'} 
-                    onChange={e => isBalancesVisible && updateInv('mutualFunds', 'p1', e.target.value)} 
-                    type={isBalancesVisible ? "number" : "text"} 
-                   />
-                   <input 
-                    className={`bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs font-medium focus:ring-1 focus:ring-indigo-500/20 outline-none ${!isBalancesVisible ? 'text-transparent bg-gray-200 dark:bg-gray-800' : ''}`}
-                    placeholder={state.settings.person2Name} 
-                    value={isBalancesVisible ? (state.investments.mutualFunds.p2 || '') : '••••'} 
-                    onChange={e => isBalancesVisible && updateInv('mutualFunds', 'p2', e.target.value)} 
-                    type={isBalancesVisible ? "number" : "text"} 
-                   />
-                   <input 
-                    className={`bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs font-medium focus:ring-1 focus:ring-indigo-500/20 outline-none ${!isBalancesVisible ? 'text-transparent bg-gray-200 dark:bg-gray-800' : ''}`}
-                    placeholder="Shared" 
-                    value={isBalancesVisible ? (state.investments.mutualFunds.shared || '') : '••••'} 
-                    onChange={e => isBalancesVisible && updateInv('mutualFunds', 'shared', e.target.value)} 
-                    type={isBalancesVisible ? "number" : "text"} 
-                   />
-                </div>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                 <div className="col-span-3 text-xs font-bold text-text-light mb-1">Mutual Funds</div>
+                 <input className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder={state.settings.person1Name} value={isBalancesVisible ? (state.investments.mutualFunds.p1 || '') : '••••'} onChange={e => updateInv('mutualFunds', 'p1', e.target.value)} />
+                 <input className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder={state.settings.person2Name} value={isBalancesVisible ? (state.investments.mutualFunds.p2 || '') : '••••'} onChange={e => updateInv('mutualFunds', 'p2', e.target.value)} />
+                 <input className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="Shared" value={isBalancesVisible ? (state.investments.mutualFunds.shared || '') : '••••'} onChange={e => updateInv('mutualFunds', 'shared', e.target.value)} />
               </div>
-
-              <div>
-                <div className="text-xs font-bold text-text-light mb-2">Stocks (Invested Amount)</div>
-                <div className="grid grid-cols-3 gap-2">
-                   <input 
-                    className={`bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs font-medium focus:ring-1 focus:ring-indigo-500/20 outline-none ${!isBalancesVisible ? 'text-transparent bg-gray-200 dark:bg-gray-800' : ''}`}
-                    placeholder={state.settings.person1Name} 
-                    value={isBalancesVisible ? (state.investments.stocks.p1 || '') : '••••'} 
-                    onChange={e => isBalancesVisible && updateInv('stocks', 'p1', e.target.value)} 
-                    type={isBalancesVisible ? "number" : "text"} 
-                   />
-                   <input 
-                    className={`bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs font-medium focus:ring-1 focus:ring-indigo-500/20 outline-none ${!isBalancesVisible ? 'text-transparent bg-gray-200 dark:bg-gray-800' : ''}`}
-                    placeholder={state.settings.person2Name} 
-                    value={isBalancesVisible ? (state.investments.stocks.p2 || '') : '••••'} 
-                    onChange={e => isBalancesVisible && updateInv('stocks', 'p2', e.target.value)} 
-                    type={isBalancesVisible ? "number" : "text"} 
-                   />
-                   <input 
-                    className={`bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs font-medium focus:ring-1 focus:ring-indigo-500/20 outline-none ${!isBalancesVisible ? 'text-transparent bg-gray-200 dark:bg-gray-800' : ''}`}
-                    placeholder="Shared" 
-                    value={isBalancesVisible ? (state.investments.stocks.shared || '') : '••••'} 
-                    onChange={e => isBalancesVisible && updateInv('stocks', 'shared', e.target.value)} 
-                    type={isBalancesVisible ? "number" : "text"} 
-                   />
-                </div>
+              <div className="grid grid-cols-3 gap-2">
+                 <div className="col-span-3 text-xs font-bold text-text-light mb-1">Stocks</div>
+                 <input className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder={state.settings.person1Name} value={isBalancesVisible ? (state.investments.stocks.p1 || '') : '••••'} onChange={e => updateInv('stocks', 'p1', e.target.value)} />
+                 <input className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder={state.settings.person2Name} value={isBalancesVisible ? (state.investments.stocks.p2 || '') : '••••'} onChange={e => updateInv('stocks', 'p2', e.target.value)} />
+                 <input className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="Shared" value={isBalancesVisible ? (state.investments.stocks.shared || '') : '••••'} onChange={e => updateInv('stocks', 'shared', e.target.value)} />
               </div>
            </div>
 
-           {/* Precious Metals */}
            <div className="bg-surface rounded-xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
-              <div className="flex justify-between items-center mb-3">
-                 <h3 className="font-bold text-yellow-600 dark:text-yellow-500 flex items-center gap-2">🥇 Precious Metals</h3>
-                 <span className="text-[10px] text-text-light bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full flex items-center gap-1">
-                   {fetchingRates ? <span className="animate-spin">🌀</span> : '📡'} 
-                   {fetchingRates ? 'AI Updating...' : (isBalancesVisible ? `Gold ₹${metalRates.gold}/g` : 'Gold Rate Hidden')}
-                 </span>
+              <h3 className="font-bold text-yellow-600 mb-3">🪙 Precious Metals</h3>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                 <input type="number" className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="Gold Rate (₹/g)" value={state.investments.goldRate || ''} onChange={e => updateRate('goldRate', e.target.value)} />
+                 <input type="number" className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="Silver Rate (₹/g)" value={state.investments.silverRate || ''} onChange={e => updateRate('silverRate', e.target.value)} />
               </div>
-
-              <div className="mb-4">
-                <div className="flex justify-between mb-1">
-                   <label className="text-xs font-bold text-text-light">Gold (Grams)</label>
-                   <span className="text-xs font-bold text-yellow-600">Total: {formatValue(goldVal)}</span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                   <input className="bg-yellow-50 dark:bg-yellow-900/10 p-2 rounded-lg text-xs" placeholder={`${state.settings.person1Name} (g)`} value={state.investments.gold.p1Grams || ''} onChange={e => updateInv('gold', 'p1Grams', e.target.value)} type="number" />
-                   <input className="bg-yellow-50 dark:bg-yellow-900/10 p-2 rounded-lg text-xs" placeholder={`${state.settings.person2Name} (g)`} value={state.investments.gold.p2Grams || ''} onChange={e => updateInv('gold', 'p2Grams', e.target.value)} type="number" />
-                   <input className="bg-yellow-50 dark:bg-yellow-900/10 p-2 rounded-lg text-xs" placeholder="Shared (g)" value={state.investments.gold.sharedGrams || ''} onChange={e => updateInv('gold', 'sharedGrams', e.target.value)} type="number" />
-                </div>
+              <div className="grid grid-cols-3 gap-2">
+                 <div className="col-span-3 text-xs font-bold text-text-light mb-1">Gold (Grams)</div>
+                 <input className="bg-yellow-50 dark:bg-yellow-900/10 p-2 rounded-lg text-xs" placeholder={state.settings.person1Name} value={state.investments.gold.p1Grams || ''} onChange={e => updateInv('gold', 'p1Grams', e.target.value)} />
+                 <input className="bg-yellow-50 dark:bg-yellow-900/10 p-2 rounded-lg text-xs" placeholder={state.settings.person2Name} value={state.investments.gold.p2Grams || ''} onChange={e => updateInv('gold', 'p2Grams', e.target.value)} />
+                 <input className="bg-yellow-50 dark:bg-yellow-900/10 p-2 rounded-lg text-xs" placeholder="Shared" value={state.investments.gold.sharedGrams || ''} onChange={e => updateInv('gold', 'sharedGrams', e.target.value)} />
               </div>
-
-              <div>
-                <div className="flex justify-between mb-1">
-                   <label className="text-xs font-bold text-text-light">Silver (Grams)</label>
-                   <span className="text-xs font-bold text-gray-500">Total: {formatValue(silverVal)}</span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                   <input className="bg-gray-50 dark:bg-gray-900/10 p-2 rounded-lg text-xs" placeholder={`${state.settings.person1Name} (g)`} value={state.investments.silver.p1Grams || ''} onChange={e => updateInv('silver', 'p1Grams', e.target.value)} type="number" />
-                   <input className="bg-gray-50 dark:bg-gray-900/10 p-2 rounded-lg text-xs" placeholder={`${state.settings.person2Name} (g)`} value={state.investments.silver.p2Grams || ''} onChange={e => updateInv('silver', 'p2Grams', e.target.value)} type="number" />
-                   <input className="bg-gray-50 dark:bg-gray-900/10 p-2 rounded-lg text-xs" placeholder="Shared (g)" value={state.investments.silver.sharedGrams || ''} onChange={e => updateInv('silver', 'sharedGrams', e.target.value)} type="number" />
-                </div>
-              </div>
-              
-              {isBalancesVisible && (
-                <div className="text-[10px] text-text-light text-right italic opacity-60">
-                  Rates via {metalRates.source}
-                </div>
-              )}
            </div>
         </div>
-      ) : (
-        <div className="space-y-4">
-           {/* Add Loan - FIXED LAYOUT for mobile */}
+      )}
+
+      {tab === 'liabilities' && (
+        <div className="space-y-4 animate-slide-up">
            <div className="bg-surface rounded-xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
-             <h3 className="font-bold text-secondary mb-3">Add EMI Tracker</h3>
-             
-             <div className="flex gap-2 mb-2">
-               <input className="flex-1 min-w-0 bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="Loan Name" value={newLoan.name} onChange={e => setNewLoan({...newLoan, name: e.target.value})} />
-               <select className="w-24 shrink-0 bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" value={newLoan.person} onChange={e => setNewLoan({...newLoan, person: e.target.value})}>
+             <h3 className="font-bold text-secondary mb-3">Add Loan / EMI</h3>
+             <div className="grid grid-cols-2 gap-2 mb-2">
+               <input className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="Loan Name" value={newLoan.name} onChange={e => setNewLoan({...newLoan, name: e.target.value})} />
+               <select className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" value={newLoan.person} onChange={e => setNewLoan({...newLoan, person: e.target.value})}>
                  <option value="Both">Both</option>
                  <option value="Person1">{state.settings.person1Name}</option>
                  <option value="Person2">{state.settings.person2Name}</option>
                </select>
+               <input className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="Pending Amount" type="number" value={newLoan.pending} onChange={e => setNewLoan({...newLoan, pending: e.target.value})} />
+               <input className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="EMI Amount" type="number" value={newLoan.emi} onChange={e => setNewLoan({...newLoan, emi: e.target.value})} />
              </div>
-             
-             <div className="flex gap-2">
-               <input className="flex-1 min-w-0 bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="Pending" type="number" value={newLoan.pending} onChange={e => setNewLoan({...newLoan, pending: e.target.value})} />
-               <input className="flex-1 min-w-0 bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="EMI" type="number" value={newLoan.emi} onChange={e => setNewLoan({...newLoan, emi: e.target.value})} />
-               <button onClick={addLoan} className="w-10 shrink-0 bg-secondary text-white rounded-lg font-bold shadow-md hover:bg-blue-600 transition-colors flex items-center justify-center text-lg leading-none pb-0.5">+</button>
-             </div>
+             <button onClick={addLoan} className="w-full bg-secondary text-white py-2 rounded-lg font-bold shadow-md">Add Tracker</button>
            </div>
-
-           {/* EMI Stats */}
-           {totalMonthlyEMI > 0 && (
-             <div className="bg-red-50 dark:bg-red-900/10 p-3 rounded-xl border border-red-100 dark:border-red-900/30 flex justify-between items-center">
-               <div>
-                  <div className="text-xs text-red-600 font-bold uppercase">Monthly Outflow</div>
-                  <div className="text-lg font-bold text-red-700 dark:text-red-400">{formatValue(totalMonthlyEMI)}</div>
-               </div>
-               <div className="text-right">
-                  <div className="text-xs text-red-600 font-bold uppercase">Of Income</div>
-                  <div className={`text-lg font-bold ${emiPercentage > 30 ? 'text-red-600' : 'text-orange-500'}`}>
-                    {emiPercentage.toFixed(1)}%
-                  </div>
-               </div>
-             </div>
-           )}
-
-           {/* Loan List */}
            <div className="space-y-2">
              {state.loans.map(loan => (
-               <div key={loan.id} className="bg-surface p-4 rounded-xl border-l-4 border-secondary shadow-sm flex justify-between items-center group">
-                 <div className="min-w-0 flex-1 pr-2">
-                   <div className="font-bold text-text truncate">{loan.name}</div>
-                   <div className="text-xs text-text-light">{loan.person === 'Both' ? 'Shared' : (loan.person === 'Person1' ? state.settings.person1Name : state.settings.person2Name)}</div>
+               <div key={loan.id} className="bg-surface p-4 rounded-xl border-l-4 border-secondary shadow-sm flex justify-between items-center">
+                 <div>
+                   <div className="font-bold">{loan.name}</div>
+                   <div className="text-xs text-text-light">{loan.person} • EMI: ₹{loan.emiAmount}</div>
                  </div>
-                 <div className="text-right shrink-0">
-                   <div className="text-sm font-bold text-red-500">{formatValue(loan.pendingAmount)} left</div>
-                   <div className="text-xs text-text-light">EMI: {formatValue(loan.emiAmount)}/mo</div>
+                 <div className="text-right">
+                   <div className="font-bold text-red-500">{formatValue(loan.pendingAmount)}</div>
+                   <button onClick={() => removeLoan(loan.id)} className="text-xs text-red-400 mt-1">Remove</button>
                  </div>
-                 <button onClick={() => removeLoan(loan.id)} className="ml-3 text-gray-300 hover:text-red-500 px-2">✕</button>
                </div>
              ))}
-             {state.loans.length === 0 && <div className="text-center text-gray-400 py-8 text-sm italic">No active loans. You're free! 🕊️</div>}
            </div>
+        </div>
+      )}
 
-           {/* AI Analysis */}
-           {state.loans.length > 0 && (
-             <div className="mt-6">
-                <button 
-                  onClick={handleAnalyzeEMI}
-                  disabled={analyzing}
-                  className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
-                >
-                  {analyzing ? <span className="animate-spin">🌀</span> : '🤖'} 
-                  {analyzing ? 'Analyzing Strategy...' : 'AI Repayment Strategy'}
-                </button>
-                
-                {aiAdvice && (
-                  <div className="mt-4 bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 text-sm leading-relaxed whitespace-pre-line text-indigo-900 dark:text-indigo-200 animate-slide-up">
-                    {isBalancesVisible ? aiAdvice : 'Strategy details hidden for privacy.'}
-                  </div>
-                )}
+      {tab === 'cards' && (
+        <div className="space-y-4 animate-slide-up">
+           <div className="bg-surface rounded-xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
+             <h3 className="font-bold text-indigo-600 mb-3 flex items-center gap-2">💳 Credit Cards</h3>
+             <div className="grid grid-cols-3 gap-2 mb-2">
+                <input className="col-span-2 bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="Card Name (e.g. HDFC)" value={newCard.name} onChange={e => setNewCard({...newCard, name: e.target.value})} />
+                <input type="number" className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="Limit" value={newCard.limit} onChange={e => setNewCard({...newCard, limit: e.target.value})} />
+                <input type="number" min="1" max="31" className="col-span-3 bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs" placeholder="Billing Cycle Day (e.g. 15th)" value={newCard.billingDay} onChange={e => setNewCard({...newCard, billingDay: e.target.value})} />
              </div>
-           )}
+             <button onClick={addCard} className="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold shadow-md">Add Credit Card</button>
+           </div>
+           
+           <div className="grid grid-cols-1 gap-3">
+             {state.creditCards.map(card => {
+               const util = (card.currentBalance / card.limit) * 100;
+               return (
+                 <div key={card.id} className="bg-surface p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm relative overflow-hidden group">
+                    <div className="flex justify-between items-start mb-3">
+                       <div>
+                          <h4 className="font-black text-text italic">{card.name}</h4>
+                          <p className="text-[10px] text-text-light font-black uppercase tracking-widest">Bill on {card.billingDay}th</p>
+                       </div>
+                       <button onClick={() => removeCard(card.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+                    </div>
+                    
+                    <div className="flex justify-between items-end mb-1.5">
+                       <div>
+                          <div className="text-[9px] uppercase font-black text-text-light">Current Owed</div>
+                          <div className="text-xl font-black text-indigo-600">{formatValue(card.currentBalance)}</div>
+                       </div>
+                       <div className="text-right">
+                          <div className="text-[9px] uppercase font-black text-text-light">Limit</div>
+                          <div className="text-sm font-black text-text">{formatValue(card.limit)}</div>
+                       </div>
+                    </div>
+                    
+                    <div className="w-full h-2 bg-gray-100 dark:bg-gray-900 rounded-full overflow-hidden">
+                       <div className={`h-full transition-all duration-700 ${util > 80 ? 'bg-red-500' : (util > 40 ? 'bg-orange-400' : 'bg-indigo-500')}`} style={{ width: `${Math.min(util, 100)}%` }} />
+                    </div>
+                    <div className="flex justify-between mt-1">
+                       <span className="text-[9px] font-black text-text-light uppercase tracking-tighter">Utilization: {util.toFixed(1)}%</span>
+                       <span className="text-[9px] font-black text-text-light uppercase tracking-tighter">Available: {formatValue(card.limit - card.currentBalance)}</span>
+                    </div>
+                 </div>
+               );
+             })}
+             {state.creditCards.length === 0 && (
+               <div className="text-center py-8 opacity-40 italic text-sm">No credit cards added yet.</div>
+             )}
+           </div>
         </div>
       )}
     </div>

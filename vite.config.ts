@@ -1,3 +1,4 @@
+
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -23,8 +24,6 @@ export default defineConfig({
     
     // Mock global process for library compatibility
     'process.version': JSON.stringify('1.0.0'),
-    'process.versions': JSON.stringify({}),
-    'process.platform': JSON.stringify('browser'),
-    'process.env': {} 
+    'process.platform': JSON.stringify('browser')
   }
 });
