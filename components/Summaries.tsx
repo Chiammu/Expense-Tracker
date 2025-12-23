@@ -1,7 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
 import { AppState, Expense } from '../types';
-import { roastSpending } from '../services/geminiService';
 
 interface SummariesProps {
   state: AppState;
@@ -29,8 +28,6 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
   const [filterType, setFilterType] = useState<'today' | 'week' | 'month' | 'all'>('month');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [roast, setRoast] = useState<string | null>(null);
-  const [loadingRoast, setLoadingRoast] = useState(false);
   
   // Accordion state: tracking expanded categories
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
@@ -49,19 +46,6 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
     setExpandedCategories(prev => 
       prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
     );
-  };
-
-  const handleRoast = async () => {
-    setLoadingRoast(true);
-    setRoast(null);
-    try {
-      const result = await roastSpending(state);
-      setRoast(result);
-    } catch (e) {
-      setRoast("Your spending is so bad even the AI is speechless.");
-    } finally {
-      setLoadingRoast(false);
-    }
   };
 
   const filteredExpenses = useMemo(() => {
@@ -205,18 +189,10 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
-            <div className="bg-gradient-to-br from-primary to-pink-600 rounded-xl p-4 text-white shadow-lg relative overflow-hidden group">
+            <div className="bg-gradient-to-br from-primary to-pink-600 rounded-xl p-4 text-white shadow-lg">
                <div className="text-xs opacity-80 uppercase font-bold">Total Spent</div>
                <div className="text-2xl font-bold">₹{stats.total.toFixed(0)}</div>
                <div className="text-[10px] mt-1 opacity-80">{filteredExpenses.length} transactions</div>
-               
-               <button 
-                  onClick={handleRoast}
-                  disabled={loadingRoast || state.expenses.length === 0}
-                  className="absolute bottom-2 right-2 p-1.5 bg-white/20 hover:bg-white/40 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all active:scale-90 disabled:opacity-50"
-               >
-                 {loadingRoast ? "🔥..." : "Roast Me"}
-               </button>
             </div>
             <div className="bg-surface rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-center">
                <div className="flex justify-between items-center text-xs mb-1">
@@ -235,23 +211,6 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
                </div>
             </div>
           </div>
-
-          {/* Roast Output */}
-          {roast && (
-            <div className="animate-shake bg-gray-900 rounded-2xl p-4 border-2 border-orange-500 shadow-xl shadow-orange-500/10 relative overflow-hidden">
-               <div className="absolute top-0 right-0 p-2 opacity-20 text-4xl">🔥</div>
-               <div className="flex justify-between items-start mb-2">
-                 <h4 className="text-orange-400 font-black uppercase text-[10px] tracking-widest">Savage AI Roast</h4>
-                 <button onClick={() => setRoast(null)} className="text-gray-500 hover:text-white">✕</button>
-               </div>
-               <p className="text-orange-50 text-sm font-medium leading-relaxed italic">
-                 "{roast}"
-               </p>
-               <div className="mt-3 flex justify-end">
-                 <div className="text-[9px] text-orange-500/50 font-bold uppercase">Truth hurts. 💀</div>
-               </div>
-            </div>
-          )}
 
           {/* Categories Accordion List */}
           <div className="space-y-3">
@@ -348,4 +307,96 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
              </div>
           </div>
         </>
-      
+      ) : (
+        /* Calendar View */
+        <div className="bg-surface rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-2 sm:p-4 animate-fade-in">
+          <div className="flex justify-between items-center mb-4">
+             <button onClick={() => setCalendarMonth(new Date(calendarMonth.setMonth(calendarMonth.getMonth() - 1)))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">◀</button>
+             <h3 className="font-bold text-lg">{calendarMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}</h3>
+             <button onClick={() => setCalendarMonth(new Date(calendarMonth.setMonth(calendarMonth.getMonth() + 1)))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">▶</button>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1 text-center mb-2">
+             {['Su','Mo','Tu','We','Th','Fr','Sa'].map((d, i) => (
+                <div key={d} className={`text-xs font-bold uppercase ${i === 0 || i === 6 ? 'text-red-500' : 'text-text-light'}`}>{d}</div>
+             ))}
+          </div>
+
+          <div className="grid grid-cols-7 gap-1">
+             {getDaysInMonth(calendarMonth).map((date, idx) => {
+               if (!date) return <div key={idx} className="aspect-square"></div>;
+               
+               const offset = date.getTimezoneOffset() * 60000;
+               const dayStr = new Date(date.getTime() - offset).toISOString().split('T')[0];
+               const dayShort = dayStr.substring(5);
+               
+               const holidayName = INDIAN_HOLIDAYS[dayShort];
+               const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+               const isSalaryDay = date.getDate() === getLastWorkingDay(date.getFullYear(), date.getMonth());
+               const isToday = new Date().toDateString() === date.toDateString();
+
+               const dailyTotal = filteredExpenses
+                 .filter(e => e.date === dayStr)
+                 .reduce((sum, e) => sum + e.amount, 0);
+               
+               const fixedDue = state.fixedPayments.some(p => p.day === date.getDate());
+               const cardBillDue = state.creditCards.some(c => c.billingDay === date.getDate());
+
+               let cellBg = 'bg-background border-transparent';
+               if (isSalaryDay) {
+                 cellBg = 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-800';
+               } else if (holidayName) {
+                 cellBg = 'bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-800';
+               } else if (isWeekend) {
+                 cellBg = 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30';
+               } else if (isToday) {
+                 cellBg = 'bg-primary/10 border-primary ring-1 ring-primary/30';
+               }
+
+               return (
+                 <div key={idx} className={`aspect-square rounded-lg border flex flex-col items-center justify-between p-1 transition-all hover:scale-105 hover:z-10 cursor-pointer relative overflow-hidden ${cellBg}`}>
+                    <span className={`text-[10px] sm:text-xs font-black ${
+                      isToday ? 'text-primary underline decoration-2' : 
+                      isWeekend ? 'text-red-600' : 
+                      holidayName ? 'text-purple-700 dark:text-purple-400' :
+                      'text-text-light'
+                    }`}>{date.getDate()}</span>
+                    
+                    {dailyTotal > 0 && (
+                      <span className="text-[8px] sm:text-[10px] font-black text-text-dark dark:text-white truncate w-full text-center leading-tight drop-shadow-sm">
+                        ₹{dailyTotal >= 1000 ? (dailyTotal/1000).toFixed(1)+'k' : dailyTotal}
+                      </span>
+                    )}
+
+                    <div className="flex flex-col items-center gap-0.5 w-full">
+                      {isSalaryDay && (
+                        <span className="text-[5px] sm:text-[7px] uppercase font-black bg-green-600 text-white px-1.5 rounded-sm leading-none py-0.5 shadow-sm">Salary</span>
+                      )}
+                      {holidayName && (
+                        <span className="text-[5px] sm:text-[7px] uppercase font-black bg-purple-600 text-white px-1.5 rounded-sm leading-none py-0.5 truncate max-w-full shadow-sm" title={holidayName}>{holidayName}</span>
+                      )}
+                    </div>
+
+                    <div className="flex gap-0.5 pb-0.5 flex-wrap justify-center">
+                      {fixedDue && <div className="w-1.5 h-1.5 rounded-full bg-secondary shadow-sm" title="Bill Due"></div>}
+                      {cardBillDue && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-sm" title="CC Bill Generation"></div>}
+                      {dailyTotal > 0 && <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-sm" title="Spent"></div>}
+                    </div>
+                 </div>
+               );
+             })}
+          </div>
+          
+          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 justify-center text-[10px] text-text-light font-bold">
+             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-md bg-primary/20 border border-primary"></div> Today</div>
+             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-100"></div> Weekend</div>
+             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-md bg-purple-100 dark:bg-purple-900/30 border-purple-300"></div> Holiday</div>
+             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-md bg-green-100 dark:bg-green-900/30 border-green-300"></div> Salary Day</div>
+             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-indigo-500"></div> CC Bill Generation</div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+};
