@@ -6,8 +6,6 @@ import { authService } from '../services/auth';
 import { generateMonthlyDigest } from '../services/geminiService';
 // @ts-ignore
 import QRCode from 'qrcode';
-// @ts-ignore
-import jsQR from 'jsqr';
 
 interface SettingsProps {
   state: AppState;
@@ -40,12 +38,8 @@ const generateUUID = () => {
 export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, resetData, importData, showToast, installApp, canInstall, isIos, isStandalone }) => {
   const [pinInput, setPinInput] = useState('');
   const [qrUrl, setQrUrl] = useState('');
-  const [isScanning, setIsScanning] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
   
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
   useEffect(() => {
     if (state.settings.syncId) {
       QRCode.toDataURL(state.settings.syncId)
@@ -134,6 +128,43 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
 
   return (
     <div className="pb-24 max-w-xl mx-auto space-y-8 animate-fade-in">
+      
+      {/* PROFILE SECTION */}
+      <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+         <SectionHeader icon="👤" title="Identity & Profile" />
+         <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+               <div>
+                  <label className="text-[10px] uppercase font-black text-text-light mb-1.5 ml-1 block">Person 1 Name</label>
+                  <input 
+                    type="text" 
+                    className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border-none focus:ring-2 focus:ring-primary/20 text-sm font-bold"
+                    value={state.settings.person1Name}
+                    onChange={e => updateSettings({ person1Name: e.target.value })}
+                  />
+               </div>
+               <div>
+                  <label className="text-[10px] uppercase font-black text-text-light mb-1.5 ml-1 block">Person 2 Name</label>
+                  <input 
+                    type="text" 
+                    className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border-none focus:ring-2 focus:ring-primary/20 text-sm font-bold"
+                    value={state.settings.person2Name}
+                    onChange={e => updateSettings({ person2Name: e.target.value })}
+                  />
+               </div>
+            </div>
+            <div className="pt-2">
+               <label className="text-[10px] uppercase font-black text-text-light mb-1.5 ml-1 block">Tracker Title</label>
+               <input 
+                 type="text" 
+                 className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border-none focus:ring-2 focus:ring-primary/20 text-sm font-bold"
+                 value={state.settings.headerTitle}
+                 onChange={e => updateSettings({ headerTitle: e.target.value })}
+               />
+            </div>
+         </div>
+      </section>
+
       {/* REPORTS & AUTOMATION */}
       <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
          <SectionHeader icon="📩" title="AI Monthly Reports" />
@@ -217,8 +248,7 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
               <div className="space-y-4">
                  <p className="text-sm text-text-light text-center">Scan to link with your partner.</p>
                  <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => setIsScanning(true)} className="py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all">Scan QR</button>
-                    <button onClick={() => updateSettings({ syncId: generateUUID() })} className="py-3 bg-white dark:bg-gray-800 text-text font-bold rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 active:scale-95 transition-all">Show Code</button>
+                    <button onClick={() => updateSettings({ syncId: generateUUID() })} className="py-3 bg-white dark:bg-gray-800 text-text font-bold rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 active:scale-95 transition-all w-full col-span-2">Get Connection Link</button>
                  </div>
               </div>
             )}
@@ -293,7 +323,7 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
       </section>
 
       <div className="text-center text-[10px] text-gray-300 pt-4">
-         v1.3.1 • Monthly PDF & Excel Advisor Reports • Cloud Sync enabled
+         v1.4.0 • Savage AI Roast Enabled • Identity Profiles • Cloud Sync
       </div>
     </div>
   );

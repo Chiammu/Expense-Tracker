@@ -178,10 +178,32 @@ export const analyzeLoanStrategy = async (loans: Loan[], surplus: number, person
 export const roastSpending = async (state: AppState): Promise<string> => {
   try {
     const ai = getAI();
-    const recentExpenses = state.expenses.slice(-15).map(e => `${e.category}: ${e.amount}`).join(', ');
-    const prompt = `Savage roast of ${state.settings.person1Name} & ${state.settings.person2Name}'s spending: ${recentExpenses}. Under 280 characters.`;
-    const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
-    return response.text || "Roast failed.";
+    // Analyze last 20 expenses
+    const recentExpenses = state.expenses.slice(-20).map(e => {
+      const personName = e.person === 'Person1' ? state.settings.person1Name : (e.person === 'Person2' ? state.settings.person2Name : 'Both');
+      return `${personName} spent ₹${e.amount} on ${e.category} for ${e.note || 'unspecified'}`;
+    }).join('\n');
+
+    const prompt = `
+      You are a savage, witty, and slightly mean financial roaster. 
+      Analyze these last 20 expenses for the couple ${state.settings.person1Name} and ${state.settings.person2Name}:
+      
+      ${recentExpenses}
+
+      Provide a brutal, hilarious roast about their spending habits. 
+      - Call them out by name.
+      - Be specific about their "dumb" purchases.
+      - Keep it under 400 characters.
+      - Use fire emojis. 
+      - Output plain text only.
+    `;
+
+    const response = await ai.models.generateContent({ 
+      model: 'gemini-3-flash-preview', 
+      contents: prompt 
+    });
+
+    return response.text || "You spend money so efficiently I can't even roast you. Boring.";
   } catch (error) { return handleGeminiError(error); }
 };
 

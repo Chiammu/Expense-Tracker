@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { AppState, Expense } from '../types';
+import { roastSpending } from '../services/geminiService';
 
 interface SummariesProps {
   state: AppState;
@@ -29,11 +30,30 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Accordion state: tracking expanded categories
-  const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+  // Roast State
+  const [roast, setRoast] = useState<string | null>(null);
+  const [isRoasting, setIsRoasting] = useState(false);
 
-  // Calendar State
+  // Accordion state
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
+
+  const handleRoast = async () => {
+    if (state.expenses.length < 5) {
+      alert("Add more expenses before I can properly roast you!");
+      return;
+    }
+    setIsRoasting(true);
+    setRoast(null);
+    try {
+      const result = await roastSpending(state);
+      setRoast(result);
+    } catch (e) {
+      setRoast("You're so broke I can't even find words.");
+    } finally {
+      setIsRoasting(false);
+    }
+  };
 
   const handlePaymentFilterClick = (mode: string) => {
     setPaymentFilter(mode);
@@ -108,17 +128,14 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
     return { total, p1Real, p2Real, categories };
   }, [filteredExpenses]);
 
-  // Calendar Helpers
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const firstDay = new Date(year, month, 1).getDay();
     const days = [];
-    
     for(let i=0; i<firstDay; i++) days.push(null);
     for(let i=1; i<=daysInMonth; i++) days.push(new Date(year, month, i));
-    
     return days;
   };
 
@@ -189,10 +206,19 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
-            <div className="bg-gradient-to-br from-primary to-pink-600 rounded-xl p-4 text-white shadow-lg">
-               <div className="text-xs opacity-80 uppercase font-bold">Total Spent</div>
-               <div className="text-2xl font-bold">₹{stats.total.toFixed(0)}</div>
-               <div className="text-[10px] mt-1 opacity-80">{filteredExpenses.length} transactions</div>
+            <div className="bg-gradient-to-br from-primary to-pink-600 rounded-xl p-4 text-white shadow-lg relative overflow-hidden group">
+               <div className="relative z-10">
+                 <div className="text-xs opacity-80 uppercase font-bold">Total Spent</div>
+                 <div className="text-2xl font-bold">₹{stats.total.toFixed(0)}</div>
+                 <div className="text-[10px] mt-1 opacity-80">{filteredExpenses.length} transactions</div>
+               </div>
+               <button 
+                 onClick={handleRoast}
+                 disabled={isRoasting}
+                 className="absolute bottom-2 right-2 bg-white/20 hover:bg-white/40 p-1.5 rounded-lg text-xs font-black backdrop-blur-sm transition-all active:scale-90"
+               >
+                 {isRoasting ? '🔥...' : '🔥 ROAST'}
+               </button>
             </div>
             <div className="bg-surface rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-center">
                <div className="flex justify-between items-center text-xs mb-1">
@@ -211,6 +237,18 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
                </div>
             </div>
           </div>
+
+          {/* Roast Display */}
+          {roast && (
+            <div className="bg-gradient-to-br from-gray-900 to-red-950 text-red-100 p-5 rounded-2xl border-2 border-red-500/30 shadow-2xl animate-shake relative overflow-hidden">
+               <div className="absolute top-0 right-0 p-2 text-2xl opacity-20">🔥</div>
+               <h4 className="text-[10px] uppercase font-black tracking-widest text-red-500 mb-2 flex items-center gap-2">
+                 <span className="animate-pulse">●</span> Savage AI Roast
+               </h4>
+               <p className="text-sm font-medium italic leading-relaxed">"{roast}"</p>
+               <button onClick={() => setRoast(null)} className="absolute top-2 right-2 text-red-500/50 hover:text-red-500 transition-colors">✕</button>
+            </div>
+          )}
 
           {/* Categories Accordion List */}
           <div className="space-y-3">
@@ -278,10 +316,10 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
              )}
           </div>
 
-          {/* RECENTLY ADDED SECTION (Last 10) */}
+          {/* RECENTLY ADDED SECTION */}
           <div className="pt-4">
              <h3 className="text-xs font-black text-text-light uppercase tracking-widest mb-3 flex items-center gap-2">
-                <span>🕒</span> Recent Added Expense (Last 10)
+                <span>🕒</span> Recently Added
              </h3>
              <div className="bg-surface rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 divide-y divide-gray-50 dark:divide-gray-900/50">
                 {recentExpenses.map(exp => (
@@ -301,14 +339,11 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
                       </div>
                    </div>
                 ))}
-                {recentExpenses.length === 0 && (
-                   <div className="p-6 text-center text-xs text-text-light italic">No transactions yet.</div>
-                )}
              </div>
           </div>
         </>
       ) : (
-        /* Calendar View */
+        /* Calendar View (Existing) */
         <div className="bg-surface rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-2 sm:p-4 animate-fade-in">
           <div className="flex justify-between items-center mb-4">
              <button onClick={() => setCalendarMonth(new Date(calendarMonth.setMonth(calendarMonth.getMonth() - 1)))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">◀</button>
@@ -325,78 +360,33 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
           <div className="grid grid-cols-7 gap-1">
              {getDaysInMonth(calendarMonth).map((date, idx) => {
                if (!date) return <div key={idx} className="aspect-square"></div>;
-               
                const offset = date.getTimezoneOffset() * 60000;
                const dayStr = new Date(date.getTime() - offset).toISOString().split('T')[0];
                const dayShort = dayStr.substring(5);
-               
                const holidayName = INDIAN_HOLIDAYS[dayShort];
                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
                const isSalaryDay = date.getDate() === getLastWorkingDay(date.getFullYear(), date.getMonth());
                const isToday = new Date().toDateString() === date.toDateString();
-
-               const dailyTotal = filteredExpenses
-                 .filter(e => e.date === dayStr)
-                 .reduce((sum, e) => sum + e.amount, 0);
+               const dailyTotal = filteredExpenses.filter(e => e.date === dayStr).reduce((sum, e) => sum + e.amount, 0);
                
-               const fixedDue = state.fixedPayments.some(p => p.day === date.getDate());
-               const cardBillDue = state.creditCards.some(c => c.billingDay === date.getDate());
-
                let cellBg = 'bg-background border-transparent';
-               if (isSalaryDay) {
-                 cellBg = 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-800';
-               } else if (holidayName) {
-                 cellBg = 'bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-800';
-               } else if (isWeekend) {
-                 cellBg = 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30';
-               } else if (isToday) {
-                 cellBg = 'bg-primary/10 border-primary ring-1 ring-primary/30';
-               }
+               if (isSalaryDay) cellBg = 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-800';
+               else if (holidayName) cellBg = 'bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-800';
+               else if (isWeekend) cellBg = 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30';
+               else if (isToday) cellBg = 'bg-primary/10 border-primary ring-1 ring-primary/30';
 
                return (
-                 <div key={idx} className={`aspect-square rounded-lg border flex flex-col items-center justify-between p-1 transition-all hover:scale-105 hover:z-10 cursor-pointer relative overflow-hidden ${cellBg}`}>
-                    <span className={`text-[10px] sm:text-xs font-black ${
-                      isToday ? 'text-primary underline decoration-2' : 
-                      isWeekend ? 'text-red-600' : 
-                      holidayName ? 'text-purple-700 dark:text-purple-400' :
-                      'text-text-light'
-                    }`}>{date.getDate()}</span>
-                    
+                 <div key={idx} className={`aspect-square rounded-lg border flex flex-col items-center justify-between p-1 relative overflow-hidden ${cellBg}`}>
+                    <span className={`text-[10px] font-black ${isToday ? 'text-primary' : (isWeekend ? 'text-red-600' : 'text-text-light')}`}>{date.getDate()}</span>
                     {dailyTotal > 0 && (
-                      <span className="text-[8px] sm:text-[10px] font-black text-text-dark dark:text-white truncate w-full text-center leading-tight drop-shadow-sm">
-                        ₹{dailyTotal >= 1000 ? (dailyTotal/1000).toFixed(1)+'k' : dailyTotal}
-                      </span>
+                      <span className="text-[8px] font-black text-text-dark dark:text-white truncate">₹{dailyTotal}</span>
                     )}
-
-                    <div className="flex flex-col items-center gap-0.5 w-full">
-                      {isSalaryDay && (
-                        <span className="text-[5px] sm:text-[7px] uppercase font-black bg-green-600 text-white px-1.5 rounded-sm leading-none py-0.5 shadow-sm">Salary</span>
-                      )}
-                      {holidayName && (
-                        <span className="text-[5px] sm:text-[7px] uppercase font-black bg-purple-600 text-white px-1.5 rounded-sm leading-none py-0.5 truncate max-w-full shadow-sm" title={holidayName}>{holidayName}</span>
-                      )}
-                    </div>
-
-                    <div className="flex gap-0.5 pb-0.5 flex-wrap justify-center">
-                      {fixedDue && <div className="w-1.5 h-1.5 rounded-full bg-secondary shadow-sm" title="Bill Due"></div>}
-                      {cardBillDue && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-sm" title="CC Bill Generation"></div>}
-                      {dailyTotal > 0 && <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-sm" title="Spent"></div>}
-                    </div>
                  </div>
                );
              })}
           </div>
-          
-          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 justify-center text-[10px] text-text-light font-bold">
-             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-md bg-primary/20 border border-primary"></div> Today</div>
-             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-100"></div> Weekend</div>
-             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-md bg-purple-100 dark:bg-purple-900/30 border-purple-300"></div> Holiday</div>
-             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-md bg-green-100 dark:bg-green-900/30 border-green-300"></div> Salary Day</div>
-             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-indigo-500"></div> CC Bill Generation</div>
-          </div>
         </div>
       )}
-
     </div>
   );
 };
