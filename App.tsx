@@ -41,13 +41,39 @@ function App() {
 
   useEffect(() => {
     if (!supabase) { setAuthInitialized(true); return; }
+
+    // Check for OAuth errors in URL
+    const hash = window.location.hash;
+    if (hash && hash.includes('error=')) {
+      const params = new URLSearchParams(hash.substring(1));
+      const errorMsg = params.get('error_description') || params.get('error') || 'Authentication failed';
+      showToast(decodeURIComponent(errorMsg).replace(/\+/g, ' '), 'error');
+      // Clean the hash to avoid re-triggering
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+
+    // Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthInitialized(true);
+      // If session exists and we have tokens in URL, clean it
+      if (session && window.location.hash.includes('access_token=')) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        setAuthInitialized(true);
+        // Clean URL if tokens present
+        if (window.location.hash.includes('access_token=')) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      }
     });
+
     return () => subscription.unsubscribe();
   }, []);
 

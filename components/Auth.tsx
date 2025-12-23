@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { authService } from '../services/auth';
 import { supabase } from '../services/supabaseClient';
 
@@ -11,14 +11,25 @@ interface AuthProps {
 
 type AuthMode = 'login' | 'signup' | 'forgot';
 
-// Fixed: Added missing React import to resolve namespace errors for React.FC and React.FormEvent
 export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
 
   const isConfigured = !!supabase;
+
+  // Detect if we are returning from an OAuth flow
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && (hash.includes('access_token=') || hash.includes('error='))) {
+      setIsFinalizing(true);
+      // Give it a few seconds to settle, the listener in App.tsx will handle the actual session change
+      const timer = setTimeout(() => setIsFinalizing(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,11 +64,24 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
     try {
       const { error } = await authService.signInWithGoogle();
       if (error) throw error;
+      // The browser will redirect away now
     } catch (err: any) {
       showToast(err.message || "Google sign-in failed", "error");
       setLoading(false);
     }
   };
+
+  if (isFinalizing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <div className="text-center animate-fade-in">
+          <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-6"></div>
+          <h2 className="text-xl font-bold text-text mb-2">Finalizing Login...</h2>
+          <p className="text-text-light text-sm">Setting up your secure workspace.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
@@ -92,7 +116,7 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
             <input 
               type="email" 
               required 
-              disabled={!isConfigured}
+              disabled={!isConfigured || loading}
               autoFocus
               className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border-none focus:ring-2 focus:ring-primary/20 text-sm disabled:opacity-50" 
               placeholder="you@example.com"
@@ -112,7 +136,7 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
               <input 
                 type="password" 
                 required 
-                disabled={!isConfigured}
+                disabled={!isConfigured || loading}
                 className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border-none focus:ring-2 focus:ring-primary/20 text-sm disabled:opacity-50" 
                 placeholder="••••••••"
                 value={password}
@@ -122,6 +146,7 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
           )}
 
           <button 
+            type="submit"
             disabled={loading || !isConfigured}
             className="w-full py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
           >
@@ -157,6 +182,7 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
           </button>
 
           <button 
+            type="button"
             onClick={onGuestLogin}
             disabled={loading}
             className="w-full py-3 bg-gradient-to-r from-secondary to-cyan-500 text-white font-bold rounded-xl shadow-lg shadow-secondary/30 active:scale-95 transition-all flex items-center justify-center gap-2"
@@ -170,7 +196,7 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
             {mode === 'login' ? "Don't have an account?" : "Already have an account?"}
             <button 
               type="button"
-              disabled={!isConfigured}
+              disabled={!isConfigured || loading}
               onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
               className="ml-1 text-primary font-bold hover:underline disabled:opacity-50"
             >
