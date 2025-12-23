@@ -16,8 +16,7 @@
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.1",
     "@supabase/supabase-js": "^2.39.0",
-    "@google/genai": "^0.0.10",
-    "qrcode": "^1.5.3",
+    "@google/genai": "^1.33.0",    "qrcode": "^1.5.3",
     "jsqr": "^1.4.0",
     "@stripe/stripe-js": "^2.4.0",
     "@stripe/react-stripe-js": "^2.4.0"
