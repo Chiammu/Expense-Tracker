@@ -4,6 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval' data: blob:; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https: wss:;">
     <title>Couple Expense Tracker</title>
     
     <!-- PWA Settings -->
@@ -37,7 +38,7 @@
               'slide-up': 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
               'scale-in': 'scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
               'fade-in': 'fadeIn 0.3s ease-in-out',
-              'shimmer': 'shimmer 2s infinite',
+              'shimmer': 'shimmer 2s infinite linear',
               'shake': 'shake 0.3s ease-in-out',
             },
             keyframes: {
@@ -54,6 +55,7 @@
                 '100%': { opacity: 1 },
               },
               shimmer: {
+                '0%': { transform: 'translateX(-100%)' },
                 '100%': { transform: 'translateX(100%)' },
               },
               shake: {
@@ -83,6 +85,14 @@
         --background: #121212;
         --text: #e0e0e0;
         --text-light: #b0b0b0;
+      }
+
+      /* Privacy Mode blurring */
+      .privacy-active .mask-value {
+        filter: blur(8px);
+        user-select: none;
+        pointer-events: none;
+        transition: filter 0.3s ease;
       }
 
       /* Premium Scrollbar */
@@ -118,15 +128,13 @@
       }
       
       .dark body {
-        background-image: none; /* Keep dark mode clean/flat or add subtle dark gradients if preferred */
+        background-image: none;
       }
 
-      /* Remove default outline for a cleaner look */
       input:focus, select:focus, textarea:focus {
         outline: none;
       }
       
-      /* Smooth scrolling */
       html {
         scroll-behavior: smooth;
       }

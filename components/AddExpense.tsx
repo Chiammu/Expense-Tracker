@@ -5,7 +5,8 @@ import { parseReceiptImage, parseNaturalLanguageExpense } from '../services/gemi
 
 interface AddExpenseProps {
   state: AppState;
-  addExpense: (expense: Omit<Expense, 'id'>) => void;
+  // Fix: Updated prop type to exclude updatedAt, matching App.tsx definition
+  addExpense: (expense: Omit<Expense, 'id' | 'updatedAt'>) => void;
   updateExpense?: (expense: Expense) => void;
   expenseToEdit?: Expense | null;
   cancelEdit?: () => void;
@@ -14,6 +15,12 @@ interface AddExpenseProps {
 }
 
 const PAYMENT_MODES = ["UPI", "Card", "Cash", "Netbanking", "Wallet", "Other"];
+
+const haptic = (pattern: number | number[] = 10) => {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    navigator.vibrate(pattern);
+  }
+};
 
 const getLocalDate = () => {
   const d = new Date();
@@ -68,29 +75,6 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
     }
   }, [expenseToEdit]);
 
-  useEffect(() => {
-    if (!expenseToEdit && !formData.category && formData.note.length > 3) {
-      const lowerNote = formData.note.toLowerCase();
-      const categories = state.settings.customCategories;
-      const map: Record<string, string[]> = {
-        'Groceries': ['mart', 'market', 'veg', 'fruit', 'milk', 'grocery'],
-        'Food': ['burger', 'pizza', 'restaurant', 'cafe', 'coffee', 'dinner', 'lunch', 'swiggy', 'zomato'],
-        'Travel': ['uber', 'ola', 'taxi', 'fuel', 'petrol', 'bus', 'train', 'flight'],
-        'Bills': ['electricity', 'water', 'internet', 'wifi', 'phone', 'recharge'],
-        'Shopping': ['amazon', 'flipkart', 'cloth', 'shirt', 'shoe', 'mall'],
-        'Medical': ['medicine', 'doctor', 'clinic', 'pharmacy'],
-        'Entertainment': ['movie', 'netflix', 'prime', 'game']
-      };
-      
-      for (const [cat, keywords] of Object.entries(map)) {
-        if (categories.includes(cat) && keywords.some(k => lowerNote.includes(k))) {
-          setFormData(prev => ({ ...prev, category: cat }));
-          break;
-        }
-      }
-    }
-  }, [formData.note, state.settings.customCategories, formData.category, expenseToEdit]);
-
   const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setIsProcessing(true);
@@ -106,6 +90,7 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
               category: (data.category && state.settings.customCategories.includes(data.category)) ? data.category : prev.category,
               note: data.note || prev.note || ''
             }));
+            haptic(20);
             showToast("Receipt parsed successfully", 'success');
           } catch (err) {
             showToast("Failed to parse receipt", 'error');
@@ -140,6 +125,7 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
         note: data.note || prev.note || textToProcess
       }));
       setNlpInput('');
+      haptic(20);
       showToast("Processed", 'success');
     } catch (err) {
       showToast("Failed to understand text", 'error');
@@ -150,10 +136,11 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
 
   const startVoiceInput = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      showToast("Voice input not supported in this browser", 'error');
+      showToast("Voice input not supported", 'error');
       return;
     }
     
+    haptic(10);
     setIsListening(true);
     // @ts-ignore
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -172,8 +159,7 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
       handleNLP(transcript);
     };
 
-    recognition.onerror = (event: any) => {
-      console.error("Speech error", event);
+    recognition.onerror = () => {
       setIsListening(false);
       showToast("Voice input failed", 'error');
     };
@@ -192,12 +178,10 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
       return;
     }
 
-    if (formData.paymentMode === 'Card' && !formData.cardId && state.creditCards.length > 0) {
-      showToast("Please select a credit card", 'error');
-      return;
-    }
+    haptic([10, 5, 10]);
 
-    const payload: Omit<Expense, 'id'> = {
+    // Fix: Using Omit<Expense, 'id' | 'updatedAt'> to match the addExpense prop requirement from App.tsx
+    const payload: Omit<Expense, 'id' | 'updatedAt'> = {
       person: formData.person,
       date: formData.date,
       amount: parseFloat(formData.amount),
@@ -210,7 +194,8 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
     if (expenseToEdit && updateExpense) {
       updateExpense({
         ...payload,
-        id: expenseToEdit.id
+        id: expenseToEdit.id,
+        updatedAt: Date.now()
       });
     } else {
       addExpense(payload);
@@ -231,16 +216,11 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
       {!expenseToEdit && (
         <div className="flex gap-2 mb-4 sm:mb-6">
           <button 
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => { haptic(5); fileInputRef.current?.click(); }}
             disabled={isProcessing}
-            className="shrink-0 w-12 h-12 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors active:scale-95 flex items-center justify-center shadow-sm"
-            title="Scan Receipt"
+            className="shrink-0 w-12 h-12 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all active:scale-95 flex items-center justify-center shadow-sm"
           >
-            {isProcessing ? (
-              <span className="animate-spin text-lg">🌀</span>
-            ) : (
-              <span className="text-xl">📷</span>
-            )}
+            {isProcessing ? <span className="animate-spin">🌀</span> : <span className="text-xl">📷</span>}
           </button>
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleReceiptUpload} />
 
@@ -252,7 +232,6 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
                 ? 'bg-red-50 border-red-200 text-red-500 animate-pulse ring-2 ring-red-200' 
                 : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100'
             }`}
-            title="Record Expense"
           >
             <span className="text-xl">🎙️</span>
           </button>
@@ -260,20 +239,13 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
           <div className="relative group flex-1">
             <input 
               type="text"
-              placeholder={`Type or say '${state.settings.person1Name} spent 500 for lunch'...`}
+              placeholder={`Type 'spent 500 on coffee'...`}
               value={nlpInput}
               onChange={e => setNlpInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleNLP()}
-              disabled={isProcessing}
               className="w-full h-full p-2 pl-3 sm:p-3 sm:pl-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-background text-xs sm:text-sm pr-10 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all shadow-sm"
             />
-            <button 
-              onClick={() => handleNLP()} 
-              disabled={isProcessing || !nlpInput.trim()}
-              className="absolute right-1 top-1/2 -translate-y-1/2 text-primary p-2 rounded-full hover:bg-primary/10 transition-colors disabled:opacity-50"
-            >
-              ➤
-            </button>
+            <button onClick={() => handleNLP()} className="absolute right-1 top-1/2 -translate-y-1/2 text-primary p-2">➤</button>
           </div>
         </div>
       )}
@@ -283,12 +255,7 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
            <div className="flex items-center gap-2 text-orange-700 dark:text-orange-400 font-bold">
              <span>✏️</span> Editing Expense
            </div>
-           <button 
-             onClick={cancelEdit}
-             className="text-xs bg-white dark:bg-black/20 px-3 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
-           >
-             Cancel
-           </button>
+           <button onClick={cancelEdit} className="text-xs bg-white dark:bg-black/20 px-3 py-1.5 rounded-md">Cancel</button>
         </div>
       )}
 
@@ -302,9 +269,9 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
               <label className="block text-[10px] sm:text-xs font-bold text-text-light mb-1 uppercase tracking-wide">Person *</label>
               <select 
                 required
-                className="w-full p-2.5 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background text-text focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all appearance-none text-sm"
+                className="w-full p-2.5 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background text-text text-sm"
                 value={formData.person}
-                onChange={e => setFormData({...formData, person: e.target.value})}
+                onChange={e => { haptic(5); setFormData({...formData, person: e.target.value}); }}
               >
                 <option value="">Select...</option>
                 <option value="Person1">👤 {state.settings.person1Name}</option>
@@ -317,7 +284,7 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
               <input 
                 type="date" 
                 required
-                className="w-full p-2.5 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background text-text focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-sm"
+                className="w-full p-2.5 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background text-text text-sm"
                 value={formData.date}
                 onChange={e => setFormData({...formData, date: e.target.value})}
               />
@@ -333,7 +300,7 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
                 min="0"
                 placeholder="0.00"
                 required
-                className="w-full p-2.5 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background text-text focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-base sm:text-lg font-semibold"
+                className="w-full p-2.5 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background text-text text-base font-semibold"
                 value={formData.amount}
                 onChange={e => setFormData({...formData, amount: e.target.value})}
               />
@@ -342,15 +309,13 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
               <label className="block text-[10px] sm:text-xs font-bold text-text-light mb-1 uppercase tracking-wide">Category *</label>
               <select 
                 required
-                className="w-full p-2.5 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background text-text focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-sm"
+                className="w-full p-2.5 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background text-text text-sm"
                 value={formData.category}
-                onChange={e => setFormData({...formData, category: e.target.value})}
+                onChange={e => { haptic(5); setFormData({...formData, category: e.target.value}); }}
               >
                 <option value="">Select...</option>
                 {state.settings.customCategories.map(c => (
-                  <option key={c} value={c}>
-                    {state.settings.categoryIcons?.[c] || '📦'} {c}
-                  </option>
+                  <option key={c} value={c}>{state.settings.categoryIcons?.[c] || '📦'} {c}</option>
                 ))}
               </select>
             </div>
@@ -363,10 +328,10 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
                  <button
                     key={m}
                     type="button"
-                    onClick={() => setFormData({...formData, paymentMode: m})}
+                    onClick={() => { haptic(5); setFormData({...formData, paymentMode: m}); }}
                     className={`px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm font-medium border transition-all ${
                       formData.paymentMode === m 
-                        ? 'bg-secondary text-white border-secondary shadow-md transform scale-105' 
+                        ? 'bg-secondary text-white border-secondary shadow-md scale-105' 
                         : 'bg-background text-text-light border-gray-200 dark:border-gray-700 hover:border-secondary/50'
                     }`}
                  >
@@ -381,15 +346,13 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
               <label className="block text-[10px] sm:text-xs font-bold text-text-light mb-1 uppercase tracking-wide">Select Credit Card *</label>
               <select 
                 required
-                className="w-full p-2.5 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background text-text focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all appearance-none text-sm"
+                className="w-full p-2.5 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background text-text text-sm"
                 value={formData.cardId}
                 onChange={e => setFormData({...formData, cardId: e.target.value})}
               >
                 <option value="">Select Card...</option>
                 {state.creditCards.map(card => (
-                  <option key={card.id} value={card.id}>
-                    💳 {card.name} (Limit: ₹{card.limit})
-                  </option>
+                  <option key={card.id} value={card.id}>💳 {card.name}</option>
                 ))}
               </select>
             </div>
@@ -399,8 +362,8 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
             <label className="block text-[10px] sm:text-xs font-bold text-text-light mb-1 uppercase tracking-wide">Description</label>
             <input 
               type="text" 
-              placeholder="e.g., Weekly groceries at Mart"
-              className="w-full p-2.5 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background text-text focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-sm"
+              placeholder="e.g., Weekly groceries"
+              className="w-full p-2.5 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background text-text text-sm"
               value={formData.note}
               onChange={e => setFormData({...formData, note: e.target.value})}
             />
@@ -411,18 +374,11 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
               type="submit" 
               className={`flex-1 text-white py-3 sm:py-3.5 rounded-xl font-bold shadow-lg transition-all active:scale-[0.98] text-sm sm:text-base ${
                 expenseToEdit 
-                  ? 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/30' 
-                  : 'bg-gradient-to-r from-primary to-pink-600 shadow-primary/30 hover:shadow-xl hover:scale-[1.02]'
+                  ? 'bg-orange-500 hover:bg-orange-600' 
+                  : 'bg-gradient-to-r from-primary to-pink-600 hover:scale-[1.02]'
               }`}
             >
               {expenseToEdit ? 'Update Expense' : 'Add Expense'}
-            </button>
-            <button
-              type="button"
-              onClick={() => switchTab('summaries')}
-              className="px-4 sm:px-6 py-3 sm:py-3.5 border border-gray-200 dark:border-gray-700 text-text rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm sm:text-base"
-            >
-              Stats
             </button>
           </div>
         </form>

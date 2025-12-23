@@ -11,6 +11,26 @@ const STORAGE_KEY = 'coupleExpenseTrackerV4_React';
 // Debounce timer for cloud saves
 let saveTimeout: any = null;
 
+/**
+ * Logs a sensitive event to the Supabase history table.
+ */
+export const logAuditEvent = async (event: string, details: any = {}) => {
+  if (!supabase) return;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return;
+
+  const { error } = await supabase
+    .from('history')
+    .insert({
+      user_id: session.user.id,
+      event,
+      details,
+      created_at: new Date().toISOString()
+    });
+  
+  if (error) console.error("Audit log failed:", error);
+};
+
 const triggerCloudSave = async (state: AppState) => {
   if (!supabase) return;
   
@@ -80,29 +100,39 @@ const mergeState = (parsed: any): AppState => {
   };
 };
 
+/**
+ * Robust conflict resolution using Last-Write-Wins (LWW).
+ */
 export const mergeAppState = (local: AppState, remote: AppState): AppState => {
-  const mergeArrays = <T extends { id: number | string }>(localArr: T[], remoteArr: T[]): T[] => {
+  const lwwMergeArray = <T extends { id: number | string; updatedAt?: number }>(localArr: T[], remoteArr: T[]): T[] => {
     const map = new Map<number | string, T>();
     localArr.forEach(item => map.set(item.id, item));
-    remoteArr.forEach(item => map.set(item.id, item));
+    remoteArr.forEach(remoteItem => {
+      const localItem = map.get(remoteItem.id);
+      if (!localItem || (remoteItem.updatedAt || 0) > (localItem.updatedAt || 0)) {
+        map.set(remoteItem.id, remoteItem);
+      }
+    });
     return Array.from(map.values());
+  };
+
+  const lwwMergeObject = <T extends { updatedAt?: number }>(localObj: T, remoteObj: T): T => {
+    if ((remoteObj.updatedAt || 0) > (localObj.updatedAt || 0)) {
+      return remoteObj;
+    }
+    return localObj;
   };
 
   return {
     ...remote, 
-    expenses: mergeArrays(local.expenses, remote.expenses),
-    fixedPayments: mergeArrays(local.fixedPayments, remote.fixedPayments),
-    otherIncome: mergeArrays(local.otherIncome, remote.otherIncome),
-    savingsGoals: mergeArrays(local.savingsGoals, remote.savingsGoals),
-    loans: mergeArrays(local.loans, remote.loans),
-    investments: {
-        ...remote.investments,
-        bankBalance: { ...local.investments.bankBalance, ...remote.investments.bankBalance },
-        mutualFunds: { ...local.investments.mutualFunds, ...remote.investments.mutualFunds },
-        stocks: { ...local.investments.stocks, ...remote.investments.stocks },
-        gold: { ...local.investments.gold, ...remote.investments.gold },
-        silver: { ...local.investments.silver, ...remote.investments.silver },
-    }
+    settings: lwwMergeObject(local.settings, remote.settings),
+    expenses: lwwMergeArray(local.expenses, remote.expenses),
+    fixedPayments: lwwMergeArray(local.fixedPayments, remote.fixedPayments),
+    otherIncome: lwwMergeArray(local.otherIncome, remote.otherIncome),
+    savingsGoals: lwwMergeArray(local.savingsGoals, remote.savingsGoals),
+    loans: lwwMergeArray(local.loans, remote.loans),
+    creditCards: lwwMergeArray(local.creditCards, remote.creditCards),
+    investments: lwwMergeObject(local.investments, remote.investments),
   };
 };
 
@@ -191,10 +221,6 @@ export const exportToCSV = (expenses: AppState['expenses'], filenameSuffix: stri
   }
 };
 
-// Fix: Added missing exportToPDF function
-/**
- * Generates a PDF report of all expenses.
- */
 export const exportToPDF = (state: AppState) => {
   const doc = new jsPDF();
   doc.setFontSize(20);
@@ -222,10 +248,6 @@ export const exportToPDF = (state: AppState) => {
   doc.save(`finances-${new Date().toISOString().split('T')[0]}.pdf`);
 };
 
-// Fix: Added missing exportMonthlyReportPDF function
-/**
- * Generates a PDF report containing the AI advisor's monthly digest.
- */
 export const exportMonthlyReportPDF = (state: AppState, digest: string) => {
   const doc = new jsPDF();
   const now = new Date();

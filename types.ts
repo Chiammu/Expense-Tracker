@@ -8,6 +8,7 @@ export interface Expense {
   paymentMode: string;
   note: string;
   cardId?: number; 
+  updatedAt: number; // For Last-Write-Wins conflict resolution
 }
 
 export interface CreditCard {
@@ -16,6 +17,7 @@ export interface CreditCard {
   limit: number;
   billingDay: number;
   currentBalance: number;
+  updatedAt: number;
 }
 
 export interface FixedPayment {
@@ -23,12 +25,14 @@ export interface FixedPayment {
   name: string;
   amount: number;
   day: number;
+  updatedAt: number;
 }
 
 export interface OtherIncome {
   id: number;
   desc: string;
   amount: number;
+  updatedAt: number;
 }
 
 export interface SavingsGoal {
@@ -36,6 +40,7 @@ export interface SavingsGoal {
   name: string;
   targetAmount: number;
   currentAmount: number;
+  updatedAt: number;
 }
 
 export interface ChatMessage {
@@ -65,6 +70,7 @@ export interface Investments {
   silver: MetalAsset;
   goldRate: number; 
   silverRate: number; 
+  updatedAt: number;
 }
 
 export interface Loan {
@@ -74,6 +80,7 @@ export interface Loan {
   pendingAmount: number; 
   emiAmount: number; 
   person: 'Person1' | 'Person2' | 'Both';
+  updatedAt: number;
 }
 
 export interface AppSettings {
@@ -93,10 +100,18 @@ export interface AppSettings {
   pin: string | null; 
   syncId: string | null; 
   lastFixedPaymentCheck: string | null; 
-  // New Report Settings
   emailReportsEnabled: boolean;
   reportEmail: string;
-  lastReportSentMonth: string | null; // e.g. "2024-05"
+  lastReportSentMonth: string | null;
+  privacyMode: boolean; // For blurring sensitive data in public
+  webAuthnCredentialId: string | null; // For biometric unlock
+  updatedAt: number;
+}
+
+export interface AuditLog {
+  event: string;
+  details: any;
+  timestamp: string;
 }
 
 export interface AppState {
@@ -115,7 +130,7 @@ export interface AppState {
   creditCards: CreditCard[]; 
 }
 
-export type Section = 'add-expense' | 'summaries' | 'investments' | 'overview' | 'settings';
+export type Section = 'add-expense' | 'summaries' | 'investments' | 'overview' | 'settings' | 'chat';
 
 export const DEFAULT_CATEGORIES = [
   "Groceries", "Rent", "Bills", "EMIs", "Shopping", "Travel", "Food", 
@@ -148,6 +163,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   emailReportsEnabled: false,
   reportEmail: '',
   lastReportSentMonth: null,
+  privacyMode: false,
+  webAuthnCredentialId: null,
+  updatedAt: Date.now(),
 };
 
 export const INITIAL_INVESTMENTS: Investments = {
@@ -158,6 +176,7 @@ export const INITIAL_INVESTMENTS: Investments = {
   silver: { p1Grams: 0, p2Grams: 0, sharedGrams: 0 },
   goldRate: 0,
   silverRate: 0,
+  updatedAt: Date.now(),
 };
 
 export const INITIAL_STATE: AppState = {
