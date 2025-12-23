@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { AppState, Loan, Investments as InvestType, CreditCard } from '../types';
-import { analyzeLoanStrategy, getLatestMetalRates } from '../services/geminiService';
+// Fixed: Removed missing export 'analyzeLoanStrategy' from geminiService
+import { getLatestMetalRates } from '../services/geminiService';
 
 interface InvestmentsProps {
   state: AppState;
@@ -12,8 +12,7 @@ interface InvestmentsProps {
 export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, showToast }) => {
   const [tab, setTab] = useState<'assets' | 'liabilities' | 'cards'>('assets');
   const [fetchingRates, setFetchingRates] = useState(false);
-  const [aiAdvice, setAiAdvice] = useState<string | null>(null);
-  const [analyzing, setAnalyzing] = useState(false);
+  // Fixed: Removed unused 'aiAdvice' and 'analyzing' states which were intended for the missing 'analyzeLoanStrategy' function
   
   const [isBalancesVisible, setIsBalancesVisible] = useState(false);
 

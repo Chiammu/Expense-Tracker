@@ -190,9 +190,6 @@ export const exportToCSV = (expenses: AppState['expenses'], filenameSuffix: stri
   }
 };
 
-/**
- * Creates a pie chart representation for the PDF using Canvas API.
- */
 const generateCategoryChartImage = (categories: Record<string, number>): string => {
   const canvas = document.createElement('canvas');
   canvas.width = 800;
@@ -200,14 +197,14 @@ const generateCategoryChartImage = (categories: Record<string, number>): string 
   const ctx = canvas.getContext('2d');
   if (!ctx) return '';
 
-  const data = Object.entries(categories).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  const total = data.reduce((s, d) => s + d[1], 0);
+  const entries = Object.entries(categories).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const total = entries.reduce((s, d) => s + d[1], 0);
   const colors = ['#e91e63', '#2196f3', '#ff6f00', '#4caf50', '#9c27b0', '#00bcd4', '#ffc107', '#607d8b'];
   
   let currentAngle = -0.5 * Math.PI;
   const centerX = 200, centerY = 200, radius = 150;
 
-  data.forEach((d, i) => {
+  entries.forEach((d, i) => {
     const sliceAngle = (d[1] / total) * 2 * Math.PI;
     ctx.beginPath();
     ctx.moveTo(centerX, centerY);
@@ -215,7 +212,6 @@ const generateCategoryChartImage = (categories: Record<string, number>): string 
     ctx.fillStyle = colors[i % colors.length];
     ctx.fill();
     
-    // Legend
     ctx.fillRect(400, 50 + i * 40, 20, 20);
     ctx.fillStyle = '#333';
     ctx.font = 'bold 20px Helvetica';
@@ -227,181 +223,135 @@ const generateCategoryChartImage = (categories: Record<string, number>): string 
   return canvas.toDataURL('image/png');
 };
 
-/**
- * Beautiful Monthly Financial Advisor PDF Report
- */
 export const exportMonthlyReportPDF = (state: AppState, digest: string) => {
   const doc = new jsPDF();
   const now = new Date();
   const monthLabel = now.toLocaleString('default', { month: 'long', year: 'numeric' });
-  // Fix: Explicitly define as number tuples to allow spreading into doc functions.
-  const primaryColor: [number, number, number] = [233, 30, 99]; // App Pink
-  const grayColor: [number, number, number] = [117, 117, 117];
+  const primaryColor: [number, number, number] = [233, 30, 99];
+  const grayColor: [number, number, number] = [100, 100, 100];
 
-  // Calculations for Summary
   const monthExpenses = state.expenses.filter(e => {
     const d = new Date(e.date);
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
   const totalSpent = monthExpenses.reduce((s, e) => s + e.amount, 0);
   const budget = state.monthlyBudget || 0;
-  const savings = budget > 0 ? budget - totalSpent : 0;
+  const savings = budget - totalSpent;
   
   const categories = monthExpenses.reduce((acc, e) => {
     acc[e.category] = (acc[e.category] || 0) + e.amount;
     return acc;
   }, {} as Record<string, number>);
 
-  // --- PAGE 1 ---
-  
-  // 1. Modern Header
+  // Header Block
   doc.setFillColor(...primaryColor);
-  doc.rect(0, 0, 210, 45, 'F');
-  
+  doc.rect(0, 0, 210, 40, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(24);
-  doc.text("MONTHLY FINANCIAL DIGEST", 15, 25);
-  
+  doc.setFontSize(22);
+  doc.text("MONTHLY FINANCIAL DIGEST", 15, 20);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(14);
-  doc.text(monthLabel, 15, 35);
-  doc.text(`${state.settings.person1Name} & ${state.settings.person2Name}`, 210 - 15, 35, { align: 'right' });
+  doc.text(`${monthLabel} | ${state.settings.person1Name} & ${state.settings.person2Name}`, 15, 30);
 
-  // 2. Summary Stats Cards
-  let cardY = 55;
-  const cardWidth = 60;
-  const gutter = 5;
-  const startX = 15;
-
-  // Total Spent Card
-  doc.setFillColor(245, 245, 245);
-  doc.roundedRect(startX, cardY, cardWidth, 30, 3, 3, 'F');
+  // Summary Grid
+  let y = 50;
+  doc.setFillColor(248, 249, 250);
+  doc.roundedRect(15, y, 180, 25, 2, 2, 'F');
+  
   doc.setTextColor(...primaryColor);
-  doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text("TOTAL SPENT", startX + 5, cardY + 10);
-  doc.setFontSize(16);
-  doc.text(`₹${totalSpent.toLocaleString()}`, startX + 5, cardY + 22);
-
-  // Budget Card
-  doc.setFillColor(245, 245, 245);
-  doc.roundedRect(startX + cardWidth + gutter, cardY, cardWidth, 30, 3, 3, 'F');
-  doc.setTextColor(33, 150, 243); // blue
-  doc.setFontSize(10);
-  doc.text("MONTHLY BUDGET", startX + cardWidth + gutter + 5, cardY + 10);
-  doc.setFontSize(16);
-  doc.text(`₹${budget.toLocaleString()}`, startX + cardWidth + gutter + 5, cardY + 22);
-
-  // Net Savings Card
-  doc.setFillColor(245, 245, 245);
-  doc.roundedRect(startX + (cardWidth + gutter) * 2, cardY, cardWidth, 30, 3, 3, 'F');
-  doc.setTextColor(savings >= 0 ? 76 : 244, savings >= 0 ? 175 : 67, savings >= 0 ? 80 : 54); // green or red
-  doc.setFontSize(10);
-  doc.text("NET SAVINGS", startX + (cardWidth + gutter) * 2 + 5, cardY + 10);
-  doc.setFontSize(16);
-  doc.text(`₹${savings.toLocaleString()}`, startX + (cardWidth + gutter) * 2 + 5, cardY + 22);
-
-  // 3. Category Spending Chart
-  doc.setTextColor(33, 33, 33);
+  doc.setFontSize(9);
+  doc.text("TOTAL SPENT", 25, y + 8);
   doc.setFontSize(14);
+  doc.text(`₹${totalSpent.toLocaleString()}`, 25, y + 18);
+
+  doc.setTextColor(33, 150, 243);
+  doc.setFontSize(9);
+  doc.text("BUDGET", 85, y + 8);
+  doc.setFontSize(14);
+  doc.text(`₹${budget.toLocaleString()}`, 85, y + 18);
+
+  doc.setTextColor(savings >= 0 ? 76 : 244, savings >= 0 ? 175 : 67, 80);
+  doc.setFontSize(9);
+  doc.text("SAVINGS", 145, y + 8);
+  doc.setFontSize(14);
+  doc.text(`₹${savings.toLocaleString()}`, 145, y + 18);
+
+  // Chart
+  y += 35;
+  doc.setTextColor(33, 33, 33);
   doc.setFont('helvetica', 'bold');
-  doc.text("Spending Distribution", 15, cardY + 45);
+  doc.setFontSize(14);
+  doc.text("Spending Distribution", 15, y);
   
   const chartImg = generateCategoryChartImage(categories);
   if (chartImg) {
-    doc.addImage(chartImg, 'PNG', 15, cardY + 50, 180, 70);
+    doc.addImage(chartImg, 'PNG', 15, y + 5, 180, 75);
   }
 
-  // 4. AI Advisor Insights
-  doc.setFontSize(14);
+  // Insights Section
+  y += 90;
   doc.setFont('helvetica', 'bold');
-  doc.text("Personal Financial Advisor Insights", 15, cardY + 130);
+  doc.setFontSize(14);
+  doc.text("AI Financial Advisor Insights", 15, y);
   
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  doc.setTextColor(60, 60, 60);
+  doc.setTextColor(50, 50, 50);
   
-  // Clean digest text from weird encoding
   const cleanDigest = digest.replace(/[^\x00-\x7F]/g, "").trim();
-  const splitDigest = doc.splitTextToSize(cleanDigest, 180);
-  doc.text(splitDigest, 15, cardY + 140);
+  const lines = doc.splitTextToSize(cleanDigest, 180);
+  doc.text(lines, 15, y + 10);
 
-  // --- PAGE 2 ---
+  // Table Page
   doc.addPage();
-  
-  // Re-draw Mini Header for Page 2
   doc.setFillColor(...primaryColor);
-  doc.rect(0, 0, 210, 20, 'F');
+  doc.rect(0, 0, 210, 15, 'F');
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(12);
-  doc.text(`Transaction Breakdown - ${monthLabel}`, 15, 13);
+  doc.setFontSize(10);
+  doc.text(`Transaction Breakdown - ${monthLabel}`, 15, 10);
 
-  const rows = monthExpenses.map(e => [
+  const tableRows = monthExpenses.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(e => [
     e.date,
-    e.person === 'Both' ? 'Shared' : (e.person === 'Person1' ? state.settings.person1Name : state.settings.person2Name),
+    e.person === 'Both' ? 'Both' : (e.person === 'Person1' ? state.settings.person1Name : state.settings.person2Name),
     e.category,
-    `Rs. ${e.amount.toFixed(2)}`,
+    `Rs. ${e.amount.toLocaleString()}`,
     e.note || '-'
   ]);
 
   (doc as any).autoTable({
-    startY: 30,
-    head: [['Date', 'Person', 'Category', 'Amount', 'Note']],
-    body: rows,
-    theme: 'striped',
-    headStyles: { 
-      fillColor: primaryColor, 
-      font: 'helvetica', 
-      fontStyle: 'bold',
-      halign: 'center'
-    },
-    bodyStyles: { 
-      font: 'helvetica',
-      fontSize: 9
-    },
-    columnStyles: {
-      3: { halign: 'right', fontStyle: 'bold' }
-    },
-    alternateRowStyles: { fillColor: [250, 250, 250] },
+    startY: 25,
+    head: [['Date', 'Who', 'Category', 'Amount', 'Note']],
+    body: tableRows,
+    theme: 'grid',
+    headStyles: { fillColor: primaryColor, font: 'helvetica', fontSize: 10 },
+    bodyStyles: { fontSize: 9, font: 'helvetica' },
     margin: { left: 15, right: 15 }
   });
 
-  // Footer on all pages
-  const pageCount = (doc as any).internal.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
+  const totalPages = doc.internal.getNumberOfPages();
+  for(let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     doc.setFontSize(8);
-    // Fix: Explicitly spread the tuple grayColor.
-    doc.setTextColor(...grayColor);
-    doc.text(`Financial Advisor Report | Powered by Gemini AI | Page ${i} of ${pageCount}`, 105, 290, { align: 'center' });
+    doc.setTextColor(150, 150, 150);
+    doc.text(`Page ${i} of ${totalPages} | Powered by Gemini AI`, 105, 290, { align: 'center' });
   }
 
-  doc.save(`Financial-Digest-${monthLabel.replace(' ', '-')}.pdf`);
+  doc.save(`Monthly-Report-${monthLabel.replace(' ', '-')}.pdf`);
 };
 
 export const exportToPDF = (state: AppState) => {
   const doc = new jsPDF();
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
-  doc.text(`${state.settings.headerTitle} Report`, 14, 22);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 30);
-  const totalExp = state.expenses.reduce((s, e) => s + e.amount, 0);
-  (doc as any).autoTable({
-    startY: 40,
-    head: [['Metric', 'Value']],
-    body: [['Total Expenses', `Rs. ${totalExp.toFixed(2)}`]],
-    theme: 'plain',
-    headStyles: { fontStyle: 'bold' }
-  });
+  doc.text(`${state.settings.headerTitle} - Full Export`, 14, 22);
   const rows = state.expenses.map(e => [e.date, e.person, e.category, e.amount.toFixed(2), e.note]);
   (doc as any).autoTable({
-    startY: (doc as any).lastAutoTable.finalY + 10,
+    startY: 30,
     head: [['Date', 'Person', 'Category', 'Amount', 'Note']],
     body: rows,
     headStyles: { fillColor: [233, 30, 99] }
   });
-  doc.save(`expense-report-${new Date().toISOString().split('T')[0]}.pdf`);
+  doc.save(`expenses-full-export.pdf`);
 };

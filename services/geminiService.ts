@@ -8,11 +8,12 @@ const formatCurrency = (amount: number) => {
 };
 
 const getAI = () => {
-  if (!process.env.API_KEY) {
-    console.error("CRITICAL ERROR: API Key is missing in the build.");
-    throw new Error("API Key is missing. Please check Environment Variables and redeploy.");
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    console.error("CRITICAL ERROR: API Key is missing.");
+    throw new Error("API Key is missing.");
   }
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  return new GoogleGenAI({ apiKey });
 };
 
 const handleGeminiError = (error: any) => {
@@ -20,7 +21,7 @@ const handleGeminiError = (error: any) => {
   const msg = error.toString().toLowerCase() + (error.message || "").toLowerCase();
   
   if (msg.includes("429") || msg.includes("quota") || msg.includes("resource_exhausted")) {
-    return "⚠️ Daily Limit Reached. Please try again tomorrow.";
+    return "⚠️ AI is exhausted. Please try again tomorrow.";
   }
   return `⚠️ AI Error: ${error.message || "Connection failed"}`;
 };
@@ -34,37 +35,14 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
       return acc;
     }, {} as Record<string, number>);
 
-    const person1Total = state.expenses.filter(e => e.person === 'Person1').reduce((sum, e) => sum + e.amount, 0);
-    const person2Total = state.expenses.filter(e => e.person === 'Person2').reduce((sum, e) => sum + e.amount, 0);
-    const sharedTotal = state.expenses.filter(e => e.person === 'Both').reduce((sum, e) => sum + e.amount, 0);
-
-    const totalIncome = state.incomePerson1 + state.incomePerson2 + state.otherIncome.reduce((sum, i) => sum + i.amount, 0);
-
     const summaryText = `
+      Names: ${state.settings.person1Name}, ${state.settings.person2Name}
       Total Expenses: ${formatCurrency(totalExpenses)}
-      Total Income: ${formatCurrency(totalIncome)}
-      Monthly Budget: ${formatCurrency(state.monthlyBudget)}
-      
-      Spending by Person:
-      - ${state.settings.person1Name}: ${formatCurrency(person1Total)}
-      - ${state.settings.person2Name}: ${formatCurrency(person2Total)}
-      - Shared: ${formatCurrency(sharedTotal)}
-
+      Budget: ${formatCurrency(state.monthlyBudget)}
       Top Categories: ${JSON.stringify(categoryBreakdown)}
     `;
 
-    const prompt = `
-      You are a friendly and encouraging financial advisor for a couple.
-      Analyze the following financial summary for the current period.
-      
-      ${summaryText}
-
-      Provide 3-4 distinct, actionable, and short insights or tips.
-      - Focus on savings potential.
-      - Gently warn if over budget.
-      - Be personal using ${state.settings.person1Name} and ${state.settings.person2Name}.
-      - Use emojis. Plain text only.
-    `;
+    const prompt = `Analyze these finances for a couple and give 3 short, punchy, actionable tips. Be encouraging. Use emojis. \n\n ${summaryText}`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -77,16 +55,10 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
   }
 };
 
-/**
- * Generates a full monthly digest suitable for an email report.
- */
 export const generateMonthlyDigest = async (state: AppState): Promise<string> => {
   try {
     const ai = getAI();
     const now = new Date();
-    const monthName = now.toLocaleString('default', { month: 'long', year: 'numeric' });
-    
-    // Filter expenses for last 30 days
     const lastMonthExpenses = state.expenses.filter(e => {
         const d = new Date(e.date);
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
@@ -99,22 +71,16 @@ export const generateMonthlyDigest = async (state: AppState): Promise<string> =>
     }, {} as Record<string, number>);
 
     const prompt = `
-      Create a "Monthly Financial Report & AI Advisor Digest" for ${monthName}.
-      
-      Couple: ${state.settings.person1Name} and ${state.settings.person2Name}
-      Total Spent: ${formatCurrency(totalSpent)}
-      Budget: ${formatCurrency(state.monthlyBudget)}
-      Income: ${formatCurrency(state.incomePerson1 + state.incomePerson2)}
+      Create a "Monthly Financial Report & AI Advisor Digest" for ${state.settings.person1Name} and ${state.settings.person2Name}.
+      Total Spent: ₹${totalSpent}
+      Budget: ₹${state.monthlyBudget}
       Category Totals: ${JSON.stringify(catGroups)}
-      Savings Goals: ${JSON.stringify(state.savingsGoals)}
 
-      Structure the response as follows:
-      1. MONTHLY OVERVIEW: A high-level summary of the financial health.
-      2. TOP SPENDING AREAS: Analyze where the money went and if it was efficient.
-      3. AI ADVISOR STRATEGY: 3 specific, expert-level recommendations for the next month to improve savings or debt management.
-      4. ENCOURAGEMENT: A warm closing statement.
-
-      Format: Clean text suitable for an email body. Use emojis sparingly. Do not use Markdown headers, use capitalized labels.
+      Instructions:
+      1. Keep it professional but insightful.
+      2. No Markdown headers like # or ##. Use CAPITALIZED labels.
+      3. Focus on efficiency and savings.
+      4. Length: Approx 300 words.
     `;
 
     const response = await ai.models.generateContent({
@@ -128,74 +94,23 @@ export const generateMonthlyDigest = async (state: AppState): Promise<string> =>
   }
 };
 
-export const getLatestMetalRates = async (): Promise<{gold: number, silver: number, source?: string}> => {
-  try {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: "Find the current price of 24k Gold (per gram) and Silver (per gram) in India today in INR. Extract just the numbers. Output JSON format: { \"gold\": number, \"silver\": number }.",
-      config: {
-        tools: [{googleSearch: {}}],
-      }
-    });
-    
-    const text = response.text || "";
-    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    
-    try {
-      const start = cleanText.indexOf('{');
-      const end = cleanText.lastIndexOf('}') + 1;
-      if (start !== -1 && end !== -1) {
-        const jsonStr = cleanText.slice(start, end);
-        const data = JSON.parse(jsonStr);
-        return {
-          gold: Number(data.gold) || 7200, 
-          silver: Number(data.silver) || 90,
-          source: 'Live (Google Search)'
-        };
-      }
-    } catch (e) {}
-    return { gold: 7300, silver: 92, source: 'Mock (Fallback)' };
-  } catch (error) {
-    return { gold: 7300, silver: 92, source: 'Offline' };
-  }
-};
-
-export const analyzeLoanStrategy = async (loans: Loan[], surplus: number, person1: string, person2: string): Promise<string> => {
-  try {
-    const ai = getAI();
-    const loanData = loans.map(l => `${l.name}: Pending ₹${l.pendingAmount}, EMI ₹${l.emiAmount}`).join('\n');
-    const prompt = `
-      Debt reduction strategy for ${person1} and ${person2}. Monthly surplus: ₹${surplus}.
-      Current Loans: ${loanData}
-      Suggest a strategy to close these effectively. Keep it short.
-    `;
-    const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
-    return response.text || "Could not analyze loans.";
-  } catch (error) { return handleGeminiError(error); }
-};
-
 export const roastSpending = async (state: AppState): Promise<string> => {
   try {
     const ai = getAI();
     // Analyze last 20 expenses
-    const recentExpenses = state.expenses.slice(-20).map(e => {
-      const personName = e.person === 'Person1' ? state.settings.person1Name : (e.person === 'Person2' ? state.settings.person2Name : 'Both');
-      return `${personName} spent ₹${e.amount} on ${e.category} for ${e.note || 'unspecified'}`;
+    const recent = state.expenses.slice(-20).map(e => {
+      const who = e.person === 'Person1' ? state.settings.person1Name : (e.person === 'Person2' ? state.settings.person2Name : 'Both');
+      return `${who}: ₹${e.amount} on ${e.category} (${e.note || 'no note'})`;
     }).join('\n');
 
     const prompt = `
-      You are a savage, witty, and slightly mean financial roaster. 
-      Analyze these last 20 expenses for the couple ${state.settings.person1Name} and ${state.settings.person2Name}:
-      
-      ${recentExpenses}
+      CONTEXT: Financial roast for a couple: ${state.settings.person1Name} and ${state.settings.person2Name}.
+      DATA: Last 20 expenses:
+      ${recent}
 
-      Provide a brutal, hilarious roast about their spending habits. 
-      - Call them out by name.
-      - Be specific about their "dumb" purchases.
-      - Keep it under 400 characters.
-      - Use fire emojis. 
-      - Output plain text only.
+      INSTRUCTION: Be savage, hilarious, and brutal. Roast their spending habits based ONLY on the data provided. 
+      Mention specific "stupid" notes or high amounts. 
+      Limit to 350 characters. Plain text only. No markdown. Use 🔥 emojis.
     `;
 
     const response = await ai.models.generateContent({ 
@@ -203,8 +118,39 @@ export const roastSpending = async (state: AppState): Promise<string> => {
       contents: prompt 
     });
 
-    return response.text || "You spend money so efficiently I can't even roast you. Boring.";
-  } catch (error) { return handleGeminiError(error); }
+    return response.text?.trim() || "You spend money so boringly I have nothing to say.";
+  } catch (error) { 
+    return "Your spending is so chaotic it broke my circuits. Get help."; 
+  }
+};
+
+export const getLatestMetalRates = async (): Promise<{gold: number, silver: number, source?: string}> => {
+  try {
+    const ai = getAI();
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: "Output JSON only: { \"gold\": number, \"silver\": number } for current 24k gold and silver prices per gram in India in INR.",
+      config: { tools: [{googleSearch: {}}] }
+    });
+    
+    const text = response.text || "";
+    try {
+      const start = text.indexOf('{');
+      const end = text.lastIndexOf('}') + 1;
+      const data = JSON.parse(text.slice(start, end));
+      return { gold: Number(data.gold) || 7200, silver: Number(data.silver) || 90, source: 'Live' };
+    } catch (e) { return { gold: 7300, silver: 92, source: 'Fallback' }; }
+  } catch (error) { return { gold: 7300, silver: 92, source: 'Offline' }; }
+};
+
+export const chatWithFinances = async (history: any[], userMessage: string, state: AppState): Promise<string> => {
+  try {
+    const ai = getAI();
+    const context = `Context: Total Exp: ₹${state.expenses.reduce((s,e) => s+e.amount, 0)}. Names: ${state.settings.person1Name}, ${state.settings.person2Name}`;
+    const prompt = `${context}\nUser: ${userMessage}`;
+    const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
+    return response.text || "I didn't catch that.";
+  } catch (error: any) { return handleGeminiError(error); }
 };
 
 export const parseReceiptImage = async (base64Image: string): Promise<Partial<Expense>> => {
@@ -216,7 +162,7 @@ export const parseReceiptImage = async (base64Image: string): Promise<Partial<Ex
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
-          { text: "Extract Total Amount, Date (YYYY-MM-DD), Category, Note. Return JSON." }
+          { text: "Extract: amount (number), date (YYYY-MM-DD), category, note. Return JSON." }
         ]
       },
       config: {
@@ -239,7 +185,7 @@ export const parseReceiptImage = async (base64Image: string): Promise<Partial<Ex
 export const parseNaturalLanguageExpense = async (text: string, person1Name: string, person2Name: string): Promise<Partial<Expense>> => {
   try {
     const ai = getAI();
-    const prompt = `Parse: "${text}". Names: ${person1Name}, ${person2Name}. Categories: Groceries, Rent, Bills, EMIs, Shopping, Travel, Food, Entertainment, Medical, Education, Investments, Others.`;
+    const prompt = `Parse this expense note: "${text}". The people involved are ${person1Name} and ${person2Name}. Return JSON with: amount, date, category, person (Person1/Person2/Both), note.`;
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
@@ -260,14 +206,4 @@ export const parseNaturalLanguageExpense = async (text: string, person1Name: str
     });
     return JSON.parse(response.text || '{}');
   } catch (error) { throw error; }
-};
-
-export const chatWithFinances = async (history: any[], userMessage: string, state: AppState): Promise<string> => {
-  try {
-    const ai = getAI();
-    const context = `Context: Total Exp: ${state.expenses.reduce((s,e) => s+e.amount, 0)}. Names: ${state.settings.person1Name}, ${state.settings.person2Name}`;
-    const prompt = `${context}\nUser: ${userMessage}`;
-    const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
-    return response.text || "I didn't catch that.";
-  } catch (error: any) { return handleGeminiError(error); }
 };
