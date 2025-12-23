@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
-import { useExpense } from './contexts/ExpenseContext';
 import { MainLayout } from './components/MainLayout';
 import { AddExpense } from './components/AddExpense';
 import { Summaries } from './components/Summaries';
