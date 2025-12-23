@@ -41,29 +41,18 @@ function App() {
   };
 
   useEffect(() => {
-    if (!supabase) { setAuthInitialized(true); return; }
-
-    const hash = window.location.hash;
-    if (hash && hash.includes('error=')) {
-      const params = new URLSearchParams(hash.substring(1));
-      const errorMsg = params.get('error_description') || params.get('error') || 'Authentication failed';
-      showToast(decodeURIComponent(errorMsg).replace(/\+/g, ' '), 'error');
-      window.history.replaceState(null, '', window.location.pathname);
-    }
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+    const checkSession = async () => {
+      if (!supabase) { setAuthInitialized(true); return; }
+      const { data: { session: existingSession } } = await supabase.auth.getSession();
+      if (existingSession) setSession(existingSession);
       setAuthInitialized(true);
-      if (session && window.location.hash.includes('access_token=')) {
-        window.history.replaceState(null, '', window.location.pathname);
-      }
-    });
+    };
+    checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
-      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-        setAuthInitialized(true);
-      } else if (event === 'SIGNED_OUT') {
+      if (event === 'SIGNED_OUT') {
+        localStorage.removeItem('deviceUserIdentity');
         setState(INITIAL_STATE);
         setLoaded(false);
       }

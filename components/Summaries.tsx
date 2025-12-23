@@ -10,13 +10,12 @@ interface SummariesProps {
   editExpense: (expense: Expense) => void;
 }
 
-const PAYMENT_MODES = ['all', 'UPI', 'Card', 'Cash', 'Netbanking', 'Wallet', 'Other'];
-
 export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, editExpense }) => {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [filterType, setFilterType] = useState<'today' | 'week' | 'month' | 'all'>('month');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [calendarDate, setCalendarDate] = useState(new Date());
   
   // Roast State
   const [roast, setRoast] = useState<string | null>(null);
@@ -24,7 +23,6 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
 
   // Accordion state
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
-  const [calendarMonth, setCalendarMonth] = useState(new Date());
 
   const handleRoast = async () => {
     if (state.expenses.length < 5) {
@@ -40,13 +38,6 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
       setRoast("You're so broke I can't even find words.");
     } finally {
       setIsRoasting(false);
-    }
-  };
-
-  const handlePaymentFilterClick = (mode: string) => {
-    setPaymentFilter(mode);
-    if (mode !== 'all' && filterType !== 'all') {
-      setFilterType('all');
     }
   };
 
@@ -112,7 +103,6 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
     return { total, p1Real, p2Real, categories };
   }, [filteredExpenses]);
 
-  // Data for Recharts
   const chartData = useMemo(() => {
     return stats.categories.slice(0, 6).map(c => ({
       name: c.name,
@@ -120,13 +110,29 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
     }));
   }, [stats.categories]);
 
-  const handleBarClick = (data: any) => {
-    if (data && data.name) {
-      toggleCategory(data.name);
-      const element = document.getElementById(`cat-${data.name}`);
-      if (element) element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Calendar Logic
+  const calendarDays = useMemo(() => {
+    const year = calendarDate.getFullYear();
+    const month = calendarDate.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    const days = [];
+    // Padding for previous month
+    for (let i = 0; i < firstDay; i++) {
+      days.push({ day: null, dateStr: null });
     }
-  };
+    // Days of current month
+    for (let i = 1; i <= daysInMonth; i++) {
+      const d = new Date(year, month, i);
+      const offset = d.getTimezoneOffset() * 60000;
+      const dateStr = new Date(d.getTime() - offset).toISOString().split('T')[0];
+      const dayExpenses = state.expenses.filter(e => e.date === dateStr);
+      const total = dayExpenses.reduce((s, e) => s + e.amount, 0);
+      days.push({ day: i, dateStr, total, count: dayExpenses.length });
+    }
+    return days;
+  }, [calendarDate, state.expenses]);
 
   return (
     <div className="pb-24 space-y-4 sm:space-y-6">
@@ -144,7 +150,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
         </div>
         <button 
            onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}
-           className="w-12 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-primary hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shadow-sm"
+           className={`w-12 flex items-center justify-center rounded-lg transition-colors shadow-sm ${viewMode === 'calendar' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-800 text-primary'}`}
         >
            {viewMode === 'list' ? <span className="text-xl">📅</span> : <span className="text-xl">☰</span>}
         </button>
@@ -152,7 +158,6 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
 
       {viewMode === 'list' ? (
         <>
-          {/* Visual Chart Section */}
           <div className="bg-surface rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
              <h3 className="text-xs font-black text-text-light uppercase tracking-widest mb-4">Spending breakdown</h3>
              <div className="h-48 w-full">
@@ -165,7 +170,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                         formatter={(val: number) => [`₹${val}`, 'Spent']}
                       />
-                      <Bar dataKey="value" radius={[6, 6, 0, 0]} onClick={handleBarClick} cursor="pointer">
+                      <Bar dataKey="value" radius={[6, 6, 0, 0]} onClick={(data) => data && toggleCategory(data.name)} cursor="pointer">
                          {chartData.map((entry, index) => (
                            <Cell key={`cell-${index}`} fill={index === 0 ? 'var(--primary)' : 'var(--secondary)'} opacity={0.8} />
                          ))}
@@ -175,7 +180,6 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
              </div>
           </div>
 
-          {/* Filters */}
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
             {['today', 'week', 'month', 'all'].map(t => (
               <button
@@ -192,7 +196,12 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
             ))}
           </div>
 
-          {/* Stats Cards */}
+          {roast && (
+            <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl border border-red-100 dark:border-red-900/30 animate-shake">
+               <p className="text-xs font-bold text-red-600 dark:text-red-400 italic">"{roast}"</p>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div className="bg-gradient-to-br from-primary to-pink-600 rounded-xl p-4 text-white shadow-lg relative overflow-hidden group">
                <div className="relative z-10">
@@ -226,7 +235,6 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
             </div>
           </div>
 
-          {/* Categories Accordion List */}
           <div className="space-y-3">
              {stats.categories.map((cat) => (
                <div key={cat.name} id={`cat-${cat.name}`} className="bg-surface rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-all">
@@ -287,9 +295,46 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
           </div>
         </>
       ) : (
-        /* Calendar View unchanged logic but with masks */
-        <div className="bg-surface rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-2 sm:p-4 animate-fade-in">
-           {/* ... existing calendar code ... */}
+        <div className="animate-fade-in space-y-4">
+           {/* Month Navigation */}
+           <div className="bg-surface rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 flex justify-between items-center">
+              <button onClick={() => setCalendarDate(new Date(calendarDate.setMonth(calendarDate.getMonth() - 1)))} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl">◀</button>
+              <div className="font-black text-sm uppercase tracking-widest text-primary">
+                 {calendarDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+              </div>
+              <button onClick={() => setCalendarDate(new Date(calendarDate.setMonth(calendarDate.getMonth() + 1)))} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl">▶</button>
+           </div>
+
+           {/* Calendar Grid */}
+           <div className="bg-surface rounded-2xl p-2 shadow-sm border border-gray-100 dark:border-gray-800">
+              <div className="grid grid-cols-7 mb-2">
+                 {['S','M','T','W','T','F','S'].map(d => (
+                   <div key={d} className="text-center text-[10px] font-black text-text-light">{d}</div>
+                 ))}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                 {calendarDays.map((d, i) => (
+                   <div key={i} className={`aspect-square rounded-lg flex flex-col items-center justify-center relative ${d.day ? 'bg-gray-50 dark:bg-gray-900/50' : ''}`}>
+                      {d.day && (
+                        <>
+                           <span className="text-[10px] font-bold z-10">{d.day}</span>
+                           {d.total > 0 && (
+                             <div 
+                               className={`absolute inset-0 rounded-lg transition-all ${d.total > 1000 ? 'bg-primary/20' : 'bg-secondary/10'}`} 
+                               style={{ opacity: Math.min(d.total / 5000, 1) }}
+                             />
+                           )}
+                           {d.total > 0 && <div className="text-[7px] font-black text-primary mt-0.5 z-10 mask-value">₹{d.total.toFixed(0)}</div>}
+                        </>
+                      )}
+                   </div>
+                 ))}
+              </div>
+           </div>
+
+           <div className="bg-surface rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+              <p className="text-[10px] text-text-light text-center">Tap on a day in the future update to view daily breakdown.</p>
+           </div>
         </div>
       )}
     </div>

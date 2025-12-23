@@ -35,16 +35,30 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
   const [registering, setRegistering] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [manualSyncId, setManualSyncId] = useState('');
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   
   useEffect(() => {
-    // Generate QR for our sync ID (which we'll assume is the user ID if not explicitly set)
     const idToShare = state.settings.syncId || 'NOT_PAIRED';
     QRCode.toDataURL(idToShare)
       .then((url: string) => setQrUrl(url))
       .catch((err: any) => console.error("QR Gen Error:", err));
 
     webAuthnService.isSupported().then(setBiometricSupported);
+
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, [state.settings.syncId]);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') setDeferredPrompt(null);
+  };
 
   const handleRegisterBiometrics = async () => {
     setRegistering(true);
@@ -118,6 +132,20 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
       
       {showScanner && <ScannerModal onScan={handleSyncScan} onClose={() => setShowScanner(false)} />}
 
+      {/* PWA INSTALL PROMOTION */}
+      {deferredPrompt && (
+        <section className="bg-gradient-to-r from-primary/10 to-secondary/10 rounded-3xl p-6 border border-primary/20 animate-slide-up">
+           <div className="flex items-center gap-4">
+              <div className="text-3xl">📱</div>
+              <div className="flex-1">
+                 <h3 className="text-sm font-bold">Install as App</h3>
+                 <p className="text-[10px] text-text-light">Get faster access and a fullscreen experience.</p>
+              </div>
+              <button onClick={handleInstallClick} className="bg-primary text-white text-[10px] font-bold px-4 py-2 rounded-full shadow-lg">Install</button>
+           </div>
+        </section>
+      )}
+
       {/* IDENTITY SECTION */}
       <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
          <SectionHeader icon="👤" title="Identity & Profile" />
@@ -153,17 +181,6 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
                  <span>🆕</span> New ID
                </button>
             </div>
-
-            <div className="relative pt-4 flex gap-2">
-               <input 
-                 type="text" 
-                 placeholder="Manual Sync ID..." 
-                 className="flex-1 p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 text-xs border-none focus:ring-1 focus:ring-primary/20"
-                 value={manualSyncId}
-                 onChange={e => setManualSyncId(e.target.value)}
-               />
-               <button onClick={() => handleSyncScan(manualSyncId)} className="bg-secondary text-white px-4 rounded-xl text-xs font-bold">Join</button>
-            </div>
          </div>
       </section>
 
@@ -190,7 +207,7 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl">
                   <div className="flex flex-col">
                     <span className="text-sm font-bold">Biometric Unlock</span>
-                    <span className="text-[10px] text-text-light">{state.settings.webAuthnCredentialId ? 'Registered (FaceID/TouchID)' : 'Register your device'}</span>
+                    <span className="text-[10px] text-text-light">{state.settings.webAuthnCredentialId ? 'Registered' : 'FaceID/Fingerprint'}</span>
                   </div>
                   {state.settings.webAuthnCredentialId ? (
                     <button onClick={() => updateSettings({ webAuthnCredentialId: null })} className="text-xs bg-red-100 text-red-600 px-3 py-1.5 rounded-lg font-bold">Disable</button>
@@ -216,18 +233,6 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
                <button onClick={handleDownloadMonthlyPDF} disabled={generatingReport} className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-xs">📄 Export PDF</button>
                <button onClick={() => { haptic(5); exportToCSV(state.expenses); }} className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-xs">📊 Export CSV</button>
             </div>
-            <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl text-[10px] text-text-light italic">
-              AI reports include data processing and insights. Disclaimer: Not professional advice.
-            </div>
-         </div>
-      </section>
-
-      {/* APPEARANCE */}
-      <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
-         <SectionHeader icon="🎨" title="Appearance" />
-         <div className="flex gap-2 bg-gray-100 dark:bg-gray-900/50 p-1.5 rounded-xl">
-            <button onClick={() => { haptic(5); updateSettings({ theme: 'light' }); }} className={`flex-1 py-2 rounded-lg text-sm font-bold ${state.settings.theme === 'light' ? 'bg-white shadow-sm' : ''}`}>Light</button>
-            <button onClick={() => { haptic(5); updateSettings({ theme: 'dark' }); }} className={`flex-1 py-2 rounded-lg text-sm font-bold ${state.settings.theme === 'dark' ? 'bg-gray-800 text-white shadow-sm' : ''}`}>Dark</button>
          </div>
       </section>
 
@@ -237,16 +242,13 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
          <div className="space-y-3">
             <button onClick={handleSignOut} className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-2xl">Sign Out</button>
             <button onClick={deleteAccount} className="w-full py-3 bg-red-50 dark:bg-red-900/10 text-red-600 font-bold rounded-2xl border border-red-100 dark:border-red-900/20 active:bg-red-200 transition-colors">
-              Delete My Account & Data
+              Delete My Account
             </button>
-            <p className="text-[9px] text-center text-text-light px-4">
-              Deleting your account will purge all cloud-stored financial rows and remove your local profile. This action complies with GDPR/CCPA data deletion policies.
-            </p>
          </div>
       </section>
 
-      <div className="text-center text-[10px] text-gray-300 pt-4">
-         v1.6.0 • Audit Logging • Biometric Unlock • Couple Sync Pro
+      <div className="text-center text-[10px] text-gray-300 pt-4 pb-8">
+         v1.6.2 • E2EE Chat • Biometric Pro • PWA Standalone
       </div>
     </div>
   );

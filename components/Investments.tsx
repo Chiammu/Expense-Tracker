@@ -124,6 +124,14 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
     return `₹${(val || 0).toLocaleString()}`;
   };
 
+  const getDaysUntilBilling = (billingDay: number) => {
+    const now = new Date();
+    const currentDay = now.getDate();
+    if (currentDay < billingDay) return billingDay - currentDay;
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, billingDay);
+    return Math.ceil((nextMonth.getTime() - now.getTime()) / (1000 * 3600 * 24));
+  };
+
   const goldVal = (state.investments.gold.p1Grams + state.investments.gold.p2Grams + state.investments.gold.sharedGrams) * (state.investments.goldRate || 0);
   const silverVal = (state.investments.silver.p1Grams + state.investments.silver.p2Grams + state.investments.silver.sharedGrams) * (state.investments.silverRate || 0);
   const totalBank = (state.investments.bankBalance?.p1 || 0) + (state.investments.bankBalance?.p2 || 0);
@@ -139,8 +147,8 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <div className="bg-surface p-1 rounded-xl flex shadow-sm border border-gray-100 dark:border-gray-800 flex-1 overflow-x-auto">
-             <button onClick={() => setTab('assets')} className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${tab === 'assets' ? 'bg-primary text-white shadow-md' : 'text-text-light hover:bg-gray-50 dark:hover:bg-gray-800'}`}>Wealth</button>
-             <button onClick={() => setTab('liabilities')} className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${tab === 'liabilities' ? 'bg-secondary text-white shadow-md' : 'text-text-light hover:bg-gray-50 dark:hover:bg-gray-800'}`}>EMIs</button>
+             <button onClick={() => setTab('assets')} className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${tab === 'assets' ? 'bg-primary text-white shadow-md' : 'text-text-light hover:bg-gray-50 dark:hover:bg-gray-800'}`}>Assets</button>
+             <button onClick={() => setTab('liabilities')} className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${tab === 'liabilities' ? 'bg-secondary text-white shadow-md' : 'text-text-light hover:bg-gray-50 dark:hover:bg-gray-800'}`}>Liabilities</button>
              <button onClick={() => setTab('cards')} className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${tab === 'cards' ? 'bg-indigo-500 text-white shadow-md' : 'text-text-light hover:bg-gray-50 dark:hover:bg-gray-800'}`}>Cards</button>
           </div>
           <button 
@@ -159,12 +167,12 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
           <div className="text-3xl font-bold tracking-tight mask-value">{formatValue(netWorth)}</div>
           <div className="flex gap-4 mt-4 text-sm">
              <div>
-               <span className="block text-gray-400 text-xs">Assets</span>
+               <span className="block text-gray-400 text-xs font-bold uppercase tracking-tighter">Assets</span>
                <span className="text-green-400 font-bold mask-value">{formatValue(totalAssets)}</span>
              </div>
              <div className="w-px bg-gray-700"></div>
              <div>
-               <span className="block text-gray-400 text-xs">Liabilities</span>
+               <span className="block text-gray-400 text-xs font-bold uppercase tracking-tighter">Liabilities</span>
                <span className="text-red-400 font-bold mask-value">{formatValue(totalLiabilities)}</span>
              </div>
           </div>
@@ -174,37 +182,63 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
 
       {tab === 'assets' && (
         <div className="space-y-4">
-           {/* Bank Balances */}
+           {/* Mutual Funds & Stocks Split */}
            <div className="bg-surface rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
-              <h4 className="text-xs font-black uppercase text-text-light tracking-widest mb-4">Bank Balances</h4>
-              <div className="grid grid-cols-2 gap-4">
-                 <div>
-                    <label className="text-[10px] font-bold text-text-light block mb-1">{state.settings.person1Name}</label>
-                    <input type="number" className="w-full bg-background p-2 rounded-lg text-sm font-bold" value={state.investments.bankBalance.p1 || ''} onChange={e => updateInv('bankBalance', 'p1', e.target.value)} placeholder="0" />
-                 </div>
-                 <div>
-                    <label className="text-[10px] font-bold text-text-light block mb-1">{state.settings.person2Name}</label>
-                    <input type="number" className="w-full bg-background p-2 rounded-lg text-sm font-bold" value={state.investments.bankBalance.p2 || ''} onChange={e => updateInv('bankBalance', 'p2', e.target.value)} placeholder="0" />
-                 </div>
+              <h4 className="text-xs font-black uppercase text-text-light tracking-widest mb-4 flex justify-between">
+                <span>Investments</span>
+                <span className="text-primary mask-value">₹{(totalMF + totalStocks).toLocaleString()}</span>
+              </h4>
+              <div className="space-y-4">
+                {/* Stocks */}
+                <div>
+                  <p className="text-[10px] font-black text-indigo-500 mb-2 uppercase">Direct Stocks</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <input type="number" placeholder={state.settings.person1Name} className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.stocks.p1 || ''} onChange={e => updateInv('stocks', 'p1', e.target.value)} />
+                    <input type="number" placeholder={state.settings.person2Name} className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.stocks.p2 || ''} onChange={e => updateInv('stocks', 'p2', e.target.value)} />
+                    <input type="number" placeholder="Shared" className="bg-background p-2 rounded-lg text-[11px] font-bold border border-indigo-100" value={state.investments.stocks.shared || ''} onChange={e => updateInv('stocks', 'shared', e.target.value)} />
+                  </div>
+                </div>
+                {/* Mutual Funds */}
+                <div>
+                  <p className="text-[10px] font-black text-secondary mb-2 uppercase">Mutual Funds</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <input type="number" placeholder={state.settings.person1Name} className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.mutualFunds.p1 || ''} onChange={e => updateInv('mutualFunds', 'p1', e.target.value)} />
+                    <input type="number" placeholder={state.settings.person2Name} className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.mutualFunds.p2 || ''} onChange={e => updateInv('mutualFunds', 'p2', e.target.value)} />
+                    <input type="number" placeholder="Shared" className="bg-background p-2 rounded-lg text-[11px] font-bold border border-secondary/20" value={state.investments.mutualFunds.shared || ''} onChange={e => updateInv('mutualFunds', 'shared', e.target.value)} />
+                  </div>
+                </div>
               </div>
            </div>
-           
-           {/* Mutual Funds */}
+
+           {/* Precious Metals */}
            <div className="bg-surface rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
-              <h4 className="text-xs font-black uppercase text-text-light tracking-widest mb-4">Mutual Funds</h4>
-              <div className="grid grid-cols-3 gap-3">
-                 <div>
-                    <label className="text-[8px] font-bold text-text-light block mb-1">{state.settings.person1Name}</label>
-                    <input type="number" className="w-full bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.mutualFunds.p1 || ''} onChange={e => updateInv('mutualFunds', 'p1', e.target.value)} placeholder="0" />
-                 </div>
-                 <div>
-                    <label className="text-[8px] font-bold text-text-light block mb-1">{state.settings.person2Name}</label>
-                    <input type="number" className="w-full bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.mutualFunds.p2 || ''} onChange={e => updateInv('mutualFunds', 'p2', e.target.value)} placeholder="0" />
-                 </div>
-                 <div>
-                    <label className="text-[8px] font-bold text-text-light block mb-1">Shared</label>
-                    <input type="number" className="w-full bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.mutualFunds.shared || ''} onChange={e => updateInv('mutualFunds', 'shared', e.target.value)} placeholder="0" />
-                 </div>
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="text-xs font-black uppercase text-text-light tracking-widest">Precious Metals</h4>
+                <div className="text-[9px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded-full">LIVE RATES</div>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-[10px] font-bold mb-1">
+                    <span className="text-yellow-600">Gold (24K/g: ₹{state.investments.goldRate})</span>
+                    <span className="mask-value">₹{goldVal.toLocaleString()}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <input type="number" placeholder="P1(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.gold.p1Grams || ''} onChange={e => updateInv('gold', 'p1Grams', e.target.value)} />
+                    <input type="number" placeholder="P2(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.gold.p2Grams || ''} onChange={e => updateInv('gold', 'p2Grams', e.target.value)} />
+                    <input type="number" placeholder="Shared(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.gold.sharedGrams || ''} onChange={e => updateInv('gold', 'sharedGrams', e.target.value)} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-[10px] font-bold mb-1">
+                    <span className="text-gray-500">Silver (per g: ₹{state.investments.silverRate})</span>
+                    <span className="mask-value">₹{silverVal.toLocaleString()}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <input type="number" placeholder="P1(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.silver.p1Grams || ''} onChange={e => updateInv('silver', 'p1Grams', e.target.value)} />
+                    <input type="number" placeholder="P2(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.silver.p2Grams || ''} onChange={e => updateInv('silver', 'p2Grams', e.target.value)} />
+                    <input type="number" placeholder="Shared(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.silver.sharedGrams || ''} onChange={e => updateInv('silver', 'sharedGrams', e.target.value)} />
+                  </div>
+                </div>
               </div>
            </div>
         </div>
@@ -260,20 +294,24 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
            </div>
 
            {state.creditCards.map(card => (
-             <div key={card.id} className="bg-surface rounded-2xl p-4 border border-gray-100 dark:border-gray-800 flex justify-between items-center group">
+             <div key={card.id} className="bg-surface rounded-2xl p-4 border border-gray-100 dark:border-gray-800 flex justify-between items-center group relative overflow-hidden">
                 <div className="flex items-center gap-3">
                    <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center">💳</div>
                    <div>
                       <div className="font-bold text-sm">{card.name}</div>
-                      <div className="text-[10px] text-text-light uppercase tracking-widest">Limit: ₹{card.limit.toLocaleString()}</div>
+                      <div className="text-[10px] text-text-light uppercase tracking-widest">Bill on {card.billingDay}th</div>
                    </div>
                 </div>
                 <div className="flex items-center gap-4">
                    <div className="text-right">
-                      <div className="font-bold text-indigo-600 text-sm mask-value">₹{card.currentBalance.toLocaleString()}</div>
-                      <div className="text-[10px] text-text-light">Current Owed</div>
+                      <div className="font-black text-indigo-600 text-sm mask-value">₹{card.currentBalance.toLocaleString()}</div>
+                      <div className="text-[9px] font-black text-red-400 uppercase">Bill in {getDaysUntilBilling(card.billingDay)} days</div>
                    </div>
                    <button onClick={() => deleteCard(card.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-red-500">🗑️</button>
+                </div>
+                {/* Visual Progress toward limit */}
+                <div className="absolute bottom-0 left-0 h-0.5 bg-indigo-100 w-full">
+                  <div className="bg-indigo-500 h-full" style={{ width: `${Math.min((card.currentBalance / card.limit) * 100, 100)}%` }}></div>
                 </div>
              </div>
            ))}
