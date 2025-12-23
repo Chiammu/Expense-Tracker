@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { loadFromStorage, saveToStorage, fetchCloudState, forceCloudSync, mergeAppState, exportMonthlyReportPDF, exportToCSV } from './services/storage';
-import { AppState, INITIAL_STATE, Section, Expense, FixedPayment, DEFAULT_CATEGORIES } from './types';
+import { AppState, INITIAL_STATE, Section, Expense, FixedPayment } from './types';
 import { generateMonthlyDigest } from './services/geminiService';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
@@ -32,7 +32,6 @@ function App() {
   const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
   
-  const prevSyncIdRef = useRef<string | null>(null);
   const lastUpdateWasRemote = useRef(false);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -48,7 +47,6 @@ function App() {
       const params = new URLSearchParams(hash.substring(1));
       const errorMsg = params.get('error_description') || params.get('error') || 'Authentication failed';
       showToast(decodeURIComponent(errorMsg).replace(/\+/g, ' '), 'error');
-      // Clean the hash to avoid re-triggering
       window.history.replaceState(null, '', window.location.pathname);
     }
 
@@ -56,7 +54,6 @@ function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthInitialized(true);
-      // If session exists and we have tokens in URL, clean it
       if (session && window.location.hash.includes('access_token=')) {
         window.history.replaceState(null, '', window.location.pathname);
       }
@@ -67,10 +64,12 @@ function App() {
       setSession(session);
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
         setAuthInitialized(true);
-        // Clean URL if tokens present
         if (window.location.hash.includes('access_token=')) {
           window.history.replaceState(null, '', window.location.pathname);
         }
+      } else if (event === 'SIGNED_OUT') {
+        setState(INITIAL_STATE);
+        setLoaded(false);
       }
     });
 
@@ -81,20 +80,32 @@ function App() {
     if ((!session && !isGuest) || !authInitialized) return;
 
     const init = async () => {
+      // 1. Load what we have locally
       const localData = loadFromStorage();
       let currentState = localData;
       
-      if (localData.settings.syncId && !isGuest) {
+      // 2. If logged in, prioritize Supabase data
+      if (session?.user?.id) {
         try {
-          const cloudData = await fetchCloudState(localData.settings.syncId);
-          if (cloudData) currentState = mergeAppState(localData, cloudData);
-        } catch (e) {}
+          const cloudData = await fetchCloudState(session.user.id);
+          if (cloudData) {
+            // Merge cloud data with local data (cloud wins on conflicts)
+            currentState = mergeAppState(localData, cloudData);
+            lastUpdateWasRemote.current = true;
+          } else {
+            // First time login: Push local data to cloud
+            forceCloudSync(localData);
+          }
+        } catch (e) {
+          console.error("Cloud fetch failed:", e);
+        }
       }
 
       setState(currentState);
       setLoaded(true);
       if (currentState.settings.pin) setIsLocked(true);
 
+      // Check for recurring payments
       if (currentState.fixedPayments.length > 0) {
         const lastCheck = currentState.settings.lastFixedPaymentCheck ? new Date(currentState.settings.lastFixedPaymentCheck) : new Date();
         const now = new Date();
@@ -103,49 +114,18 @@ function App() {
            setShowRecurringModal(true);
         }
       }
-
-      const now = new Date();
-      const currentMonthStr = `${now.getFullYear()}-${now.getMonth()}`;
-      if (now.getDate() === 1 && currentState.settings.emailReportsEnabled && currentState.settings.lastReportSentMonth !== currentMonthStr) {
-          setTimeout(() => {
-            if(confirm("It's the 1st of the month! Generate your Monthly AI Advisor Report (PDF & Excel)?")) {
-               generateMonthlyDigest(currentState).then(digest => {
-                  // Export PDF
-                  exportMonthlyReportPDF(currentState, digest);
-                  
-                  // Export Excel (Month Data)
-                  const monthExpenses = currentState.expenses.filter(e => {
-                    const d = new Date(e.date);
-                    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-                  });
-                  exportToCSV(monthExpenses, `Monthly-Data-${currentMonthStr}`);
-
-                  // Also prompt for email
-                  if (currentState.settings.reportEmail) {
-                    const subject = `Monthly Financial Digest - ${now.toLocaleString('default', { month: 'long', year: 'numeric' })}`;
-                    const mailtoUrl = `mailto:${currentState.settings.reportEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(digest)}`;
-                    window.location.href = mailtoUrl;
-                  }
-
-                  setState(prev => ({ 
-                    ...prev, 
-                    settings: { ...prev.settings, lastReportSentMonth: currentMonthStr } 
-                  }));
-                  showToast("Monthly Reports Exported Successfully!", "success");
-               });
-            }
-          }, 3000);
-      }
     };
     init();
   }, [session, isGuest, authInitialized]);
 
   useEffect(() => {
-    if (loaded && !isGuest) {
-      saveToStorage(state, lastUpdateWasRemote.current ? 'remote' : 'local');
+    if (loaded) {
+      // Origin is remote if we just fetched from cloud, otherwise local
+      const origin = lastUpdateWasRemote.current ? 'remote' : 'local';
+      saveToStorage(state, origin);
       lastUpdateWasRemote.current = false;
     }
-  }, [state, loaded, isGuest]);
+  }, [state, loaded]);
 
   const addExpense = (expense: Omit<Expense, 'id'>) => {
     const newExpense: Expense = { ...expense, id: Date.now() };
@@ -155,7 +135,7 @@ function App() {
           updatedCards = prev.creditCards.map(c => c.id === newExpense.cardId ? { ...c, currentBalance: c.currentBalance + newExpense.amount } : c);
         }
         const next = { ...prev, expenses: [...prev.expenses, newExpense], creditCards: updatedCards };
-        if (!isGuest) forceCloudSync(next);
+        if (!isGuest && session) forceCloudSync(next);
         return next;
     });
     showToast("Expense added", 'success');
@@ -164,7 +144,7 @@ function App() {
   const updateExpense = (updatedExpense: Expense) => {
     setState(prev => {
       const next = { ...prev, expenses: prev.expenses.map(e => e.id === updatedExpense.id ? updatedExpense : e) };
-      if (!isGuest) forceCloudSync(next);
+      if (!isGuest && session) forceCloudSync(next);
       return next;
     });
     setExpenseToEdit(null);
@@ -176,14 +156,18 @@ function App() {
     if (window.confirm("Delete this?")) {
       setState(prev => {
           const next = { ...prev, expenses: prev.expenses.filter(e => e.id !== id) };
-          if (!isGuest) forceCloudSync(next);
+          if (!isGuest && session) forceCloudSync(next);
           return next;
       });
     }
   };
 
   const updateSettings = (newSettings: Partial<AppState['settings']>) => {
-    setState(prev => ({ ...prev, settings: { ...prev.settings, ...newSettings } }));
+    setState(prev => {
+      const next = { ...prev, settings: { ...prev.settings, ...newSettings } };
+      if (!isGuest && session) forceCloudSync(next);
+      return next;
+    });
   };
 
   return (

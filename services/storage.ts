@@ -12,15 +12,19 @@ const STORAGE_KEY = 'coupleExpenseTrackerV4_React';
 let saveTimeout: any = null;
 
 const triggerCloudSave = async (state: AppState) => {
-  if (!state.settings.syncId || !supabase) return;
+  if (!supabase) return;
   
+  // Get current session to find user ID
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return;
+
   const { error } = await supabase
     .from('app_state')
     .upsert({ 
-      id: state.settings.syncId, 
+      user_id: session.user.id, // Primary Key in DB
       data: state, 
       updated_at: new Date().toISOString() 
-    });
+    }, { onConflict: 'user_id' });
     
   if (error) console.error("Cloud sync failed:", error);
 };
@@ -33,7 +37,7 @@ export const forceCloudSync = (state: AppState) => {
 export const saveToStorage = (state: AppState, origin: 'local' | 'remote' = 'local') => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    if (origin === 'local' && state.settings.syncId && supabase) {
+    if (origin === 'local' && supabase) {
       if (saveTimeout) clearTimeout(saveTimeout);
       saveTimeout = setTimeout(() => {
         triggerCloudSave(state);
@@ -98,21 +102,18 @@ export const mergeAppState = (local: AppState, remote: AppState): AppState => {
         stocks: { ...local.investments.stocks, ...remote.investments.stocks },
         gold: { ...local.investments.gold, ...remote.investments.gold },
         silver: { ...local.investments.silver, ...remote.investments.silver },
-    },
-    settings: {
-        ...remote.settings,
-        syncId: local.settings.syncId || remote.settings.syncId, 
     }
   };
 };
 
-export const fetchCloudState = async (syncId: string): Promise<AppState | null> => {
+export const fetchCloudState = async (userId: string): Promise<AppState | null> => {
   if (!supabase) return null;
   const { data, error } = await supabase
     .from('app_state')
     .select('data')
-    .eq('id', syncId)
+    .eq('user_id', userId)
     .single();
+    
   if (error || !data) return null;
   return mergeState(data.data);
 };
@@ -190,168 +191,61 @@ export const exportToCSV = (expenses: AppState['expenses'], filenameSuffix: stri
   }
 };
 
-const generateCategoryChartImage = (categories: Record<string, number>): string => {
-  const canvas = document.createElement('canvas');
-  canvas.width = 800;
-  canvas.height = 400;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return '';
-
-  const entries = Object.entries(categories).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  const total = entries.reduce((s, d) => s + d[1], 0);
-  const colors = ['#e91e63', '#2196f3', '#ff6f00', '#4caf50', '#9c27b0', '#00bcd4', '#ffc107', '#607d8b'];
-  
-  let currentAngle = -0.5 * Math.PI;
-  const centerX = 200, centerY = 200, radius = 150;
-
-  entries.forEach((d, i) => {
-    const sliceAngle = (d[1] / total) * 2 * Math.PI;
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
-    ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
-    ctx.fillStyle = colors[i % colors.length];
-    ctx.fill();
-    
-    ctx.fillRect(400, 50 + i * 40, 20, 20);
-    ctx.fillStyle = '#333';
-    ctx.font = 'bold 20px Helvetica';
-    ctx.fillText(`${d[0]} (₹${d[1].toLocaleString()})`, 430, 67 + i * 40);
-
-    currentAngle += sliceAngle;
-  });
-
-  return canvas.toDataURL('image/png');
-};
-
-export const exportMonthlyReportPDF = (state: AppState, digest: string) => {
+// Fix: Added missing exportToPDF function
+/**
+ * Generates a PDF report of all expenses.
+ */
+export const exportToPDF = (state: AppState) => {
   const doc = new jsPDF();
-  const now = new Date();
-  const monthLabel = now.toLocaleString('default', { month: 'long', year: 'numeric' });
-  const primaryColor: [number, number, number] = [233, 30, 99];
-  const grayColor: [number, number, number] = [100, 100, 100];
+  doc.setFontSize(20);
+  doc.text(state.settings.headerTitle, 14, 22);
+  doc.setFontSize(11);
+  doc.setTextColor(100);
+  doc.text(`Financial Report - Generated on ${new Date().toLocaleDateString()}`, 14, 30);
 
-  const monthExpenses = state.expenses.filter(e => {
-    const d = new Date(e.date);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  });
-  const totalSpent = monthExpenses.reduce((s, e) => s + e.amount, 0);
-  const budget = state.monthlyBudget || 0;
-  const savings = budget - totalSpent;
-  
-  const categories = monthExpenses.reduce((acc, e) => {
-    acc[e.category] = (acc[e.category] || 0) + e.amount;
-    return acc;
-  }, {} as Record<string, number>);
-
-  // Header Block
-  doc.setFillColor(...primaryColor);
-  doc.rect(0, 0, 210, 40, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22);
-  doc.text("MONTHLY FINANCIAL DIGEST", 15, 20);
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`${monthLabel} | ${state.settings.person1Name} & ${state.settings.person2Name}`, 15, 30);
-
-  // Summary Grid
-  let y = 50;
-  doc.setFillColor(248, 249, 250);
-  doc.roundedRect(15, y, 180, 25, 2, 2, 'F');
-  
-  doc.setTextColor(...primaryColor);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.text("TOTAL SPENT", 25, y + 8);
-  doc.setFontSize(14);
-  doc.text(`₹${totalSpent.toLocaleString()}`, 25, y + 18);
-
-  doc.setTextColor(33, 150, 243);
-  doc.setFontSize(9);
-  doc.text("BUDGET", 85, y + 8);
-  doc.setFontSize(14);
-  doc.text(`₹${budget.toLocaleString()}`, 85, y + 18);
-
-  doc.setTextColor(savings >= 0 ? 76 : 244, savings >= 0 ? 175 : 67, 80);
-  doc.setFontSize(9);
-  doc.text("SAVINGS", 145, y + 8);
-  doc.setFontSize(14);
-  doc.text(`₹${savings.toLocaleString()}`, 145, y + 18);
-
-  // Chart
-  y += 35;
-  doc.setTextColor(33, 33, 33);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.text("Spending Distribution", 15, y);
-  
-  const chartImg = generateCategoryChartImage(categories);
-  if (chartImg) {
-    doc.addImage(chartImg, 'PNG', 15, y + 5, 180, 75);
-  }
-
-  // Insights Section
-  y += 90;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.text("AI Financial Advisor Insights", 15, y);
-  
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(50, 50, 50);
-  
-  const cleanDigest = digest.replace(/[^\x00-\x7F]/g, "").trim();
-  const lines = doc.splitTextToSize(cleanDigest, 180);
-  doc.text(lines, 15, y + 10);
-
-  // Table Page
-  doc.addPage();
-  doc.setFillColor(...primaryColor);
-  doc.rect(0, 0, 210, 15, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(10);
-  doc.text(`Transaction Breakdown - ${monthLabel}`, 15, 10);
-
-  const tableRows = monthExpenses.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(e => [
-    e.date,
-    e.person === 'Both' ? 'Both' : (e.person === 'Person1' ? state.settings.person1Name : state.settings.person2Name),
-    e.category,
-    `Rs. ${e.amount.toLocaleString()}`,
-    e.note || '-'
+  const tableData = state.expenses.map(exp => [
+    exp.date,
+    exp.person === 'Both' ? 'Shared' : (exp.person === 'Person1' ? state.settings.person1Name : state.settings.person2Name),
+    exp.category,
+    `Rs. ${exp.amount}`,
+    exp.note || '-'
   ]);
 
   (doc as any).autoTable({
-    startY: 25,
-    head: [['Date', 'Who', 'Category', 'Amount', 'Note']],
-    body: tableRows,
-    theme: 'grid',
-    headStyles: { fillColor: primaryColor, font: 'helvetica', fontSize: 10 },
-    bodyStyles: { fontSize: 9, font: 'helvetica' },
-    margin: { left: 15, right: 15 }
-  });
-
-  const totalPages = doc.internal.getNumberOfPages();
-  for(let i = 1; i <= totalPages; i++) {
-    doc.setPage(i);
-    doc.setFontSize(8);
-    doc.setTextColor(150, 150, 150);
-    doc.text(`Page ${i} of ${totalPages} | Powered by Gemini AI`, 105, 290, { align: 'center' });
-  }
-
-  doc.save(`Monthly-Report-${monthLabel.replace(' ', '-')}.pdf`);
-};
-
-export const exportToPDF = (state: AppState) => {
-  const doc = new jsPDF();
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.text(`${state.settings.headerTitle} - Full Export`, 14, 22);
-  const rows = state.expenses.map(e => [e.date, e.person, e.category, e.amount.toFixed(2), e.note]);
-  (doc as any).autoTable({
-    startY: 30,
+    startY: 40,
     head: [['Date', 'Person', 'Category', 'Amount', 'Note']],
-    body: rows,
+    body: tableData,
+    theme: 'striped',
     headStyles: { fillColor: [233, 30, 99] }
   });
-  doc.save(`expenses-full-export.pdf`);
+
+  doc.save(`finances-${new Date().toISOString().split('T')[0]}.pdf`);
+};
+
+// Fix: Added missing exportMonthlyReportPDF function
+/**
+ * Generates a PDF report containing the AI advisor's monthly digest.
+ */
+export const exportMonthlyReportPDF = (state: AppState, digest: string) => {
+  const doc = new jsPDF();
+  const now = new Date();
+  const monthName = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+  doc.setFontSize(22);
+  doc.setTextColor(233, 30, 99);
+  doc.text(`Monthly Digest: ${monthName}`, 14, 25);
+
+  doc.setFontSize(12);
+  doc.setTextColor(50);
+  doc.text(`Prepared for ${state.settings.person1Name} & ${state.settings.person2Name}`, 14, 35);
+
+  doc.setFontSize(14);
+  doc.setTextColor(0);
+  doc.text("AI ADVISOR INSIGHTS", 14, 50);
+
+  doc.setFontSize(10);
+  const splitDigest = doc.splitTextToSize(digest, 180);
+  doc.text(splitDigest, 14, 60);
+
+  doc.save(`monthly-report-${monthName.replace(' ', '-')}.pdf`);
 };
