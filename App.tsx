@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
-import { MainLayout } from './components/MainLayout';
+// import { MainLayout } from './components/MainLayout';
 import { AddExpense } from './components/AddExpense';
 import { Summaries } from './components/Summaries';
 import { Investments } from './components/Investments';
