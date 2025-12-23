@@ -10,10 +10,6 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <ExpenseProvider>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </ExpenseProvider>
+    <App />
   </React.StrictMode>
 );
