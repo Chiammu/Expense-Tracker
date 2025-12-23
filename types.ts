@@ -7,7 +7,7 @@ export interface Expense {
   category: string;
   paymentMode: string;
   note: string;
-  cardId?: number; // Optional reference to a credit card
+  cardId?: number; 
 }
 
 export interface CreditCard {
@@ -45,7 +45,6 @@ export interface ChatMessage {
   timestamp: string;
 }
 
-// --- NEW TYPES FOR INVESTMENTS ---
 export interface AssetSplit {
   p1: number;
   p2: number;
@@ -64,16 +63,16 @@ export interface Investments {
   stocks: AssetSplit;
   gold: MetalAsset;
   silver: MetalAsset;
-  goldRate: number; // Added: Current price per gram
-  silverRate: number; // Added: Current price per gram
+  goldRate: number; 
+  silverRate: number; 
 }
 
 export interface Loan {
   id: number;
   name: string;
-  totalAmount: number; // Original Principal
-  pendingAmount: number; // Currently pending
-  emiAmount: number; // Monthly payment
+  totalAmount: number; 
+  pendingAmount: number; 
+  emiAmount: number; 
   person: 'Person1' | 'Person2' | 'Both';
 }
 
@@ -94,6 +93,10 @@ export interface AppSettings {
   pin: string | null; 
   syncId: string | null; 
   lastFixedPaymentCheck: string | null; 
+  // New Report Settings
+  emailReportsEnabled: boolean;
+  reportEmail: string;
+  lastReportSentMonth: string | null; // e.g. "2024-05"
 }
 
 export interface AppState {
@@ -109,7 +112,7 @@ export interface AppState {
   chatMessages: ChatMessage[];
   investments: Investments;
   loans: Loan[];
-  creditCards: CreditCard[]; // Added field
+  creditCards: CreditCard[]; 
 }
 
 export type Section = 'add-expense' | 'summaries' | 'investments' | 'overview' | 'settings';
@@ -142,6 +145,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pin: null,
   syncId: null,
   lastFixedPaymentCheck: new Date().toISOString(),
+  emailReportsEnabled: false,
+  reportEmail: '',
+  lastReportSentMonth: null,
 };
 
 export const INITIAL_INVESTMENTS: Investments = {

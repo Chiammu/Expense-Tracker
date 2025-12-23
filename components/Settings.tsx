@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, AppSettings } from '../types';
-import { shareBackup, exportToCSV, exportToPDF } from '../services/storage';
+import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF } from '../services/storage';
 import { authService } from '../services/auth';
+import { generateMonthlyDigest } from '../services/geminiService';
 // @ts-ignore
 import QRCode from 'qrcode';
 // @ts-ignore
@@ -37,111 +38,70 @@ const generateUUID = () => {
 };
 
 export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, resetData, importData, showToast, installApp, canInstall, isIos, isStandalone }) => {
-  const [newCatName, setNewCatName] = useState('');
-  const [newCatIcon, setNewCatIcon] = useState('📦');
   const [pinInput, setPinInput] = useState('');
-  const [syncCodeInput, setSyncCodeInput] = useState('');
-  
   const [qrUrl, setQrUrl] = useState('');
   const [isScanning, setIsScanning] = useState(false);
+  const [generatingReport, setGeneratingReport] = useState(false);
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     if (state.settings.syncId) {
-      try {
-        QRCode.toDataURL(state.settings.syncId)
-          .then((url: string) => setQrUrl(url))
-          .catch((err: any) => console.error("QR Gen Error:", err));
-      } catch (e) {
-        console.error("QR Module Error:", e);
-      }
+      QRCode.toDataURL(state.settings.syncId)
+        .then((url: string) => setQrUrl(url))
+        .catch((err: any) => console.error("QR Gen Error:", err));
     } else {
       setQrUrl('');
     }
   }, [state.settings.syncId]);
 
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    let animationFrameId: number;
-    let isActive = true;
+  const handleSendMonthlyReport = async () => {
+    if (!state.settings.reportEmail) {
+      showToast("Please enter an email address first.", "error");
+      return;
+    }
+    setGeneratingReport(true);
+    showToast("AI is analyzing the month...", "info");
+    try {
+      const digest = await generateMonthlyDigest(state);
+      const subject = `Monthly Financial Digest - ${new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}`;
+      const mailtoUrl = `mailto:${state.settings.reportEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(digest)}`;
+      window.location.href = mailtoUrl;
+      showToast("Report generated! Opening your email app.", "success");
+    } catch (error) {
+      showToast("Failed to generate AI report.", "error");
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
 
-    const startScan = async () => {
-      if (isScanning && videoRef.current) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: "environment" } 
-          });
-          
-          if (isActive && videoRef.current) {
-            videoRef.current.srcObject = stream;
-            videoRef.current.setAttribute("playsinline", "true"); 
-            await videoRef.current.play();
-            requestAnimationFrame(tick);
-          }
-        } catch (err) {
-          showToast("Camera access denied or unavailable", 'error');
-          if (isActive) setIsScanning(false);
-        }
-      }
-    };
+  const handleDownloadMonthlyPDF = async () => {
+    setGeneratingReport(true);
+    showToast("Generating Monthly PDF Report...", "info");
+    try {
+      const digest = await generateMonthlyDigest(state);
+      exportMonthlyReportPDF(state, digest);
+      showToast("PDF Advisor Report downloaded!", "success");
+    } catch (error) {
+      showToast("PDF generation failed.", "error");
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
 
-    const tick = () => {
-      if (!isActive) return;
-      if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA && canvasRef.current) {
-        const canvas = canvasRef.current;
-        const video = videoRef.current;
-        canvas.height = video.videoHeight;
-        canvas.width = video.videoWidth;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
-          if (code && code.data.length > 5) {
-            updateSettings({ syncId: code.data });
-            showToast("QR Code Scanned!", 'success');
-            setIsScanning(false);
-            return; 
-          }
-        }
-      }
-      if (isScanning) animationFrameId = requestAnimationFrame(tick);
-    };
-
-    if (isScanning) startScan();
-    return () => {
-      isActive = false;
-      if (stream) stream.getTracks().forEach(track => track.stop());
-      if (animationFrameId) cancelAnimationFrame(animationFrameId);
-    };
-  }, [isScanning]);
+  const handleDownloadMonthlyExcel = () => {
+    const now = new Date();
+    const monthExpenses = state.expenses.filter(e => {
+        const d = new Date(e.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+    exportToCSV(monthExpenses, `Month-${now.getMonth() + 1}-${now.getFullYear()}`);
+    showToast("Excel/CSV Data downloaded!", "success");
+  };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) importData(e.target.files[0]);
-  };
-
-  const addCategory = () => {
-    if (newCatName && !state.settings.customCategories.includes(newCatName)) {
-      updateSettings({ 
-        customCategories: [...state.settings.customCategories, newCatName],
-        categoryIcons: { ...state.settings.categoryIcons, [newCatName]: newCatIcon || '📦' }
-      });
-      setNewCatName('');
-      setNewCatIcon('📦');
-      showToast(`Category added`);
-    }
-  };
-
-  const removeCategory = (cat: string) => {
-    if (window.confirm(`Delete category "${cat}"?`)) {
-      const newIcons = { ...state.settings.categoryIcons };
-      delete newIcons[cat];
-      updateSettings({ 
-        customCategories: state.settings.customCategories.filter(c => c !== cat),
-        categoryIcons: newIcons
-      });
-    }
   };
 
   const setPin = () => {
@@ -174,6 +134,66 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
 
   return (
     <div className="pb-24 max-w-xl mx-auto space-y-8 animate-fade-in">
+      {/* REPORTS & AUTOMATION */}
+      <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+         <SectionHeader icon="📩" title="AI Monthly Reports" />
+         <div className="space-y-4">
+            <p className="text-xs text-text-light">Get your Personal Financial Advisor's breakdown in professional formats.</p>
+            
+            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl">
+               <div className="text-sm font-bold">Monthly Reminders</div>
+               <button 
+                 onClick={() => updateSettings({ emailReportsEnabled: !state.settings.emailReportsEnabled })}
+                 className={`w-12 h-6 rounded-full relative transition-colors ${state.settings.emailReportsEnabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'}`}
+               >
+                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${state.settings.emailReportsEnabled ? 'left-7' : 'left-1'}`}></div>
+               </button>
+            </div>
+
+            <div className="space-y-1">
+               <label className="text-[10px] uppercase font-black text-text-light ml-1">Default Recipient</label>
+               <input 
+                 type="email" 
+                 placeholder="your-email@example.com"
+                 className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border-none focus:ring-2 focus:ring-primary/20 text-sm"
+                 value={state.settings.reportEmail}
+                 onChange={e => updateSettings({ reportEmail: e.target.value })}
+               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+               <button 
+                 onClick={handleDownloadMonthlyPDF}
+                 disabled={generatingReport}
+                 className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-xs flex items-center justify-center gap-2 hover:bg-gray-200 transition-all"
+               >
+                 {generatingReport ? "⏳..." : "📄 Export PDF"}
+               </button>
+               <button 
+                 onClick={handleDownloadMonthlyExcel}
+                 className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-xs flex items-center justify-center gap-2 hover:bg-gray-200 transition-all"
+               >
+                 📊 Export Excel
+               </button>
+            </div>
+
+            <button 
+              onClick={handleSendMonthlyReport}
+              disabled={generatingReport}
+              className="w-full py-3 bg-gradient-to-r from-primary to-pink-600 text-white font-bold rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              {generatingReport ? (
+                <span className="flex items-center gap-2">
+                   <span className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin"></span>
+                   Analyzing...
+                </span>
+              ) : (
+                <><span>✨</span> Send Email Digest</>
+              )}
+            </button>
+         </div>
+      </section>
+
       {/* SYNC SECTION */}
       <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
          <SectionHeader icon="☁️" title="Partner Sync" />
@@ -196,18 +216,10 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
             ) : (
               <div className="space-y-4">
                  <p className="text-sm text-text-light text-center">Scan to link with your partner.</p>
-                 {isScanning ? (
-                    <div className="relative rounded-xl overflow-hidden bg-black aspect-video shadow-lg">
-                       <video ref={videoRef} className="w-full h-full object-cover" playsInline muted autoPlay></video>
-                       <canvas ref={canvasRef} className="hidden"></canvas>
-                       <button onClick={() => setIsScanning(false)} className="absolute top-3 right-3 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md z-10">✕</button>
-                    </div>
-                 ) : (
-                    <div className="grid grid-cols-2 gap-3">
-                       <button onClick={() => setIsScanning(true)} className="py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all">Scan QR</button>
-                       <button onClick={() => updateSettings({ syncId: generateUUID() })} className="py-3 bg-white dark:bg-gray-800 text-text font-bold rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 active:scale-95 transition-all">Show Code</button>
-                    </div>
-                 )}
+                 <div className="grid grid-cols-2 gap-3">
+                    <button onClick={() => setIsScanning(true)} className="py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all">Scan QR</button>
+                    <button onClick={() => updateSettings({ syncId: generateUUID() })} className="py-3 bg-white dark:bg-gray-800 text-text font-bold rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 active:scale-95 transition-all">Show Code</button>
+                 </div>
               </div>
             )}
          </div>
@@ -230,13 +242,6 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
                  {COLORS.map(c => (
                     <button key={c} onClick={() => updateSettings({ primaryColor: c })} style={{ backgroundColor: c }} className={`w-9 h-9 rounded-full transition-transform ${state.settings.primaryColor === c ? 'scale-110 ring-4 ring-gray-100 dark:ring-gray-800' : 'hover:scale-110'}`} />
                  ))}
-              </div>
-            </div>
-            <div>
-              <label className="text-xs font-bold text-text-light uppercase mb-3 block">Profiles</label>
-              <div className="grid grid-cols-2 gap-4">
-                 <input className="bg-gray-50 dark:bg-gray-900/50 border-none rounded-xl p-3 text-sm font-medium focus:ring-2 focus:ring-primary/20" value={state.settings.person1Name} onChange={e => updateSettings({ person1Name: e.target.value })} placeholder="Name 1" />
-                 <input className="bg-gray-50 dark:bg-gray-900/50 border-none rounded-xl p-3 text-sm font-medium focus:ring-2 focus:ring-primary/20" value={state.settings.person2Name} onChange={e => updateSettings({ person2Name: e.target.value })} placeholder="Name 2" />
               </div>
             </div>
          </div>
@@ -262,8 +267,8 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-               <button onClick={() => exportToPDF(state)} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl text-sm font-bold text-text-light hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">📄 PDF Report</button>
-               <button onClick={() => exportToCSV(state.expenses)} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl text-sm font-bold text-text-light hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">📊 CSV Data</button>
+               <button onClick={() => exportToPDF(state)} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl text-sm font-bold text-text-light hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">📄 General PDF</button>
+               <button onClick={() => exportToCSV(state.expenses)} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl text-sm font-bold text-text-light hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">📊 General CSV</button>
             </div>
             
             <div className="flex gap-3 justify-center pt-2">
@@ -287,14 +292,8 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
          </div>
       </section>
 
-      {canInstall && !isStandalone && (
-         <button onClick={installApp} className="w-full py-4 bg-black dark:bg-white text-white dark:text-black rounded-2xl font-bold shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2">
-            <span>📲</span> Install App
-         </button>
-      )}
-
       <div className="text-center text-[10px] text-gray-300 pt-4">
-         v1.2.1 • Safe & Secure • Cloud Auth enabled
+         v1.3.1 • Monthly PDF & Excel Advisor Reports • Cloud Sync enabled
       </div>
     </div>
   );

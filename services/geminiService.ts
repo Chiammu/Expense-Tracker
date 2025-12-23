@@ -4,10 +4,9 @@ import { AppState, Expense, Loan } from "../types";
 
 // Helper to format currency
 const formatCurrency = (amount: number) => {
-  return '₹' + amount.toFixed(2);
+  return '₹' + amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-// Fix: Strictly follow initialization guidelines by using process.env.API_KEY directly in the GoogleGenAI constructor.
 const getAI = () => {
   if (!process.env.API_KEY) {
     console.error("CRITICAL ERROR: API Key is missing in the build.");
@@ -16,16 +15,12 @@ const getAI = () => {
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
-// Error Helper
 const handleGeminiError = (error: any) => {
   console.error("Gemini API Error details:", error);
   const msg = error.toString().toLowerCase() + (error.message || "").toLowerCase();
   
   if (msg.includes("429") || msg.includes("quota") || msg.includes("resource_exhausted")) {
     return "⚠️ Daily Limit Reached. Please try again tomorrow.";
-  }
-  if (msg.includes("api key")) {
-    return "⚠️ Configuration Error: API Key missing.";
   }
   return `⚠️ AI Error: ${error.message || "Connection failed"}`;
 };
@@ -44,12 +39,11 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
     const sharedTotal = state.expenses.filter(e => e.person === 'Both').reduce((sum, e) => sum + e.amount, 0);
 
     const totalIncome = state.incomePerson1 + state.incomePerson2 + state.otherIncome.reduce((sum, i) => sum + i.amount, 0);
-    const monthlyBudget = state.monthlyBudget;
 
     const summaryText = `
       Total Expenses: ${formatCurrency(totalExpenses)}
       Total Income: ${formatCurrency(totalIncome)}
-      Monthly Budget: ${formatCurrency(monthlyBudget)}
+      Monthly Budget: ${formatCurrency(state.monthlyBudget)}
       
       Spending by Person:
       - ${state.settings.person1Name}: ${formatCurrency(person1Total)}
@@ -57,8 +51,6 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
       - Shared: ${formatCurrency(sharedTotal)}
 
       Top Categories: ${JSON.stringify(categoryBreakdown)}
-      
-      Fixed Payments Count: ${state.fixedPayments.length}
     `;
 
     const prompt = `
@@ -68,36 +60,77 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
       ${summaryText}
 
       Provide 3-4 distinct, actionable, and short insights or tips.
-      - Focus on savings potential if they are under budget.
-      - Gently warn if they are over budget or specific categories are high.
-      - Be specifically personalized using their names (${state.settings.person1Name} and ${state.settings.person2Name}).
-      - Use emojis to make it engaging.
-      - Do NOT use markdown formatting like bold or headers, just plain text with emojis and newlines.
+      - Focus on savings potential.
+      - Gently warn if over budget.
+      - Be personal using ${state.settings.person1Name} and ${state.settings.person2Name}.
+      - Use emojis. Plain text only.
     `;
 
-    // Always use ai.models.generateContent to query GenAI with both the model name and prompt.
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
     });
 
-    // The GenerateContentResponse object features a text property that directly returns the string output.
     return response.text || "No insights generated.";
-
   } catch (error: any) {
     return handleGeminiError(error);
   }
 };
 
-// ------------------------------------------------------------------
-// NEW FEATURES
-// ------------------------------------------------------------------
+/**
+ * Generates a full monthly digest suitable for an email report.
+ */
+export const generateMonthlyDigest = async (state: AppState): Promise<string> => {
+  try {
+    const ai = getAI();
+    const now = new Date();
+    const monthName = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+    
+    // Filter expenses for last 30 days
+    const lastMonthExpenses = state.expenses.filter(e => {
+        const d = new Date(e.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+
+    const totalSpent = lastMonthExpenses.reduce((s, e) => s + e.amount, 0);
+    const catGroups = lastMonthExpenses.reduce((acc, e) => {
+        acc[e.category] = (acc[e.category] || 0) + e.amount;
+        return acc;
+    }, {} as Record<string, number>);
+
+    const prompt = `
+      Create a "Monthly Financial Report & AI Advisor Digest" for ${monthName}.
+      
+      Couple: ${state.settings.person1Name} and ${state.settings.person2Name}
+      Total Spent: ${formatCurrency(totalSpent)}
+      Budget: ${formatCurrency(state.monthlyBudget)}
+      Income: ${formatCurrency(state.incomePerson1 + state.incomePerson2)}
+      Category Totals: ${JSON.stringify(catGroups)}
+      Savings Goals: ${JSON.stringify(state.savingsGoals)}
+
+      Structure the response as follows:
+      1. MONTHLY OVERVIEW: A high-level summary of the financial health.
+      2. TOP SPENDING AREAS: Analyze where the money went and if it was efficient.
+      3. AI ADVISOR STRATEGY: 3 specific, expert-level recommendations for the next month to improve savings or debt management.
+      4. ENCOURAGEMENT: A warm closing statement.
+
+      Format: Clean text suitable for an email body. Use emojis sparingly. Do not use Markdown headers, use capitalized labels.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+    });
+
+    return response.text || "Digest failed to generate.";
+  } catch (error) {
+    return handleGeminiError(error);
+  }
+};
 
 export const getLatestMetalRates = async (): Promise<{gold: number, silver: number, source?: string}> => {
   try {
     const ai = getAI();
-    // Using Search Grounding to get real rates with recommended model. 
-    // googleSearch tool is permitted with Gemini models for recent info.
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: "Find the current price of 24k Gold (per gram) and Silver (per gram) in India today in INR. Extract just the numbers. Output JSON format: { \"gold\": number, \"silver\": number }.",
@@ -107,10 +140,8 @@ export const getLatestMetalRates = async (): Promise<{gold: number, silver: numb
     });
     
     const text = response.text || "";
-    // Clean up potential markdown code blocks
     const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
     
-    // Attempt parsing
     try {
       const start = cleanText.indexOf('{');
       const end = cleanText.lastIndexOf('}') + 1;
@@ -123,26 +154,9 @@ export const getLatestMetalRates = async (): Promise<{gold: number, silver: numb
           source: 'Live (Google Search)'
         };
       }
-    } catch (e) {
-      console.error("Failed to parse metal rates JSON", e);
-    }
-    
-    // Fallback if parsing fails but text exists (regex extraction)
-    const goldMatch = text.match(/gold.*?(\d[\d,]+\.?\d*)/i);
-    const silverMatch = text.match(/silver.*?(\d[\d,]+\.?\d*)/i);
-    
-    if (goldMatch) {
-       return {
-         gold: parseFloat(goldMatch[1].replace(/,/g, '')),
-         silver: silverMatch ? parseFloat(silverMatch[1].replace(/,/g, '')) : 90,
-         source: 'Live (Extracted)'
-       };
-    }
-
+    } catch (e) {}
     return { gold: 7300, silver: 92, source: 'Mock (Fallback)' };
-
   } catch (error) {
-    console.error("Metal Rate Fetch Error", error);
     return { gold: 7300, silver: 92, source: 'Offline' };
   }
 };
@@ -151,74 +165,36 @@ export const analyzeLoanStrategy = async (loans: Loan[], surplus: number, person
   try {
     const ai = getAI();
     const loanData = loans.map(l => `${l.name}: Pending ₹${l.pendingAmount}, EMI ₹${l.emiAmount}`).join('\n');
-    
     const prompt = `
-      You are a debt reduction expert. 
-      The couple ${person1} and ${person2} has a monthly surplus of ₹${surplus} (Income - Expenses).
-      
-      Here are their current Loans/EMIs:
-      ${loanData}
-      
-      Suggest a specific strategy to close these EMIs effectively (e.g., Avalanche vs Snowball).
-      Tell them which loan to target first with the surplus.
-      Keep the advice short, motivating, and actionable. Use emojis.
-      Do not use markdown bolding.
+      Debt reduction strategy for ${person1} and ${person2}. Monthly surplus: ₹${surplus}.
+      Current Loans: ${loanData}
+      Suggest a strategy to close these effectively. Keep it short.
     `;
-
-    // Use gemini-3-flash-preview for simple text tasks
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-    });
-
+    const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
     return response.text || "Could not analyze loans.";
-  } catch (error) {
-    return handleGeminiError(error);
-  }
-};
-
-export const suggestSmartBudget = async (state: AppState): Promise<{totalBudget: number, categoryBudgets: Record<string, number>}> => {
-    return {totalBudget: 0, categoryBudgets: {}};
+  } catch (error) { return handleGeminiError(error); }
 };
 
 export const roastSpending = async (state: AppState): Promise<string> => {
   try {
     const ai = getAI();
-    const recentExpenses = state.expenses.slice(-15).map(e => `${e.category}: ${e.amount} (${e.note})`).join(', ');
-    
-    const prompt = `
-      You are a savage, funny stand-up comedian roasting a couple's finances.
-      Here are their recent expenses: ${recentExpenses}.
-      
-      Give them a short, spicy, hilarious roast about their spending habits. 
-      Make fun of specific purchases if they look silly. 
-      Keep it under 280 characters like a tweet. 
-      Names: ${state.settings.person1Name} & ${state.settings.person2Name}.
-    `;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-    });
-    
-    return response.text || "You guys are spending so boringly I can't even roast you.";
-  } catch (error) {
-    return handleGeminiError(error);
-  }
+    const recentExpenses = state.expenses.slice(-15).map(e => `${e.category}: ${e.amount}`).join(', ');
+    const prompt = `Savage roast of ${state.settings.person1Name} & ${state.settings.person2Name}'s spending: ${recentExpenses}. Under 280 characters.`;
+    const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
+    return response.text || "Roast failed.";
+  } catch (error) { return handleGeminiError(error); }
 };
 
 export const parseReceiptImage = async (base64Image: string): Promise<Partial<Expense>> => {
   try {
     const ai = getAI();
     const base64Data = base64Image.split(',')[1] || base64Image;
-
-    // multimodal task using gemini-3-flash-preview
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
-          { text: "Extract the following details from this receipt: Total Amount, Date (YYYY-MM-DD), Category (Groceries, Food, Shopping, Travel, Medical, etc.), Merchant/Description. Return JSON." }
+          { text: "Extract Total Amount, Date (YYYY-MM-DD), Category, Note. Return JSON." }
         ]
       },
       config: {
@@ -234,30 +210,14 @@ export const parseReceiptImage = async (base64Image: string): Promise<Partial<Ex
         }
       }
     });
-
     return JSON.parse(response.text || '{}');
-  } catch (error) {
-    console.error("Receipt Scanning Error:", error);
-    throw error;
-  }
+  } catch (error) { throw error; }
 };
 
 export const parseNaturalLanguageExpense = async (text: string, person1Name: string, person2Name: string): Promise<Partial<Expense>> => {
   try {
     const ai = getAI();
-    const prompt = `
-      Parse this expense text into JSON: "${text}". 
-      Today is ${new Date().toISOString().split('T')[0]}. 
-      
-      Rules for "person":
-      - Person1 Name: "${person1Name}" -> Set person to "Person1"
-      - Person2 Name: "${person2Name}" -> Set person to "Person2"
-      - If text implies shared or both, set person to "Both"
-      - If ambiguous, do not set person.
-
-      Categories: Groceries, Rent, Bills, EMIs, Shopping, Travel, Food, Entertainment, Medical, Education, Investments, Others.
-    `;
-
+    const prompt = `Parse: "${text}". Names: ${person1Name}, ${person2Name}. Categories: Groceries, Rent, Bills, EMIs, Shopping, Travel, Food, Entertainment, Medical, Education, Investments, Others.`;
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
@@ -276,40 +236,16 @@ export const parseNaturalLanguageExpense = async (text: string, person1Name: str
         }
       }
     });
-
     return JSON.parse(response.text || '{}');
-  } catch (error) {
-    console.error("NLP Error:", error);
-    throw error;
-  }
+  } catch (error) { throw error; }
 };
 
-export const chatWithFinances = async (history: {role: string, content: string}[], userMessage: string, state: AppState): Promise<string> => {
+export const chatWithFinances = async (history: any[], userMessage: string, state: AppState): Promise<string> => {
   try {
     const ai = getAI();
-    const context = `
-      Context:
-      Current Date: ${new Date().toLocaleDateString()}
-      Total Expenses: ${state.expenses.reduce((s,e) => s + e.amount, 0)}
-      Expenses: ${JSON.stringify(state.expenses.slice(-20))} (Last 20)
-      Names: ${state.settings.person1Name}, ${state.settings.person2Name}
-    `;
-
-    const prompt = `
-      ${context}
-      
-      User: ${userMessage}
-      
-      Answer as a helpful financial assistant. Keep it brief.
-    `;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-    });
-
+    const context = `Context: Total Exp: ${state.expenses.reduce((s,e) => s+e.amount, 0)}. Names: ${state.settings.person1Name}, ${state.settings.person2Name}`;
+    const prompt = `${context}\nUser: ${userMessage}`;
+    const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
     return response.text || "I didn't catch that.";
-  } catch (error: any) {
-    return handleGeminiError(error);
-  }
+  } catch (error: any) { return handleGeminiError(error); }
 };
