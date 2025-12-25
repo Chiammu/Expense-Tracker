@@ -81,19 +81,24 @@ export const useChat = (syncId: string | null) => {
     // UI update remains plain text for the sender immediately
     setMessages(prev => [...prev, tempMsg]);
 
-    // Encrypt before network
-    const encryptedText = await encryptionService.encrypt(text, syncId);
+    try {
+      // Encrypt before network
+      const encryptedText = await encryptionService.encrypt(text, syncId);
 
-    const { error } = await supabase.from('messages').insert({
-        id: tempId, 
-        sync_id: syncId,
-        sender,
-        content: encryptedText
-    });
+      const { error } = await supabase.from('messages').insert({
+          id: tempId,
+          sync_id: syncId,
+          sender,
+          content: encryptedText
+      });
 
-    if (error) {
-        console.error("Error sending message:", error);
-        setMessages(prev => prev.filter(m => m.id !== tempId));
+      if (error) {
+          console.error("Error sending message:", error);
+          setMessages(prev => prev.filter(m => m.id !== tempId));
+      }
+    } catch (e) {
+      console.error("Secure message send failed.");
+      setMessages(prev => prev.filter(m => m.id !== tempId));
     }
   };
 
