@@ -50,8 +50,9 @@ export const encryptionService = {
       const cipherBase64 = btoa(String.fromCharCode(...new Uint8Array(encrypted)));
       return `${ivBase64}:${cipherBase64}`;
     } catch (e) {
-      console.error("Encryption failed", e);
-      return text; // Fallback to plain if it fails (not ideal for E2EE but prevents crash)
+      // Do not log the full error object as it might contain sensitive data
+      console.error("Encryption failed");
+      throw new Error("Encryption failed");
     }
   },
 
