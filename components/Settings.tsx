@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AppState, AppSettings } from '../types';
-import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent } from '../services/storage';
+import { shareBackup, exportToCSV, exportMonthlyReportPDF, logAuditEvent, importDataFromJSON, exportData } from '../services/storage';
 import { authService } from '../services/auth';
 import { generateMonthlyDigest } from '../services/geminiService';
 import { ScannerModal } from './ScannerModal';
@@ -11,6 +11,7 @@ import QRCode from 'qrcode';
 interface SettingsProps {
   state: AppState;
   updateSettings: (newSettings: Partial<AppSettings>) => void;
+  onImportState: (newState: AppState) => void;
   resetData: () => void;
   deleteAccount: () => void;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
@@ -22,12 +23,13 @@ const haptic = (pattern: number | number[] = 10) => {
   }
 };
 
-export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, deleteAccount, showToast }) => {
+export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, onImportState, deleteAccount, showToast }) => {
   const [pinInput, setPinInput] = useState('');
   const [qrUrl, setQrUrl] = useState('');
   const [generatingReport, setGeneratingReport] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
     const idToShare = state.settings.syncId || 'NOT_PAIRED';
@@ -55,7 +57,7 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, delet
       updateSettings({ syncId: data });
       setShowScanner(false);
       logAuditEvent('COUPLE_SYNC_PAIRED', { method: 'QR' });
-      showToast("Couple Sync Active!", "success");
+      showToast("Sync Active!", "success");
       haptic([10, 5, 10]);
     }
   };
@@ -82,6 +84,22 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, delet
     }
   };
 
+  const handleImportJSON = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const newState = await importDataFromJSON(file);
+      onImportState(newState);
+      haptic([10, 5, 10]);
+      showToast("Data imported successfully!", "success");
+    } catch (err: any) {
+      showToast(err.message || "Failed to import JSON", "error");
+    } finally {
+      if (e.target) e.target.value = ''; // Reset for next selection
+    }
+  };
+
   const handleSignOut = async () => {
     if (confirm("Sign out?")) {
       try {
@@ -105,6 +123,13 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, delet
     <div className="pb-24 max-w-xl mx-auto space-y-8 animate-fade-in">
       
       {showScanner && <ScannerModal onScan={handleSyncScan} onClose={() => setShowScanner(false)} />}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleImportJSON} 
+        accept=".json" 
+        className="hidden" 
+      />
 
       {deferredPrompt && (
         <section className="bg-gradient-to-r from-primary/10 to-secondary/10 rounded-3xl p-6 border border-primary/20 animate-slide-up">
@@ -128,9 +153,9 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, delet
       </section>
 
       <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
-         <SectionHeader icon="👫" title="Couple Sync" />
+         <SectionHeader icon="👫" title="Data Sync" />
          <div className="space-y-6">
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center text-center px-4">
                {qrUrl ? (
                  <div className="p-4 bg-white rounded-2xl shadow-inner border border-gray-100 mb-4">
                     <img src={qrUrl} alt="Sync QR" className="w-32 h-32" />
@@ -138,13 +163,11 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, delet
                ) : (
                  <div className="w-32 h-32 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center text-text-light mb-4">No ID</div>
                )}
-               <div className="text-center">
-                 <p className="text-[10px] font-black uppercase text-text-light tracking-widest mb-1">Your Sync ID</p>
-                 <code className="text-xs bg-gray-50 dark:bg-gray-900/50 px-2 py-1 rounded text-primary font-mono">{state.settings.syncId || 'None'}</code>
-               </div>
+               <p className="text-[10px] font-black uppercase text-text-light tracking-widest mb-1">Your Device ID</p>
+               <code className="text-[10px] bg-gray-50 dark:bg-gray-900/50 px-2 py-1 rounded text-primary font-mono max-w-full break-all mb-4">{state.settings.syncId || 'None'}</code>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 px-4">
                <button onClick={() => setShowScanner(true)} className="py-3 bg-primary text-white font-bold rounded-xl text-xs flex flex-col items-center gap-1 shadow-lg shadow-primary/20 active:scale-95 transition-all">
                  <span>📷</span> Scan Partner
                </button>
@@ -167,7 +190,7 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, delet
                   <button onClick={() => { haptic(5); updateSettings({ pin: null }); }} className="text-xs bg-red-100 text-red-600 px-3 py-1.5 rounded-lg font-bold">Remove</button>
                ) : (
                   <div className="flex items-center gap-2">
-                     <input type="password" maxLength={4} className="w-14 p-1.5 text-center text-xs rounded-lg bg-white dark:bg-gray-800" placeholder="PIN" value={pinInput} onChange={e => setPinInput(e.target.value)} />
+                     <input type="password" pattern="[0-9]*" inputMode="numeric" maxLength={4} className="w-14 p-1.5 text-center text-xs rounded-lg bg-white dark:bg-gray-800" placeholder="PIN" value={pinInput} onChange={e => setPinInput(e.target.value)} />
                      <button onClick={() => { if(pinInput.length===4) { haptic(10); updateSettings({ pin: pinInput }); setPinInput(''); showToast("PIN Set"); }}} className="text-primary text-xs font-bold">Set</button>
                   </div>
                )}
@@ -176,27 +199,39 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, delet
       </section>
 
       <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
-         <SectionHeader icon="📩" title="Reports & Data" />
+         <SectionHeader icon="📩" title="Export & Backup" />
          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 mb-2">
+               <button onClick={handleDownloadMonthlyPDF} disabled={generatingReport} className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-[10px] flex flex-col items-center gap-1">
+                 <span>📄</span> PDF Report
+               </button>
+               <button onClick={() => { haptic(5); exportToCSV(state.expenses); }} className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-[10px] flex flex-col items-center gap-1">
+                 <span>📊</span> CSV Sheet
+               </button>
+            </div>
             <div className="grid grid-cols-2 gap-3">
-               <button onClick={handleDownloadMonthlyPDF} disabled={generatingReport} className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-xs">📄 Export PDF</button>
-               <button onClick={() => { haptic(5); exportToCSV(state.expenses); }} className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-xs">📊 Export CSV</button>
+               <button onClick={() => { haptic(5); exportData(state); }} className="py-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-bold rounded-xl text-[10px] flex flex-col items-center gap-1 border border-indigo-100 dark:border-indigo-800">
+                 <span>💾</span> Export JSON
+               </button>
+               <button onClick={() => { haptic(5); fileInputRef.current?.click(); }} className="py-3 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 font-bold rounded-xl text-[10px] flex flex-col items-center gap-1 border border-green-100 dark:border-green-800">
+                 <span>📥</span> Import JSON
+               </button>
             </div>
          </div>
       </section>
 
       <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
-         <SectionHeader icon="🚪" title="Account Actions" />
+         <SectionHeader icon="🚪" title="Account" />
          <div className="space-y-3">
             <button onClick={handleSignOut} className="w-full py-3 bg-gray-100 dark:bg-gray-900/50 text-text font-bold rounded-2xl">Sign Out</button>
             <button onClick={deleteAccount} className="w-full py-3 bg-red-50 dark:bg-red-900/10 text-red-600 font-bold rounded-2xl border border-red-100 dark:border-red-900/20 active:bg-red-200 transition-colors">
-              Delete My Account
+              Delete All Data
             </button>
          </div>
       </section>
 
       <div className="text-center text-[10px] text-gray-300 pt-4 pb-8">
-         v1.6.5 • E2EE Chat • PIN Security • PWA Standalone
+         v1.6.5 • E2EE Logic • PIN Security • PWA Standalone
       </div>
     </div>
   );

@@ -70,7 +70,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
       }
       return true;
-    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)); // Sort by exact millisecond updated/added
   }, [state.expenses, filterType, searchTerm, viewMode]);
 
   const stats = useMemo(() => {
@@ -92,7 +92,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
 
     const categories = Object.keys(catMap).map(cat => ({
       name: cat,
-      expenses: catMap[cat],
+      expenses: catMap[cat].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)), // Ensure internal category items also sorted by latest
       total: catMap[cat].reduce((sum, e) => sum + e.amount, 0)
     })).sort((a, b) => b.total - a.total);
 
@@ -132,7 +132,9 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
 
   const selectedDayExpenses = useMemo(() => {
     if (!selectedCalendarDate) return [];
-    return state.expenses.filter(e => e.date === selectedCalendarDate);
+    return state.expenses
+      .filter(e => e.date === selectedCalendarDate)
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   }, [selectedCalendarDate, state.expenses]);
 
   return (
@@ -141,7 +143,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
       {/* Header Actions */}
       <div className="bg-surface rounded-2xl p-2 shadow-sm border border-gray-100 dark:border-gray-800 flex gap-2">
         <div className="flex-1 flex items-center bg-gray-50 dark:bg-gray-900/50 rounded-xl px-3 border border-gray-100 dark:border-white/5">
-          <span className="text-gray-400 mr-2">🔍</span>
+          <span className="text-gray-400 mr-2 text-sm">🔍</span>
           <input 
             className="flex-1 bg-transparent py-2.5 text-sm focus:outline-none placeholder:text-text-light font-medium"
             placeholder="Search records..."
@@ -160,7 +162,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
       {viewMode === 'list' ? (
         <>
           <div className="bg-surface rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">
-             <h3 className="text-xs font-black text-text-light uppercase tracking-widest mb-6">Expense Weightage</h3>
+             <h3 className="text-xs font-black text-text-light uppercase tracking-widest mb-6">Spending Weightage</h3>
              <div className="h-48 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                    <BarChart data={chartData} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
@@ -206,7 +208,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-gradient-to-br from-primary to-pink-600 rounded-2xl p-5 text-white shadow-xl relative overflow-hidden group">
                <div className="relative z-10">
-                 <div className="text-[10px] opacity-80 uppercase font-black tracking-widest mb-1">Total Period Spend</div>
+                 <div className="text-[10px] opacity-80 uppercase font-black tracking-widest mb-1">Total Spent</div>
                  <div className={`text-2xl font-black tracking-tighter mask-value`}>₹{stats.total.toLocaleString()}</div>
                  <div className="text-[10px] mt-2 bg-white/20 inline-block px-2 py-0.5 rounded-full font-bold">{filteredExpenses.length} Txns</div>
                </div>
@@ -255,7 +257,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
                      <div className="flex items-center gap-4">
                         <div className="text-right">
                            <div className="font-black text-primary mask-value text-sm">₹{cat.total.toLocaleString()}</div>
-                           <div className="text-[10px] text-text-light uppercase font-black">{((cat.total / stats.total) * 100).toFixed(0)}% share</div>
+                           <div className="text-[10px] text-text-light uppercase font-black">{((cat.total / stats.total) * 100).toFixed(0)}%</div>
                         </div>
                         <span className={`text-text-light transition-transform duration-300 ${expandedCategories.includes(cat.name) ? 'rotate-180' : ''}`}>▼</span>
                      </div>
@@ -361,7 +363,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
            {selectedCalendarDate && (
              <div className="animate-slide-up space-y-3">
                 <div className="flex justify-between items-center px-2">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-text-light">Breakdown for {new Date(selectedCalendarDate).toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}</h4>
+                  <h4 className="text-xs font-black uppercase tracking-widest text-text-light">Records for {new Date(selectedCalendarDate).toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}</h4>
                   <div className="text-xs font-black text-primary">₹{selectedDayExpenses.reduce((s,e) => s+e.amount, 0).toLocaleString()}</div>
                 </div>
                 
@@ -392,7 +394,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
              <div className="bg-indigo-50 dark:bg-indigo-900/10 p-5 rounded-3xl border border-indigo-100 dark:border-indigo-900/20 text-center flex flex-col items-center">
                 <div className="text-3xl mb-2">💡</div>
                 <p className="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest leading-relaxed">
-                  Tap a date to view all transactions recorded on that day.
+                  Select a date to see the specific ledger for that day.
                 </p>
              </div>
            )}

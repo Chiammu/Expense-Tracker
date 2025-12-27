@@ -1,4 +1,5 @@
 
+
 export interface Expense {
   id: number;
   person: string;
@@ -43,13 +44,6 @@ export interface SavingsGoal {
   updatedAt: number;
 }
 
-export interface ChatMessage {
-  id: string;
-  sender: 'Person1' | 'Person2';
-  text: string;
-  timestamp: string;
-}
-
 export interface AssetSplit {
   p1: number;
   p2: number;
@@ -83,6 +77,14 @@ export interface Loan {
   updatedAt: number;
 }
 
+// Added ChatMessage interface to fix missing export error
+export interface ChatMessage {
+  id: string;
+  sender: 'Person1' | 'Person2';
+  text: string;
+  timestamp: string;
+}
+
 export interface AppSettings {
   theme: 'light' | 'dark';
   primaryColor: string;
@@ -107,12 +109,6 @@ export interface AppSettings {
   updatedAt: number;
 }
 
-export interface AuditLog {
-  event: string;
-  details: any;
-  timestamp: string;
-}
-
 export interface AppState {
   expenses: Expense[];
   settings: AppSettings;
@@ -123,13 +119,12 @@ export interface AppState {
   incomePerson2: number;
   savingsGoals: SavingsGoal[];
   categoryBudgets: Record<string, number>;
-  chatMessages: ChatMessage[];
   investments: Investments;
   loans: Loan[];
   creditCards: CreditCard[]; 
 }
 
-export type Section = 'add-expense' | 'summaries' | 'investments' | 'overview' | 'settings' | 'chat';
+export type Section = 'add-expense' | 'summaries' | 'investments' | 'overview' | 'settings';
 
 export const DEFAULT_CATEGORIES = [
   "Groceries", "Rent", "Bills", "EMIs", "Shopping", "Travel", "Food", 
@@ -187,7 +182,6 @@ export const INITIAL_STATE: AppState = {
   incomePerson2: 0,
   savingsGoals: [],
   categoryBudgets: {},
-  chatMessages: [],
   investments: INITIAL_INVESTMENTS,
   loans: [],
   creditCards: [],

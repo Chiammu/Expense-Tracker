@@ -12,7 +12,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeSection, setSection 
     { id: 'add-expense', label: 'Add', icon: '➕' },
     { id: 'summaries', label: 'Stats', icon: '📊' },
     { id: 'investments', label: 'Wealth', icon: '📈' },
-    { id: 'chat', label: 'Chat', icon: '💬' },
     { id: 'overview', label: 'Plan', icon: '📅' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ];

@@ -88,6 +88,36 @@
         --text-light: #909090;
       }
 
+      /* Native App Feel Fixes */
+      * {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        user-select: none;
+      }
+
+      input, textarea {
+        user-select: text; /* Allow text input */
+        -webkit-user-select: text;
+      }
+
+      body {
+        background-color: var(--background);
+        color: var(--text);
+        font-family: var(--font-family);
+        transition: background-color 0.4s, color 0.4s;
+        overscroll-behavior: none; /* Disable pull-to-refresh */
+        overflow-x: hidden;
+        position: fixed; /* Prevent scrolling the whole body context */
+        width: 100%;
+        height: 100%;
+      }
+
+      #root {
+        height: 100%;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
       /* Privacy Mode blurring */
       .privacy-active .mask-value {
         filter: blur(10px);
@@ -112,15 +142,6 @@
         background: rgba(255,255,255,0.1);
       }
       
-      body {
-        background-color: var(--background);
-        color: var(--text);
-        font-family: var(--font-family);
-        transition: background-color 0.4s, color 0.4s;
-        -webkit-tap-highlight-color: transparent;
-        overscroll-behavior-y: contain;
-      }
-      
       .standalone-mode {
         padding-top: env(safe-area-inset-top);
         padding-bottom: env(safe-area-inset-bottom);
@@ -132,6 +153,8 @@
       
       html {
         scroll-behavior: smooth;
+        height: 100%;
+        overflow: hidden;
       }
     </style>
   <script type="importmap">

@@ -91,7 +91,6 @@ const mergeState = (parsed: any): AppState => {
     },
     savingsGoals: parsed.savingsGoals || [],
     categoryBudgets: parsed.categoryBudgets || {},
-    chatMessages: parsed.chatMessages || [],
     investments: {
       ...INITIAL_INVESTMENTS,
       ...(parsed.investments || {})
@@ -101,15 +100,43 @@ const mergeState = (parsed: any): AppState => {
 };
 
 /**
+ * Reads a file and returns an AppState if valid.
+ */
+export const importDataFromJSON = (file: File): Promise<AppState> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const parsed = JSON.parse(content);
+        
+        // Basic schema validation
+        if (typeof parsed !== 'object' || !parsed.expenses || !parsed.settings) {
+          throw new Error("Invalid backup file. Structure missing required fields.");
+        }
+
+        resolve(mergeState(parsed));
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(new Error("Failed to read file."));
+    reader.readAsText(file);
+  });
+};
+
+/**
  * Robust conflict resolution using Last-Write-Wins (LWW).
  */
 export const mergeAppState = (local: AppState, remote: AppState): AppState => {
   const lwwMergeArray = <T extends { id: number | string; updatedAt?: number }>(localArr: T[], remoteArr: T[]): T[] => {
     const map = new Map<number | string, T>();
+    // First seed with local
     localArr.forEach(item => map.set(item.id, item));
+    // Overwrite with remote if remote is NEWER
     remoteArr.forEach(remoteItem => {
       const localItem = map.get(remoteItem.id);
-      if (!localItem || (remoteItem.updatedAt || 0) > (localItem.updatedAt || 0)) {
+      if (!localItem || (remoteItem.updatedAt || 0) >= (localItem.updatedAt || 0)) {
         map.set(remoteItem.id, remoteItem);
       }
     });
@@ -117,7 +144,7 @@ export const mergeAppState = (local: AppState, remote: AppState): AppState => {
   };
 
   const lwwMergeObject = <T extends { updatedAt?: number }>(localObj: T, remoteObj: T): T => {
-    if ((remoteObj.updatedAt || 0) > (localObj.updatedAt || 0)) {
+    if ((remoteObj.updatedAt || 0) >= (localObj.updatedAt || 0)) {
       return remoteObj;
     }
     return localObj;

@@ -21,37 +21,39 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
   const [newLoan, setNewLoan] = useState({ name: '', pending: '', emi: '', person: 'Both' });
   const [newCard, setNewCard] = useState({ name: '', limit: '', billingDay: '' });
 
-  useEffect(() => {
-    const fetchRates = async () => {
-      if (state.investments.goldRate > 0 && state.investments.silverRate > 0) return;
+  const fetchRates = async (isManual = false) => {
+    if (!isManual && state.investments.goldRate > 0 && state.investments.silverRate > 0) return;
 
-      setFetchingRates(true);
-      try {
-        const rates = await getLatestMetalRates();
-        if (rates.sources) setMetalSources(rates.sources);
-        updateState({
-          investments: {
-            ...state.investments,
-            goldRate: rates.gold,
-            silverRate: rates.silver,
-            updatedAt: Date.now()
-          }
-        });
-      } catch (e) {
-        if (state.investments.goldRate === 0) {
-            updateState({
-              investments: {
-                ...state.investments,
-                goldRate: 7300,
-                silverRate: 90,
-                updatedAt: Date.now()
-              }
-            });
+    setFetchingRates(true);
+    try {
+      const rates = await getLatestMetalRates();
+      if (rates.sources) setMetalSources(rates.sources);
+      updateState({
+        investments: {
+          ...state.investments,
+          goldRate: rates.gold,
+          silverRate: rates.silver,
+          updatedAt: Date.now()
         }
+      });
+      if (isManual) showToast("Rates updated from live market", "success");
+    } catch (e) {
+      if (state.investments.goldRate === 0) {
+          updateState({
+            investments: {
+              ...state.investments,
+              goldRate: 7300,
+              silverRate: 90,
+              updatedAt: Date.now()
+            }
+          });
       }
-      setFetchingRates(false);
-    };
+      if (isManual) showToast("Failed to fetch live rates", "error");
+    }
+    setFetchingRates(false);
+  };
 
+  useEffect(() => {
     fetchRates();
   }, []);
 
@@ -66,6 +68,17 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
           ...current,
           [subKey]: num
         },
+        updatedAt: Date.now()
+      }
+    });
+  };
+
+  const updateRate = (metal: 'goldRate' | 'silverRate', val: string) => {
+    const num = parseFloat(val) || 0;
+    updateState({
+      investments: {
+        ...state.investments,
+        [metal]: num,
         updatedAt: Date.now()
       }
     });
@@ -229,13 +242,28 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
            <div className="bg-surface rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
               <div className="flex justify-between items-center mb-4">
                 <h4 className="text-xs font-black uppercase text-text-light tracking-widest">Precious Metals (Grams)</h4>
-                <div className="text-[9px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded-full">LIVE RATES</div>
+                <button 
+                  onClick={() => fetchRates(true)} 
+                  disabled={fetchingRates}
+                  className="text-[10px] font-black text-primary bg-primary/5 px-2 py-1 rounded-full border border-primary/10 active:scale-95 transition-all flex items-center gap-1"
+                >
+                  {fetchingRates ? <span className="animate-spin text-[8px]">🌀</span> : '✨'} REFRESH RATES
+                </button>
               </div>
               <div className="space-y-4">
+                {/* Gold Section */}
                 <div>
-                  <div className="flex justify-between text-[10px] font-bold mb-1">
-                    <span className="text-yellow-600">Gold (24K: ₹{state.investments.goldRate}/g)</span>
-                    <span className="mask-value">₹{goldVal.toLocaleString()}</span>
+                  <div className="flex justify-between items-center text-[10px] font-bold mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-yellow-600 uppercase">Gold Rate (₹/g)</span>
+                      <input 
+                        type="number" 
+                        className="w-16 bg-gray-50 dark:bg-gray-900 p-1 rounded font-black text-primary text-center border-none" 
+                        value={state.investments.goldRate || ''} 
+                        onChange={e => updateRate('goldRate', e.target.value)}
+                      />
+                    </div>
+                    <span className="mask-value font-black text-text italic">Val: ₹{goldVal.toLocaleString()}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <input type="number" placeholder="P1(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold border-none" value={state.investments.gold.p1Grams || ''} onChange={e => updateInv('gold', 'p1Grams', e.target.value)} />
@@ -243,10 +271,20 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
                     <input type="number" placeholder="Shared(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold border-none" value={state.investments.gold.sharedGrams || ''} onChange={e => updateInv('gold', 'sharedGrams', e.target.value)} />
                   </div>
                 </div>
+
+                {/* Silver Section */}
                 <div>
-                  <div className="flex justify-between text-[10px] font-bold mb-1">
-                    <span className="text-gray-500">Silver (₹{state.investments.silverRate}/g)</span>
-                    <span className="mask-value">₹{silverVal.toLocaleString()}</span>
+                  <div className="flex justify-between items-center text-[10px] font-bold mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500 uppercase">Silver Rate (₹/g)</span>
+                      <input 
+                        type="number" 
+                        className="w-16 bg-gray-50 dark:bg-gray-900 p-1 rounded font-black text-secondary text-center border-none" 
+                        value={state.investments.silverRate || ''} 
+                        onChange={e => updateRate('silverRate', e.target.value)}
+                      />
+                    </div>
+                    <span className="mask-value font-black text-text italic">Val: ₹{silverVal.toLocaleString()}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <input type="number" placeholder="P1(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold border-none" value={state.investments.silver.p1Grams || ''} onChange={e => updateInv('silver', 'p1Grams', e.target.value)} />
