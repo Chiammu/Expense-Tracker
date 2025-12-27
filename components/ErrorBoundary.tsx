@@ -1,5 +1,5 @@
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 
 interface ErrorBoundaryProps {
   children?: ReactNode;
@@ -14,11 +14,10 @@ interface ErrorBoundaryState {
  * ErrorBoundary component to catch UI-breaking errors in child components.
  * Standard class component implementation for error boundaries.
  */
-// Fix: Use named Component import to ensure TypeScript correctly identifies the base class and its members (props, state, setState).
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    // Fix: state is inherited from Component and initialized here.
+    // Initialize component state properly.
     this.state = {
       hasError: false
     };
@@ -39,17 +38,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   public render(): ReactNode {
-    // Fix: Access state inherited from Component class.
+    // Access state inherited from React.Component to check for errors.
     if (this.state.hasError) {
-      // Fallback UI when an error is caught in child components
+      // Fallback UI when an error is caught in child components.
       return (
         <div className="p-6 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 rounded-2xl text-center">
           <div className="text-3xl mb-2">⚠️</div>
-          {/* Fix: Access props inherited from Component class. */}
+          {/* Access props inherited from React.Component for the fallback title. */}
           <h3 className="font-bold text-red-700 dark:text-red-400">{this.props.fallbackTitle || 'Widget Error'}</h3>
           <p className="text-xs text-red-600/70 dark:text-red-400/50 mt-1">Something went wrong in this section.</p>
           <button 
-            /* Fix: Access setState inherited from Component class to reset error state. */
+            /* Use setState inherited from React.Component to reset the error state. */
             onClick={() => this.setState({ hasError: false })}
             className="mt-4 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg active:scale-95 transition-transform"
           >
@@ -59,7 +58,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       );
     }
 
-    // Fix: Access props inherited from Component class.
+    // Access props inherited from React.Component to render children.
     return this.props.children || null;
   }
 }

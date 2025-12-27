@@ -1,5 +1,4 @@
 
-
 export interface Expense {
   id: number;
   person: string;
@@ -56,12 +55,23 @@ export interface MetalAsset {
   sharedGrams: number;
 }
 
+export interface FixedDeposit {
+  id: number;
+  bankName: string;
+  amount: number;
+  maturityDate: string;
+  interestRate: number;
+  person: 'Person1' | 'Person2' | 'Shared';
+  updatedAt: number;
+}
+
 export interface Investments {
   bankBalance: { p1: number; p2: number };
   mutualFunds: AssetSplit;
   stocks: AssetSplit;
   gold: MetalAsset;
   silver: MetalAsset;
+  fixedDeposits: FixedDeposit[];
   goldRate: number; 
   silverRate: number; 
   updatedAt: number;
@@ -77,7 +87,6 @@ export interface Loan {
   updatedAt: number;
 }
 
-// Added ChatMessage interface to fix missing export error
 export interface ChatMessage {
   id: string;
   sender: 'Person1' | 'Person2';
@@ -167,6 +176,7 @@ export const INITIAL_INVESTMENTS: Investments = {
   stocks: { p1: 0, p2: 0, shared: 0 },
   gold: { p1Grams: 0, p2Grams: 0, sharedGrams: 0 },
   silver: { p1Grams: 0, p2Grams: 0, sharedGrams: 0 },
+  fixedDeposits: [],
   goldRate: 0,
   silverRate: 0,
   updatedAt: Date.now(),

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { AppState, Loan, Investments as InvestType, CreditCard } from '../types';
+import { AppState, Loan, Investments as InvestType, CreditCard, FixedDeposit } from '../types';
 import { getLatestMetalRates } from '../services/geminiService';
 import { logAuditEvent } from '../services/storage';
 
@@ -14,12 +14,13 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
   const [tab, setTab] = useState<'assets' | 'liabilities' | 'cards'>('assets');
   const [fetchingRates, setFetchingRates] = useState(false);
   const [isBalancesVisible, setIsBalancesVisible] = useState(false);
-  // Store search grounding sources locally to list them on the web app as required
   const [metalSources, setMetalSources] = useState<any[]>([]);
 
   // Form States
   const [newLoan, setNewLoan] = useState({ name: '', pending: '', emi: '', person: 'Both' });
   const [newCard, setNewCard] = useState({ name: '', limit: '', billingDay: '' });
+  const [newFD, setNewFD] = useState({ bankName: '', amount: '', maturityDate: '', interestRate: '', person: 'Shared' });
+  const [showFDForm, setShowFDForm] = useState(false);
 
   const fetchRates = async (isManual = false) => {
     if (!isManual && state.investments.goldRate > 0 && state.investments.silverRate > 0) return;
@@ -82,6 +83,47 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
         updatedAt: Date.now()
       }
     });
+  };
+
+  const addFD = () => {
+    if (!newFD.bankName || !newFD.amount) {
+      showToast("Please enter Bank Name and Amount", "error");
+      return;
+    }
+    const fd: FixedDeposit = {
+      id: Date.now(),
+      bankName: newFD.bankName,
+      amount: parseFloat(newFD.amount),
+      maturityDate: newFD.maturityDate || new Date().toISOString().split('T')[0],
+      interestRate: parseFloat(newFD.interestRate) || 0,
+      person: newFD.person as any,
+      updatedAt: Date.now()
+    };
+
+    updateState({
+      investments: {
+        ...state.investments,
+        fixedDeposits: [...(state.investments.fixedDeposits || []), fd],
+        updatedAt: Date.now()
+      }
+    });
+    setNewFD({ bankName: '', amount: '', maturityDate: '', interestRate: '', person: 'Shared' });
+    setShowFDForm(false);
+    showToast("Fixed Deposit added", "success");
+    logAuditEvent('FD_ADDED', { bank: fd.bankName, amount: fd.amount });
+  };
+
+  const deleteFD = (id: number) => {
+    if (confirm("Delete this Fixed Deposit?")) {
+      updateState({
+        investments: {
+          ...state.investments,
+          fixedDeposits: state.investments.fixedDeposits.filter(f => f.id !== id),
+          updatedAt: Date.now()
+        }
+      });
+      showToast("FD removed", "success");
+    }
   };
 
   const deleteLoan = (id: number) => {
@@ -153,8 +195,9 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
   const totalBank = (state.investments.bankBalance?.p1 || 0) + (state.investments.bankBalance?.p2 || 0);
   const totalMF = state.investments.mutualFunds.p1 + state.investments.mutualFunds.p2 + state.investments.mutualFunds.shared;
   const totalStocks = state.investments.stocks.p1 + state.investments.stocks.p2 + state.investments.stocks.shared;
+  const totalFD = (state.investments.fixedDeposits || []).reduce((sum, f) => sum + f.amount, 0);
   
-  const totalAssets = totalBank + totalMF + totalStocks + goldVal + silverVal;
+  const totalAssets = totalBank + totalMF + totalStocks + goldVal + silverVal + totalFD;
   const totalLiabilities = state.loans.reduce((sum, l) => sum + l.pendingAmount, 0) + state.creditCards.reduce((sum, c) => sum + c.currentBalance, 0);
   const netWorth = totalAssets - totalLiabilities;
 
@@ -210,6 +253,64 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
                     <label className="text-[10px] font-bold text-text-light block mb-1">{state.settings.person2Name}</label>
                     <input type="number" className="w-full bg-background p-2.5 rounded-xl text-sm font-bold border-none" value={state.investments.bankBalance?.p2 || ''} onChange={e => updateInv('bankBalance', 'p2', e.target.value)} placeholder="0" />
                  </div>
+              </div>
+           </div>
+
+           {/* Fixed Deposits Section */}
+           <div className="bg-surface rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="text-xs font-black uppercase text-text-light tracking-widest">Fixed Deposits</h4>
+                <button 
+                  onClick={() => setShowFDForm(!showFDForm)}
+                  className="text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-full border border-emerald-100 dark:border-emerald-800"
+                >
+                  {showFDForm ? 'CANCEL' : '+ ADD FD'}
+                </button>
+              </div>
+
+              {showFDForm && (
+                <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl space-y-3 animate-slide-up">
+                  <input type="text" placeholder="Bank Name" className="w-full bg-white dark:bg-gray-800 p-2.5 rounded-lg text-sm border-none" value={newFD.bankName} onChange={e => setNewFD({...newFD, bankName: e.target.value})} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input type="number" placeholder="Principal Amount" className="w-full bg-white dark:bg-gray-800 p-2.5 rounded-lg text-sm border-none" value={newFD.amount} onChange={e => setNewFD({...newFD, amount: e.target.value})} />
+                    <input type="number" placeholder="Interest Rate %" className="w-full bg-white dark:bg-gray-800 p-2.5 rounded-lg text-sm border-none" value={newFD.interestRate} onChange={e => setNewFD({...newFD, interestRate: e.target.value})} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input type="date" className="w-full bg-white dark:bg-gray-800 p-2.5 rounded-lg text-sm border-none" value={newFD.maturityDate} onChange={e => setNewFD({...newFD, maturityDate: e.target.value})} />
+                    <select className="w-full bg-white dark:bg-gray-800 p-2.5 rounded-lg text-sm border-none" value={newFD.person} onChange={e => setNewFD({...newFD, person: e.target.value})}>
+                      <option value="Person1">{state.settings.person1Name}</option>
+                      <option value="Person2">{state.settings.person2Name}</option>
+                      <option value="Shared">Shared</option>
+                    </select>
+                  </div>
+                  <button onClick={addFD} className="w-full py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-lg shadow-md">Confirm FD</button>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {(state.investments.fixedDeposits || []).map(fd => (
+                  <div key={fd.id} className="p-3 bg-background rounded-xl border border-gray-100 dark:border-gray-800 flex justify-between items-center group">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 flex items-center justify-center text-lg">📜</div>
+                      <div>
+                        <div className="text-sm font-bold">{fd.bankName}</div>
+                        <div className="text-[9px] font-bold text-text-light uppercase tracking-tighter">
+                          Mat: {new Date(fd.maturityDate).toLocaleDateString()} • {fd.interestRate}% Int.
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="text-sm font-black text-emerald-600 mask-value">₹{fd.amount.toLocaleString()}</div>
+                        <div className="text-[8px] font-black text-text-light uppercase">{fd.person === 'Shared' ? '👫 Shared' : (fd.person === 'Person1' ? state.settings.person1Name : state.settings.person2Name)}</div>
+                      </div>
+                      <button onClick={() => deleteFD(fd.id)} className="opacity-0 group-hover:opacity-100 p-2 text-red-500 transition-opacity">🗑️</button>
+                    </div>
+                  </div>
+                ))}
+                {(!state.investments.fixedDeposits || state.investments.fixedDeposits.length === 0) && !showFDForm && (
+                  <p className="text-center text-[10px] text-text-light font-bold py-2 opacity-50 italic">No Fixed Deposits recorded.</p>
+                )}
               </div>
            </div>
 
@@ -293,7 +394,7 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
                   </div>
                 </div>
 
-                {/* Listing Grounding Sources for Google Search as required by guidelines */}
+                {/* Listing Grounding Sources for Google Search */}
                 {metalSources.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                     <p className="text-[9px] font-black text-text-light uppercase tracking-widest mb-2">Data Sources:</p>
