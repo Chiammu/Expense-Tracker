@@ -81,10 +81,36 @@ export const loadFromStorage = (): AppState => {
   return INITIAL_STATE;
 };
 
+/**
+ * Normalizes incoming data (from local or file) to ensure it matches current schema.
+ */
 const mergeState = (parsed: any): AppState => {
+  // Normalize expenses: ensure IDs are numbers and missing fields exist
+  const normalizedExpenses = (parsed.expenses || []).map((exp: any, index: number) => {
+    let id = exp.id;
+    // If ID is string (common in some external formats), try to convert or use timestamp + index
+    if (typeof id === 'string') {
+      const numeric = parseInt(id.replace(/\D/g, ''));
+      id = isNaN(numeric) ? Date.now() + index : numeric;
+    }
+
+    return {
+      id: id || Date.now() + index,
+      person: exp.person || 'Both',
+      date: exp.date || new Date().toISOString().split('T')[0],
+      amount: parseFloat(exp.amount) || 0,
+      category: exp.category || 'Others',
+      paymentMode: exp.paymentMode || 'UPI',
+      note: exp.note || '',
+      updatedAt: exp.updatedAt || Date.now() + index,
+      cardId: exp.cardId
+    };
+  });
+
   return {
     ...INITIAL_STATE,
     ...parsed,
+    expenses: normalizedExpenses,
     settings: {
       ...INITIAL_STATE.settings,
       ...(parsed.settings || {}),
@@ -96,6 +122,9 @@ const mergeState = (parsed: any): AppState => {
       ...(parsed.investments || {})
     },
     loans: parsed.loans || [],
+    creditCards: parsed.creditCards || [],
+    fixedPayments: parsed.fixedPayments || [],
+    otherIncome: parsed.otherIncome || [],
   };
 };
 
@@ -110,8 +139,8 @@ export const importDataFromJSON = (file: File): Promise<AppState> => {
         const content = e.target?.result as string;
         const parsed = JSON.parse(content);
         
-        // Basic schema validation
-        if (typeof parsed !== 'object' || !parsed.expenses || !parsed.settings) {
+        // Validation: must at least have expenses or settings
+        if (typeof parsed !== 'object' || (!parsed.expenses && !parsed.settings)) {
           throw new Error("Invalid backup file. Structure missing required fields.");
         }
 

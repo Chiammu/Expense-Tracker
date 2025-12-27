@@ -14,13 +14,15 @@ interface ErrorBoundaryState {
  * ErrorBoundary component to catch UI-breaking errors in child components.
  * Standard class component implementation for error boundaries.
  */
+// Explicitly use React.Component with generic types to ensure props and setState are correctly inherited.
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Define state as a class property to ensure it's recognized by the compiler and shadows the base definition correctly.
+  public override state: ErrorBoundaryState = {
+    hasError: false
+  };
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    // Initialize component state properly.
-    this.state = {
-      hasError: false
-    };
   }
 
   /**
@@ -44,11 +46,11 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       return (
         <div className="p-6 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 rounded-2xl text-center">
           <div className="text-3xl mb-2">⚠️</div>
-          {/* Access props inherited from React.Component for the fallback title. */}
+          {/* Access props for the fallback title. props is inherited from React.Component. */}
           <h3 className="font-bold text-red-700 dark:text-red-400">{this.props.fallbackTitle || 'Widget Error'}</h3>
           <p className="text-xs text-red-600/70 dark:text-red-400/50 mt-1">Something went wrong in this section.</p>
           <button 
-            /* Use setState inherited from React.Component to reset the error state. */
+            /* Use setState to reset the error state. Method is inherited from React.Component. */
             onClick={() => this.setState({ hasError: false })}
             className="mt-4 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg active:scale-95 transition-transform"
           >
@@ -58,7 +60,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       );
     }
 
-    // Access props inherited from React.Component to render children.
+    // Render children if no error occurred. children is accessed from this.props inherited from React.Component.
     return this.props.children || null;
   }
 }
