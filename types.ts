@@ -137,13 +137,13 @@ export type Section = 'add-expense' | 'summaries' | 'investments' | 'overview' |
 
 export const DEFAULT_CATEGORIES = [
   "Groceries", "Rent", "Bills", "EMIs", "Shopping", "Travel", "Food", 
-  "Entertainment", "Medical", "Education", "Investments", "Others"
+  "Entertainment", "Medical", "Education", "Investments", "Income/Credits", "Others"
 ];
 
 export const DEFAULT_ICONS: Record<string, string> = {
   "Groceries": "🥦", "Rent": "🏠", "Bills": "⚡", "EMIs": "🏦",
   "Shopping": "🛍️", "Travel": "🚕", "Food": "🍔", "Entertainment": "🎬",
-  "Medical": "💊", "Education": "📚", "Investments": "📈", "Others": "📦"
+  "Medical": "💊", "Education": "📚", "Investments": "📈", "Income/Credits": "💰", "Others": "📦"
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {

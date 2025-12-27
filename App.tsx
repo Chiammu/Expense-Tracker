@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { loadFromStorage, saveToStorage, fetchCloudState, forceCloudSync, mergeAppState, logAuditEvent } from './services/storage';
+import { loadFromStorage, saveToStorage, fetchCloudState, forceCloudSync, mergeAppState, logAuditEvent, mergeState } from './services/storage';
 import { AppState, INITIAL_STATE, Section, Expense, FixedPayment } from './types';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
@@ -86,7 +86,8 @@ function App() {
       if (session?.user?.id && supabase) {
         try {
           // Fetch Cloud state FIRST as absolute source of truth upon login
-          const cloudData = await fetchCloudState(session.user.id);
+          // We pass localData.settings.syncId to check for partner records
+          const cloudData = await fetchCloudState(session.user.id, localData.settings.syncId);
           if (cloudData) {
             // Merging local into cloud, with remote as priority
             currentState = mergeAppState(localData, cloudData);
@@ -123,6 +124,48 @@ function App() {
     };
     initData();
   }, [session, isGuest, authInitialized]);
+
+  // Cloud Sync Listener (Real-time)
+  useEffect(() => {
+    if (!supabase || !session?.user?.id || !loaded) return;
+
+    // Filter by sync_id if available, otherwise fallback to own user_id
+    const filter = state.settings.syncId 
+      ? `sync_id=eq.${state.settings.syncId}` 
+      : `user_id=eq.${session.user.id}`;
+
+    const channel = supabase
+      .channel('app-state-realtime')
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'app_state',
+          filter: filter
+        },
+        (payload: any) => {
+          if (payload.new && payload.new.data) {
+            const remoteState = mergeState(payload.new.data);
+            
+            // Only update if the remote state has newer content
+            setState(current => {
+              const merged = mergeAppState(current, remoteState);
+              // Use JSON string comparison for simple check
+              if (JSON.stringify(current) === JSON.stringify(merged)) return current;
+              
+              lastUpdateWasRemote.current = true;
+              return merged;
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session, state.settings.syncId, loaded]);
 
   useEffect(() => {
     if (loaded && (session || isGuest)) {

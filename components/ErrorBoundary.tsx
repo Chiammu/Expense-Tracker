@@ -14,15 +14,14 @@ interface ErrorBoundaryState {
  * ErrorBoundary component to catch UI-breaking errors in child components.
  * Standard class component implementation for error boundaries.
  */
-// Explicitly use React.Component with generic types to ensure props and setState are correctly inherited.
+// Fix: Explicitly extend React.Component to ensure props, state, and setState are correctly inherited and recognized by the TypeScript compiler.
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Define state as a class property to ensure it's recognized by the compiler and shadows the base definition correctly.
-  public override state: ErrorBoundaryState = {
-    hasError: false
-  };
-
+  // Fix: Move state initialization to the constructor and explicitly typed. This avoids issues where class fields might not correctly shadow or merge with the base class in some configurations.
   constructor(props: ErrorBoundaryProps) {
     super(props);
+    this.state = {
+      hasError: false
+    };
   }
 
   /**
@@ -46,11 +45,11 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       return (
         <div className="p-6 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 rounded-2xl text-center">
           <div className="text-3xl mb-2">⚠️</div>
-          {/* Access props for the fallback title. props is inherited from React.Component. */}
+          {/* Access props for the fallback title. props is correctly inherited from React.Component. */}
           <h3 className="font-bold text-red-700 dark:text-red-400">{this.props.fallbackTitle || 'Widget Error'}</h3>
           <p className="text-xs text-red-600/70 dark:text-red-400/50 mt-1">Something went wrong in this section.</p>
           <button 
-            /* Use setState to reset the error state. Method is inherited from React.Component. */
+            /* Use this.setState to reset the error state. Method is correctly inherited from React.Component. */
             onClick={() => this.setState({ hasError: false })}
             className="mt-4 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg active:scale-95 transition-transform"
           >

@@ -1,5 +1,5 @@
 
-import { AppState, INITIAL_STATE, INITIAL_INVESTMENTS, Expense } from '../types';
+import { AppState, INITIAL_STATE, INITIAL_INVESTMENTS, Expense, DEFAULT_ICONS } from '../types';
 import { supabase } from './supabaseClient';
 // @ts-ignore
 import jsPDF from 'jspdf';
@@ -38,13 +38,20 @@ const triggerCloudSave = async (state: AppState) => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) return;
 
+  const payload: any = { 
+    user_id: session.user.id, 
+    data: state, 
+    updated_at: new Date().toISOString() 
+  };
+  
+  // If we have a syncId, include it so partners can find/subscribe to this record
+  if (state.settings.syncId) {
+    payload.sync_id = state.settings.syncId;
+  }
+
   const { error } = await supabase
     .from('app_state')
-    .upsert({ 
-      user_id: session.user.id, // Primary Key in DB
-      data: state, 
-      updated_at: new Date().toISOString() 
-    }, { onConflict: 'user_id' });
+    .upsert(payload, { onConflict: 'user_id' });
     
   if (error) console.error("Cloud sync failed:", error);
 };
@@ -84,18 +91,20 @@ export const loadFromStorage = (): AppState => {
 /**
  * Normalizes incoming data (from local or file) to ensure it matches current schema.
  */
-const mergeState = (parsed: any): AppState => {
+export const mergeState = (parsed: any): AppState => {
   // Normalize expenses: ensure IDs are numbers and missing fields exist
   const normalizedExpenses = (parsed.expenses || []).map((exp: any, index: number) => {
     let id = exp.id;
-    // If ID is string (common in some external formats), try to convert or use timestamp + index
+    // If ID is string (common in some external formats), try to convert
     if (typeof id === 'string') {
       const numeric = parseInt(id.replace(/\D/g, ''));
       id = isNaN(numeric) ? Date.now() + index : numeric;
+    } else if (typeof id !== 'number') {
+      id = Date.now() + index;
     }
 
     return {
-      id: id || Date.now() + index,
+      id: id,
       person: exp.person || 'Both',
       date: exp.date || new Date().toISOString().split('T')[0],
       amount: parseFloat(exp.amount) || 0,
@@ -107,6 +116,19 @@ const mergeState = (parsed: any): AppState => {
     };
   });
 
+  // Automatically detect missing categories from expenses
+  const expenseCategories = Array.from(new Set(normalizedExpenses.map((e: any) => e.category)));
+  const currentCategories = parsed.settings?.customCategories || INITIAL_STATE.settings.customCategories;
+  const mergedCategories = Array.from(new Set([...currentCategories, ...expenseCategories]));
+  
+  // Ensure we have icons for any new categories
+  const mergedIcons = { ...DEFAULT_ICONS, ...(parsed.settings?.categoryIcons || {}) };
+  expenseCategories.forEach((cat: any) => {
+    if (!mergedIcons[cat]) {
+      mergedIcons[cat] = '📦'; // Default icon for unknown categories
+    }
+  });
+
   return {
     ...INITIAL_STATE,
     ...parsed,
@@ -114,6 +136,8 @@ const mergeState = (parsed: any): AppState => {
     settings: {
       ...INITIAL_STATE.settings,
       ...(parsed.settings || {}),
+      customCategories: mergedCategories,
+      categoryIcons: mergedIcons
     },
     savingsGoals: parsed.savingsGoals || [],
     categoryBudgets: parsed.categoryBudgets || {},
@@ -192,8 +216,21 @@ export const mergeAppState = (local: AppState, remote: AppState): AppState => {
   };
 };
 
-export const fetchCloudState = async (userId: string): Promise<AppState | null> => {
+export const fetchCloudState = async (userId: string, syncId?: string | null): Promise<AppState | null> => {
   if (!supabase) return null;
+  
+  // If syncId is provided, try to find the most recently updated record with that sync ID
+  if (syncId) {
+    const { data } = await supabase
+      .from('app_state')
+      .select('data')
+      .eq('sync_id', syncId)
+      .order('updated_at', { ascending: false })
+      .limit(1);
+    
+    if (data && data.length > 0) return mergeState(data[0].data);
+  }
+
   const { data, error } = await supabase
     .from('app_state')
     .select('data')
