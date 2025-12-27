@@ -8,7 +8,7 @@ export interface Expense {
   paymentMode: string;
   note: string;
   cardId?: number; 
-  updatedAt: number; // For Last-Write-Wins conflict resolution
+  updatedAt: number;
 }
 
 export interface CreditCard {
@@ -103,8 +103,7 @@ export interface AppSettings {
   emailReportsEnabled: boolean;
   reportEmail: string;
   lastReportSentMonth: string | null;
-  privacyMode: boolean; // For blurring sensitive data in public
-  webAuthnCredentialId: string | null; // For biometric unlock
+  privacyMode: boolean;
   updatedAt: number;
 }
 
@@ -164,7 +163,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   reportEmail: '',
   lastReportSentMonth: null,
   privacyMode: false,
-  webAuthnCredentialId: null,
   updatedAt: Date.now(),
 };
 

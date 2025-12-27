@@ -14,6 +14,8 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
   const [tab, setTab] = useState<'assets' | 'liabilities' | 'cards'>('assets');
   const [fetchingRates, setFetchingRates] = useState(false);
   const [isBalancesVisible, setIsBalancesVisible] = useState(false);
+  // Store search grounding sources locally to list them on the web app as required
+  const [metalSources, setMetalSources] = useState<any[]>([]);
 
   // Form States
   const [newLoan, setNewLoan] = useState({ name: '', pending: '', emi: '', person: 'Both' });
@@ -26,6 +28,7 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
       setFetchingRates(true);
       try {
         const rates = await getLatestMetalRates();
+        if (rates.sources) setMetalSources(rates.sources);
         updateState({
           investments: {
             ...state.investments,
@@ -167,12 +170,12 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
           <div className="text-3xl font-bold tracking-tight mask-value">{formatValue(netWorth)}</div>
           <div className="flex gap-4 mt-4 text-sm">
              <div>
-               <span className="block text-gray-400 text-xs font-bold uppercase tracking-tighter">Assets</span>
+               <span className="block text-gray-400 text-[10px] font-black uppercase tracking-tighter">Total Assets</span>
                <span className="text-green-400 font-bold mask-value">{formatValue(totalAssets)}</span>
              </div>
              <div className="w-px bg-gray-700"></div>
              <div>
-               <span className="block text-gray-400 text-xs font-bold uppercase tracking-tighter">Liabilities</span>
+               <span className="block text-gray-400 text-[10px] font-black uppercase tracking-tighter">Total Debt</span>
                <span className="text-red-400 font-bold mask-value">{formatValue(totalLiabilities)}</span>
              </div>
           </div>
@@ -182,29 +185,41 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
 
       {tab === 'assets' && (
         <div className="space-y-4">
-           {/* Mutual Funds & Stocks Split */}
+           {/* Banking Section */}
            <div className="bg-surface rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
-              <h4 className="text-xs font-black uppercase text-text-light tracking-widest mb-4 flex justify-between">
-                <span>Investments</span>
-                <span className="text-primary mask-value">₹{(totalMF + totalStocks).toLocaleString()}</span>
-              </h4>
+              <h4 className="text-xs font-black uppercase text-text-light tracking-widest mb-4">Bank Balances</h4>
+              <div className="grid grid-cols-2 gap-3">
+                 <div>
+                    <label className="text-[10px] font-bold text-text-light block mb-1">{state.settings.person1Name}</label>
+                    <input type="number" className="w-full bg-background p-2.5 rounded-xl text-sm font-bold border-none" value={state.investments.bankBalance?.p1 || ''} onChange={e => updateInv('bankBalance', 'p1', e.target.value)} placeholder="0" />
+                 </div>
+                 <div>
+                    <label className="text-[10px] font-bold text-text-light block mb-1">{state.settings.person2Name}</label>
+                    <input type="number" className="w-full bg-background p-2.5 rounded-xl text-sm font-bold border-none" value={state.investments.bankBalance?.p2 || ''} onChange={e => updateInv('bankBalance', 'p2', e.target.value)} placeholder="0" />
+                 </div>
+              </div>
+           </div>
+
+           {/* Investments Section */}
+           <div className="bg-surface rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+              <h4 className="text-xs font-black uppercase text-text-light tracking-widest mb-4">Market Investments</h4>
               <div className="space-y-4">
-                {/* Stocks */}
+                {/* Direct Stocks */}
                 <div>
-                  <p className="text-[10px] font-black text-indigo-500 mb-2 uppercase">Direct Stocks</p>
+                  <p className="text-[10px] font-black text-indigo-500 mb-2 uppercase tracking-tight">Direct Stocks</p>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="number" placeholder={state.settings.person1Name} className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.stocks.p1 || ''} onChange={e => updateInv('stocks', 'p1', e.target.value)} />
-                    <input type="number" placeholder={state.settings.person2Name} className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.stocks.p2 || ''} onChange={e => updateInv('stocks', 'p2', e.target.value)} />
-                    <input type="number" placeholder="Shared" className="bg-background p-2 rounded-lg text-[11px] font-bold border border-indigo-100" value={state.investments.stocks.shared || ''} onChange={e => updateInv('stocks', 'shared', e.target.value)} />
+                    <input type="number" placeholder={state.settings.person1Name} className="bg-background p-2 rounded-lg text-[11px] font-bold border-none" value={state.investments.stocks.p1 || ''} onChange={e => updateInv('stocks', 'p1', e.target.value)} />
+                    <input type="number" placeholder={state.settings.person2Name} className="bg-background p-2 rounded-lg text-[11px] font-bold border-none" value={state.investments.stocks.p2 || ''} onChange={e => updateInv('stocks', 'p2', e.target.value)} />
+                    <input type="number" placeholder="Shared" className="bg-background p-2 rounded-lg text-[11px] font-bold border border-indigo-100 dark:border-indigo-900/30" value={state.investments.stocks.shared || ''} onChange={e => updateInv('stocks', 'shared', e.target.value)} />
                   </div>
                 </div>
                 {/* Mutual Funds */}
                 <div>
-                  <p className="text-[10px] font-black text-secondary mb-2 uppercase">Mutual Funds</p>
+                  <p className="text-[10px] font-black text-secondary mb-2 uppercase tracking-tight">Mutual Funds</p>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="number" placeholder={state.settings.person1Name} className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.mutualFunds.p1 || ''} onChange={e => updateInv('mutualFunds', 'p1', e.target.value)} />
-                    <input type="number" placeholder={state.settings.person2Name} className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.mutualFunds.p2 || ''} onChange={e => updateInv('mutualFunds', 'p2', e.target.value)} />
-                    <input type="number" placeholder="Shared" className="bg-background p-2 rounded-lg text-[11px] font-bold border border-secondary/20" value={state.investments.mutualFunds.shared || ''} onChange={e => updateInv('mutualFunds', 'shared', e.target.value)} />
+                    <input type="number" placeholder={state.settings.person1Name} className="bg-background p-2 rounded-lg text-[11px] font-bold border-none" value={state.investments.mutualFunds.p1 || ''} onChange={e => updateInv('mutualFunds', 'p1', e.target.value)} />
+                    <input type="number" placeholder={state.settings.person2Name} className="bg-background p-2 rounded-lg text-[11px] font-bold border-none" value={state.investments.mutualFunds.p2 || ''} onChange={e => updateInv('mutualFunds', 'p2', e.target.value)} />
+                    <input type="number" placeholder="Shared" className="bg-background p-2 rounded-lg text-[11px] font-bold border border-secondary/10 dark:border-secondary/20" value={state.investments.mutualFunds.shared || ''} onChange={e => updateInv('mutualFunds', 'shared', e.target.value)} />
                   </div>
                 </div>
               </div>
@@ -213,32 +228,54 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
            {/* Precious Metals */}
            <div className="bg-surface rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
               <div className="flex justify-between items-center mb-4">
-                <h4 className="text-xs font-black uppercase text-text-light tracking-widest">Precious Metals</h4>
+                <h4 className="text-xs font-black uppercase text-text-light tracking-widest">Precious Metals (Grams)</h4>
                 <div className="text-[9px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded-full">LIVE RATES</div>
               </div>
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between text-[10px] font-bold mb-1">
-                    <span className="text-yellow-600">Gold (24K/g: ₹{state.investments.goldRate})</span>
+                    <span className="text-yellow-600">Gold (24K: ₹{state.investments.goldRate}/g)</span>
                     <span className="mask-value">₹{goldVal.toLocaleString()}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="number" placeholder="P1(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.gold.p1Grams || ''} onChange={e => updateInv('gold', 'p1Grams', e.target.value)} />
-                    <input type="number" placeholder="P2(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.gold.p2Grams || ''} onChange={e => updateInv('gold', 'p2Grams', e.target.value)} />
-                    <input type="number" placeholder="Shared(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.gold.sharedGrams || ''} onChange={e => updateInv('gold', 'sharedGrams', e.target.value)} />
+                    <input type="number" placeholder="P1(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold border-none" value={state.investments.gold.p1Grams || ''} onChange={e => updateInv('gold', 'p1Grams', e.target.value)} />
+                    <input type="number" placeholder="P2(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold border-none" value={state.investments.gold.p2Grams || ''} onChange={e => updateInv('gold', 'p2Grams', e.target.value)} />
+                    <input type="number" placeholder="Shared(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold border-none" value={state.investments.gold.sharedGrams || ''} onChange={e => updateInv('gold', 'sharedGrams', e.target.value)} />
                   </div>
                 </div>
                 <div>
                   <div className="flex justify-between text-[10px] font-bold mb-1">
-                    <span className="text-gray-500">Silver (per g: ₹{state.investments.silverRate})</span>
+                    <span className="text-gray-500">Silver (₹{state.investments.silverRate}/g)</span>
                     <span className="mask-value">₹{silverVal.toLocaleString()}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="number" placeholder="P1(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.silver.p1Grams || ''} onChange={e => updateInv('silver', 'p1Grams', e.target.value)} />
-                    <input type="number" placeholder="P2(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.silver.p2Grams || ''} onChange={e => updateInv('silver', 'p2Grams', e.target.value)} />
-                    <input type="number" placeholder="Shared(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold" value={state.investments.silver.sharedGrams || ''} onChange={e => updateInv('silver', 'sharedGrams', e.target.value)} />
+                    <input type="number" placeholder="P1(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold border-none" value={state.investments.silver.p1Grams || ''} onChange={e => updateInv('silver', 'p1Grams', e.target.value)} />
+                    <input type="number" placeholder="P2(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold border-none" value={state.investments.silver.p2Grams || ''} onChange={e => updateInv('silver', 'p2Grams', e.target.value)} />
+                    <input type="number" placeholder="Shared(g)" className="bg-background p-2 rounded-lg text-[11px] font-bold border-none" value={state.investments.silver.sharedGrams || ''} onChange={e => updateInv('silver', 'sharedGrams', e.target.value)} />
                   </div>
                 </div>
+
+                {/* Listing Grounding Sources for Google Search as required by guidelines */}
+                {metalSources.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                    <p className="text-[9px] font-black text-text-light uppercase tracking-widest mb-2">Data Sources:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {metalSources.map((source, idx) => (
+                        source.web && (
+                          <a 
+                            key={idx} 
+                            href={source.web.uri} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-[9px] text-primary hover:underline bg-primary/5 px-2 py-1 rounded border border-primary/10"
+                          >
+                            {source.web.title || 'Source'}
+                          </a>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
            </div>
         </div>
@@ -246,7 +283,7 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
 
       {tab === 'liabilities' && (
         <div className="space-y-4">
-           <div className="bg-surface rounded-2xl p-5 border border-gray-100 dark:border-gray-800">
+           <div className="bg-surface rounded-2xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm">
               <h4 className="text-sm font-bold mb-4">Add Active Loan</h4>
               <div className="space-y-3">
                  <input type="text" placeholder="Loan Name (e.g. Home Loan)" className="w-full bg-background p-3 rounded-xl text-sm border-none" value={newLoan.name} onChange={e => setNewLoan({...newLoan, name: e.target.value})} />
@@ -259,18 +296,18 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
            </div>
 
            {state.loans.map(loan => (
-             <div key={loan.id} className="bg-surface rounded-2xl p-4 border border-gray-100 dark:border-gray-800 flex justify-between items-center group">
+             <div key={loan.id} className="bg-surface rounded-2xl p-4 border border-gray-100 dark:border-gray-800 flex justify-between items-center group animate-slide-up">
                 <div className="flex items-center gap-3">
-                   <div className="w-10 h-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center">🏛️</div>
+                   <div className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500 flex items-center justify-center">🏛️</div>
                    <div>
                       <div className="font-bold text-sm">{loan.name}</div>
-                      <div className="text-[10px] text-text-light uppercase tracking-widest">EMI: ₹{loan.emiAmount}/mo</div>
+                      <div className="text-[10px] text-text-light uppercase tracking-widest font-bold">EMI: ₹{loan.emiAmount}/mo</div>
                    </div>
                 </div>
                 <div className="flex items-center gap-4">
                    <div className="text-right">
                       <div className="font-bold text-red-500 text-sm mask-value">₹{loan.pendingAmount.toLocaleString()}</div>
-                      <div className="text-[10px] text-text-light">Pending</div>
+                      <div className="text-[10px] text-text-light font-bold">Pending</div>
                    </div>
                    <button onClick={() => deleteLoan(loan.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-red-500">🗑️</button>
                 </div>
@@ -281,7 +318,7 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
 
       {tab === 'cards' && (
         <div className="space-y-4">
-           <div className="bg-surface rounded-2xl p-5 border border-gray-100 dark:border-gray-800">
+           <div className="bg-surface rounded-2xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm">
               <h4 className="text-sm font-bold mb-4">Add Credit Card</h4>
               <div className="space-y-3">
                  <input type="text" placeholder="Card Name (e.g. HDFC Millenia)" className="w-full bg-background p-3 rounded-xl text-sm border-none" value={newCard.name} onChange={e => setNewCard({...newCard, name: e.target.value})} />
@@ -294,24 +331,23 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
            </div>
 
            {state.creditCards.map(card => (
-             <div key={card.id} className="bg-surface rounded-2xl p-4 border border-gray-100 dark:border-gray-800 flex justify-between items-center group relative overflow-hidden">
+             <div key={card.id} className="bg-surface rounded-2xl p-4 border border-gray-100 dark:border-gray-800 flex justify-between items-center group relative overflow-hidden animate-slide-up">
                 <div className="flex items-center gap-3">
-                   <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center">💳</div>
+                   <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 flex items-center justify-center">💳</div>
                    <div>
                       <div className="font-bold text-sm">{card.name}</div>
-                      <div className="text-[10px] text-text-light uppercase tracking-widest">Bill on {card.billingDay}th</div>
+                      <div className="text-[10px] text-text-light uppercase tracking-widest font-bold">Bill on {card.billingDay}th</div>
                    </div>
                 </div>
                 <div className="flex items-center gap-4">
                    <div className="text-right">
                       <div className="font-black text-indigo-600 text-sm mask-value">₹{card.currentBalance.toLocaleString()}</div>
-                      <div className="text-[9px] font-black text-red-400 uppercase">Bill in {getDaysUntilBilling(card.billingDay)} days</div>
+                      <div className="text-[9px] font-black text-red-400 uppercase">Next bill in {getDaysUntilBilling(card.billingDay)} days</div>
                    </div>
                    <button onClick={() => deleteCard(card.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-red-500">🗑️</button>
                 </div>
-                {/* Visual Progress toward limit */}
-                <div className="absolute bottom-0 left-0 h-0.5 bg-indigo-100 w-full">
-                  <div className="bg-indigo-500 h-full" style={{ width: `${Math.min((card.currentBalance / card.limit) * 100, 100)}%` }}></div>
+                <div className="absolute bottom-0 left-0 h-1 bg-indigo-100 dark:bg-indigo-900/20 w-full">
+                  <div className="bg-indigo-500 h-full transition-all duration-1000" style={{ width: `${Math.min((card.currentBalance / card.limit) * 100, 100)}%` }}></div>
                 </div>
              </div>
            ))}

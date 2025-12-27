@@ -4,7 +4,6 @@ import { AppState, AppSettings } from '../types';
 import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent } from '../services/storage';
 import { authService } from '../services/auth';
 import { generateMonthlyDigest } from '../services/geminiService';
-import { webAuthnService } from '../services/webAuthn';
 import { ScannerModal } from './ScannerModal';
 // @ts-ignore
 import QRCode from 'qrcode';
@@ -15,10 +14,6 @@ interface SettingsProps {
   resetData: () => void;
   deleteAccount: () => void;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
-  installApp: () => void;
-  canInstall: boolean;
-  isIos: boolean;
-  isStandalone: boolean;
 }
 
 const haptic = (pattern: number | number[] = 10) => {
@@ -27,14 +22,11 @@ const haptic = (pattern: number | number[] = 10) => {
   }
 };
 
-export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, resetData, deleteAccount, showToast }) => {
+export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, deleteAccount, showToast }) => {
   const [pinInput, setPinInput] = useState('');
   const [qrUrl, setQrUrl] = useState('');
   const [generatingReport, setGeneratingReport] = useState(false);
-  const [biometricSupported, setBiometricSupported] = useState(false);
-  const [registering, setRegistering] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
-  const [manualSyncId, setManualSyncId] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   
   useEffect(() => {
@@ -42,8 +34,6 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
     QRCode.toDataURL(idToShare)
       .then((url: string) => setQrUrl(url))
       .catch((err: any) => console.error("QR Gen Error:", err));
-
-    webAuthnService.isSupported().then(setBiometricSupported);
 
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
@@ -58,22 +48,6 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === 'accepted') setDeferredPrompt(null);
-  };
-
-  const handleRegisterBiometrics = async () => {
-    setRegistering(true);
-    try {
-      const result = await webAuthnService.registerBiometrics(state.settings.person1Name);
-      updateSettings({ webAuthnCredentialId: result.credentialId });
-      logAuditEvent('BIOMETRICS_REGISTERED');
-      showToast("Biometrics registered successfully!", "success");
-      haptic([10, 5, 10]);
-    } catch (err: any) {
-      console.error(err);
-      showToast("Biometric registration failed", "error");
-    } finally {
-      setRegistering(false);
-    }
   };
 
   const handleSyncScan = (data: string) => {
@@ -132,7 +106,6 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
       
       {showScanner && <ScannerModal onScan={handleSyncScan} onClose={() => setShowScanner(false)} />}
 
-      {/* PWA INSTALL PROMOTION */}
       {deferredPrompt && (
         <section className="bg-gradient-to-r from-primary/10 to-secondary/10 rounded-3xl p-6 border border-primary/20 animate-slide-up">
            <div className="flex items-center gap-4">
@@ -146,7 +119,6 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
         </section>
       )}
 
-      {/* IDENTITY SECTION */}
       <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
          <SectionHeader icon="👤" title="Identity & Profile" />
          <div className="grid grid-cols-2 gap-4">
@@ -155,7 +127,6 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
          </div>
       </section>
 
-      {/* SYNC CENTER */}
       <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
          <SectionHeader icon="👫" title="Couple Sync" />
          <div className="space-y-6">
@@ -184,9 +155,8 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
          </div>
       </section>
 
-      {/* SECURITY & BIOMETRICS */}
       <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
-         <SectionHeader icon="🛡️" title="Security & Biometrics" />
+         <SectionHeader icon="🛡️" title="Security" />
          <div className="space-y-4">
             <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl">
                <div className="flex flex-col">
@@ -202,30 +172,9 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
                   </div>
                )}
             </div>
-
-            {biometricSupported && (
-               <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-bold">Biometric Unlock</span>
-                    <span className="text-[10px] text-text-light">{state.settings.webAuthnCredentialId ? 'Registered' : 'FaceID/Fingerprint'}</span>
-                  </div>
-                  {state.settings.webAuthnCredentialId ? (
-                    <button onClick={() => updateSettings({ webAuthnCredentialId: null })} className="text-xs bg-red-100 text-red-600 px-3 py-1.5 rounded-lg font-bold">Disable</button>
-                  ) : (
-                    <button 
-                      onClick={handleRegisterBiometrics}
-                      disabled={registering}
-                      className="text-xs bg-primary text-white px-3 py-1.5 rounded-lg font-bold disabled:opacity-50"
-                    >
-                      {registering ? '...' : 'Register'}
-                    </button>
-                  )}
-               </div>
-            )}
          </div>
       </section>
 
-      {/* REPORTS SECTION */}
       <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
          <SectionHeader icon="📩" title="Reports & Data" />
          <div className="space-y-4">
@@ -236,11 +185,10 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
          </div>
       </section>
 
-      {/* ACCOUNT ACTIONS */}
       <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
          <SectionHeader icon="🚪" title="Account Actions" />
          <div className="space-y-3">
-            <button onClick={handleSignOut} className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-2xl">Sign Out</button>
+            <button onClick={handleSignOut} className="w-full py-3 bg-gray-100 dark:bg-gray-900/50 text-text font-bold rounded-2xl">Sign Out</button>
             <button onClick={deleteAccount} className="w-full py-3 bg-red-50 dark:bg-red-900/10 text-red-600 font-bold rounded-2xl border border-red-100 dark:border-red-900/20 active:bg-red-200 transition-colors">
               Delete My Account
             </button>
@@ -248,7 +196,7 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
       </section>
 
       <div className="text-center text-[10px] text-gray-300 pt-4 pb-8">
-         v1.6.2 • E2EE Chat • Biometric Pro • PWA Standalone
+         v1.6.5 • E2EE Chat • PIN Security • PWA Standalone
       </div>
     </div>
   );

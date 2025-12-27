@@ -3,13 +3,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval' data: blob:; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https: wss:;">
     <title>Couple Expense Tracker</title>
     
     <!-- PWA Settings -->
     <link rel="manifest" href="./manifest.json" />
     <meta name="theme-color" content="#e91e63" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Expenses" />
@@ -77,19 +78,19 @@
         --background: #f8f9fa;
         --text: #212121;
         --text-light: #757575;
-        --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        --font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       }
       
       .dark {
         --surface: #1e1e1e;
-        --background: #121212;
+        --background: #000000;
         --text: #e0e0e0;
-        --text-light: #b0b0b0;
+        --text-light: #909090;
       }
 
       /* Privacy Mode blurring */
       .privacy-active .mask-value {
-        filter: blur(8px);
+        filter: blur(10px);
         user-select: none;
         pointer-events: none;
         transition: filter 0.3s ease;
@@ -97,38 +98,32 @@
 
       /* Premium Scrollbar */
       ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
+        width: 4px;
+        height: 4px;
       }
       ::-webkit-scrollbar-track {
         background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: var(--text-light);
+        background: rgba(0,0,0,0.1);
         border-radius: 10px;
-        opacity: 0.3;
       }
-      ::-webkit-scrollbar-thumb:hover {
-        background: var(--primary);
+      .dark ::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.1);
       }
       
       body {
         background-color: var(--background);
         color: var(--text);
         font-family: var(--font-family);
-        transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s;
+        transition: background-color 0.4s, color 0.4s;
         -webkit-tap-highlight-color: transparent;
-        /* Modern Gradient Background for Light Theme */
-        background-image: 
-          radial-gradient(at 0% 0%, rgba(233, 30, 99, 0.08) 0px, transparent 50%),
-          radial-gradient(at 100% 0%, rgba(33, 150, 243, 0.08) 0px, transparent 50%),
-          radial-gradient(at 100% 100%, rgba(255, 111, 0, 0.05) 0px, transparent 50%),
-          radial-gradient(at 0% 100%, rgba(255, 255, 255, 0) 0px, transparent 50%);
-        background-attachment: fixed;
+        overscroll-behavior-y: contain;
       }
       
-      .dark body {
-        background-image: none;
+      .standalone-mode {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
       }
 
       input:focus, select:focus, textarea:focus {

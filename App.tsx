@@ -21,7 +21,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 
 function App() {
   const [session, setSession] = useState<any>(null);
-  const [isGuest, setIsGuest] = useState(false);
+  const [isGuest, setIsGuest] = useState(() => localStorage.getItem('guestMode') === 'true');
   const [authInitialized, setAuthInitialized] = useState(false);
   const [activeSection, setActiveSection] = useState<Section>('add-expense');
   const [state, setState] = useState<AppState>(INITIAL_STATE);
@@ -33,6 +33,7 @@ function App() {
   const [showRecurringModal, setShowRecurringModal] = useState(false);
   const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
   
   const lastUpdateWasRemote = useRef(false);
 
@@ -41,30 +42,35 @@ function App() {
   };
 
   useEffect(() => {
-    const checkSession = async () => {
-      if (!supabase) { setAuthInitialized(true); return; }
-      const { data: { session: existingSession } } = await supabase.auth.getSession();
-      if (existingSession) setSession(existingSession);
+    setIsStandalone(window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
+
+    const initAuth = async () => {
+      if (!supabase) {
+        setAuthInitialized(true);
+        return;
+      }
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      setSession(currentSession);
       setAuthInitialized(true);
     };
-    checkSession();
+    initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+      setSession(newSession);
       if (event === 'SIGNED_OUT') {
-        localStorage.removeItem('deviceUserIdentity');
+        localStorage.removeItem('guestMode');
+        setIsGuest(false);
         setState(INITIAL_STATE);
         setLoaded(false);
       }
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if ((!session && !isGuest) || !authInitialized) return;
+    if (!authInitialized || (!session && !isGuest)) return;
 
-    const init = async () => {
+    const initData = async () => {
       const localData = loadFromStorage();
       let currentState = localData;
       
@@ -84,10 +90,13 @@ function App() {
 
       setState(currentState);
       setLoaded(true);
-      if (currentState.settings.pin || currentState.settings.webAuthnCredentialId) setIsLocked(true);
+      
+      if (currentState.settings.pin) {
+        setIsLocked(true);
+      }
 
       if (currentState.fixedPayments.length > 0) {
-        const lastCheck = currentState.settings.lastFixedPaymentCheck ? new Date(currentState.settings.lastFixedPaymentCheck) : new Date();
+        const lastCheck = currentState.settings.lastFixedPaymentCheck ? new Date(currentState.settings.lastFixedPaymentCheck) : new Date(0);
         const now = new Date();
         if (now.getMonth() !== lastCheck.getMonth() || now.getFullYear() !== lastCheck.getFullYear()) {
            setDuePayments(currentState.fixedPayments.filter(p => p.day <= now.getDate()));
@@ -95,7 +104,7 @@ function App() {
         }
       }
     };
-    init();
+    initData();
   }, [session, isGuest, authInitialized]);
 
   useEffect(() => {
@@ -163,10 +172,9 @@ function App() {
   };
 
   const deleteAccount = async () => {
-    if (!window.confirm("CRITICAL: This will permanently delete your cloud data. Proceed?")) return;
+    if (!window.confirm("Permanently delete cloud data?")) return;
     try {
       if (session?.user?.id && supabase) {
-        logAuditEvent('ACCOUNT_DELETION_REQUESTED');
         await supabase.from('app_state').delete().eq('user_id', session.user.id);
         await supabase.auth.signOut();
       }
@@ -177,35 +185,43 @@ function App() {
     }
   };
 
+  const handleGuestLogin = () => {
+    localStorage.setItem('guestMode', 'true');
+    setIsGuest(true);
+  };
+
+  if (!authInitialized) return <SkeletonLoader />;
+
   return (
     <>
-      {isLocked && (state.settings.pin || state.settings.webAuthnCredentialId) && (
+      {isLocked && state.settings.pin && (
         <LockScreen 
           pin={state.settings.pin} 
-          webAuthnId={state.settings.webAuthnCredentialId} 
           onUnlock={() => setIsLocked(false)} 
         />
       )}
-      {showRecurringModal && <RecurringModal payments={duePayments} onConfirm={() => setShowRecurringModal(false)} onCancel={() => setShowRecurringModal(false)} />}
+      {showRecurringModal && <RecurringModal payments={duePayments} onConfirm={() => {
+        setShowRecurringModal(false);
+        updateSettings({ lastFixedPaymentCheck: new Date().toISOString() });
+      }} onCancel={() => setShowRecurringModal(false)} />}
+      
       {showChat && <ChatAssistant state={state} addExpense={addExpense} onClose={() => setShowChat(false)} />}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      {!authInitialized ? (
-        <SkeletonLoader />
-      ) : !session && !isGuest ? (
-        <Auth onAuthSuccess={() => {}} onGuestLogin={() => setIsGuest(true)} showToast={showToast} />
+      {!session && !isGuest ? (
+        <Auth onAuthSuccess={() => {}} onGuestLogin={handleGuestLogin} showToast={showToast} />
       ) : (
-        <div className={`min-h-screen bg-background text-text ${state.settings.privacyMode ? 'privacy-active' : ''}`}>
+        <div className={`min-h-screen bg-background text-text ${state.settings.privacyMode ? 'privacy-active' : ''} ${isStandalone ? 'standalone-mode' : ''}`}>
           <div className="max-w-3xl mx-auto px-2 pt-4">
             <Header settings={state.settings} onTogglePrivacy={togglePrivacy} />
-            <main className="relative pb-24">
+            <main className="relative pb-28">
               <ErrorBoundary fallbackTitle="Section Error">
                 {activeSection === 'add-expense' && <AddExpense state={state} addExpense={addExpense} updateExpense={updateExpense} expenseToEdit={expenseToEdit} cancelEdit={() => setExpenseToEdit(null)} switchTab={setActiveSection} showToast={showToast} />}
                 {activeSection === 'summaries' && <Summaries state={state} deleteExpense={deleteExpense} editExpense={exp => { setExpenseToEdit(exp); setActiveSection('add-expense'); }} />}
                 {activeSection === 'investments' && <Investments state={state} updateState={updates => setState(prev => ({ ...prev, ...updates }))} showToast={showToast} />}
                 {activeSection === 'overview' && <Overview state={state} updateBudget={b => setState(p => ({...p, monthlyBudget: b}))} updateIncome={(p1, p2) => setState(p => ({...p, incomePerson1: p1, incomePerson2: p2}))} addFixedPayment={(n, a, d) => setState(p => ({...p, fixedPayments: [...p.fixedPayments, {id: Date.now(), name: n, amount: a, day: d, updatedAt: Date.now()}]}))} removeFixedPayment={id => setState(p => ({...p, fixedPayments: p.fixedPayments.filter(fp => fp.id !== id)}))} updateState={updates => setState(prev => ({ ...prev, ...updates }))} />}
                 {activeSection === 'chat' && <PartnerChat state={state} />}
-                {activeSection === 'settings' && <Settings state={state} updateSettings={updateSettings} resetData={() => {localStorage.clear(); window.location.reload();}} deleteAccount={deleteAccount} showToast={showToast} installApp={() => {}} canInstall={false} isIos={false} isStandalone={false} />}
+                {activeSection === 'settings' && <Settings state={state} updateSettings={updateSettings} resetData={() => {localStorage.clear(); window.location.reload();}} deleteAccount={deleteAccount} showToast={showToast} />}
               </ErrorBoundary>
             </main>
             <BottomNav activeSection={activeSection} setSection={setActiveSection} />

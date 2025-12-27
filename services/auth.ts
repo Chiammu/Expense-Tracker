@@ -31,7 +31,7 @@ export const authService = {
   resetPassword: async (email: string) => {
     if (!supabase) throw new Error("Supabase not configured");
     return await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${window.location.origin}`,
     });
   },
 

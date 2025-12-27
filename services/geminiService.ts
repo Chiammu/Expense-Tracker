@@ -48,10 +48,11 @@ export const chatWithFinances = async (history: any[], userMessage: string, stat
       }
     });
 
-    const toolCall = response.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall);
+    // Use response.functionCalls as recommended by standard
+    const toolCall = response.functionCalls?.[0];
     return { 
       text: response.text || (toolCall ? "Processing your request..." : "I didn't catch that."),
-      toolCall: toolCall?.functionCall
+      toolCall: toolCall
     };
   } catch (error: any) { 
     return { text: handleGeminiError(error) }; 
@@ -72,7 +73,7 @@ export const getDeepFinancialStrategy = async (state: AppState): Promise<string>
       model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
-        thinkingConfig: { thinkingBudget: 32768 } // Max budget for deep reasoning
+        thinkingConfig: { thinkingBudget: 32768 } // Max budget for gemini-3-pro-preview reasoning
       }
     });
 
@@ -196,7 +197,7 @@ export const roastSpending = async (state: AppState): Promise<string> => {
   }
 };
 
-export const getLatestMetalRates = async (): Promise<{gold: number, silver: number, source?: string}> => {
+export const getLatestMetalRates = async (): Promise<{gold: number, silver: number, source?: string, sources?: any[]}> => {
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
@@ -206,12 +207,19 @@ export const getLatestMetalRates = async (): Promise<{gold: number, silver: numb
     });
     
     const text = response.text || "";
+    // Extract grounding sources as required by guidelines for googleSearch tool
+    const groundingSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     try {
       const start = text.indexOf('{');
       const end = text.lastIndexOf('}') + 1;
       const data = JSON.parse(text.slice(start, end));
-      return { gold: Number(data.gold) || 7200, silver: Number(data.silver) || 90, source: 'Live' };
-    } catch (e) { return { gold: 7300, silver: 92, source: 'Fallback' }; }
+      return { 
+        gold: Number(data.gold) || 7200, 
+        silver: Number(data.silver) || 90, 
+        source: 'Live',
+        sources: groundingSources
+      };
+    } catch (e) { return { gold: 7300, silver: 92, source: 'Fallback', sources: groundingSources }; }
   } catch (error) { return { gold: 7300, silver: 92, source: 'Offline' }; }
 };
 
