@@ -48,12 +48,13 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
       } else if (mode === 'signup') {
         const { error } = await authService.signUp(email, password);
         if (error) throw error;
-        showToast("Account created! Please check your email inbox (and spam) to confirm your email address before logging in.", "info");
+        // Simplified messaging to not cause alarm if they don't have mail service setup locally
+        showToast("Success! If email verification is enabled, check your inbox.", "success");
         setMode('login');
       } else if (mode === 'forgot') {
         const { error } = await authService.resetPassword(email);
         if (error) throw error;
-        showToast("Password reset link sent!", "success");
+        showToast("Reset link sent!", "success");
         setMode('login');
       }
     } catch (err: any) {
@@ -80,8 +81,8 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
         <div className="text-center animate-fade-in">
           <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-6"></div>
-          <h2 className="text-xl font-bold text-text mb-2">Finalizing Secure Session...</h2>
-          <p className="text-text-light text-sm">Please wait while we sync your data.</p>
+          <h2 className="text-xl font-bold text-text mb-2">Syncing Session...</h2>
+          <p className="text-text-light text-sm">Finishing your secure login.</p>
         </div>
       </div>
     );
@@ -94,19 +95,19 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
           <div className="text-5xl mb-4">🏠</div>
           <h1 className="text-2xl font-black text-primary transition-all">
             {mode === 'login' && 'Welcome Back'}
-            {mode === 'signup' && 'Create Workspace'}
+            {mode === 'signup' && 'Join the App'}
             {mode === 'forgot' && 'Reset Password'}
           </h1>
           <p className="text-text-light text-sm mt-2 leading-relaxed">
-            {mode === 'login' && 'Collaborative finance management for your household.'}
-            {mode === 'signup' && 'Secure your shared financial data in minutes.'}
-            {mode === 'forgot' && 'We\'ll send a reset link to your email.'}
+            {mode === 'login' && 'Collaborative finance management.'}
+            {mode === 'signup' && 'Secure your shared data in seconds.'}
+            {mode === 'forgot' && 'Enter email to receive reset link.'}
           </p>
         </div>
 
         <form onSubmit={handleEmailAuth} className="space-y-4 animate-fade-in">
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-black text-text-light ml-1 tracking-widest">Email Address</label>
+            <label className="text-[10px] uppercase font-black text-text-light ml-1 tracking-widest">Email</label>
             <input 
               type="email" 
               required 
@@ -160,13 +161,13 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
             disabled={loading}
             className="w-full py-4 bg-primary text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 active:scale-[0.98] transition-all disabled:opacity-50"
           >
-            {loading ? 'Processing...' : (mode === 'login' ? 'Sign In' : (mode === 'signup' ? 'Create Account' : 'Send Link'))}
+            {loading ? 'Processing...' : (mode === 'login' ? 'Sign In' : (mode === 'signup' ? 'Sign Up' : 'Reset'))}
           </button>
         </form>
 
         <div className="relative my-8">
           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100 dark:border-gray-800"></div></div>
-          <div className="relative flex justify-center text-[10px] uppercase font-black"><span className="bg-surface px-4 text-text-light/50 tracking-widest">Social Connect</span></div>
+          <div className="relative flex justify-center text-[10px] uppercase font-black"><span className="bg-surface px-4 text-text-light/50 tracking-widest">Social</span></div>
         </div>
 
         <div className="space-y-3">
@@ -174,7 +175,7 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
             type="button"
             onClick={handleGoogleAuth}
             disabled={loading}
-            className="w-full py-3.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-text font-bold rounded-xl shadow-sm hover:bg-gray-50 dark:hover:bg-gray-900 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+            className="w-full py-3.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-text font-bold rounded-xl shadow-sm hover:bg-gray-50 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -182,7 +183,7 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
             </svg>
-            Continue with Google
+            Google
           </button>
 
           <button 
@@ -191,20 +192,20 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
             disabled={loading}
             className="w-full py-3.5 bg-gradient-to-r from-secondary to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-secondary/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
           >
-            Explore as Guest
+            Guest Mode
           </button>
         </div>
 
         <div className="mt-10 text-center border-t border-gray-50 dark:border-gray-900 pt-6">
           <p className="text-sm text-text-light font-medium">
-            {mode === 'login' ? "New around here?" : "Already joined us?"}
+            {mode === 'login' ? "Need an account?" : "Have one already?"}
             <button 
               type="button"
               disabled={loading}
               onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
               className="ml-2 text-primary font-black hover:underline"
             >
-              {mode === 'login' ? 'Sign Up' : 'Sign In'}
+              {mode === 'login' ? 'Join' : 'Login'}
             </button>
           </p>
         </div>

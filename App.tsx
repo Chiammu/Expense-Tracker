@@ -49,22 +49,28 @@ function App() {
         setAuthInitialized(true);
         return;
       }
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      setSession(currentSession);
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        setSession(currentSession);
+      } catch (e) {
+        console.error("Auth session error:", e);
+      }
       setAuthInitialized(true);
     };
     initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
-      setSession(newSession);
-      if (event === 'SIGNED_OUT') {
-        localStorage.removeItem('guestMode');
-        setIsGuest(false);
-        setState(INITIAL_STATE);
-        setLoaded(false);
-      }
-    });
-    return () => subscription.unsubscribe();
+    if (supabase) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+        setSession(newSession);
+        if (event === 'SIGNED_OUT') {
+          localStorage.removeItem('guestMode');
+          setIsGuest(false);
+          setState(INITIAL_STATE);
+          setLoaded(false);
+        }
+      });
+      return () => subscription.unsubscribe();
+    }
   }, []);
 
   useEffect(() => {
@@ -74,7 +80,7 @@ function App() {
       const localData = loadFromStorage();
       let currentState = localData;
       
-      if (session?.user?.id) {
+      if (session?.user?.id && supabase) {
         try {
           const cloudData = await fetchCloudState(session.user.id);
           if (cloudData) {
