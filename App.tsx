@@ -74,10 +74,16 @@ function App() {
 
       if (session?.user?.id) {
         try {
+          console.log("Fetching cloud state for user:", session.user.id);
           const cloudData = await fetchCloudState(session.user.id);
           if (cloudData) {
+            console.log("Cloud data found, syncing...");
+            // Merge cloud data into local data. 'cloudData' acts as the incoming source of truth.
             currentState = mergeAppState(localData, cloudData);
+            // Save the merged state back to local storage immediately to ensure consistency
+            saveToStorage(currentState, 'local');
           } else {
+            console.log("No cloud data found, uploading local state...");
             forceCloudSync(localData);
           }
         } catch (e) {
