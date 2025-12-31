@@ -9,14 +9,19 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "recharts": "^2.10.3",
+    "@supabase/supabase-js": "^2.39.0",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.23.26",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.1",
-    "@supabase/supabase-js": "^2.39.0",
+    "jsqr": "^1.4.0",
     "qrcode": "^1.5.3",
-    "jsqr": "^1.4.0"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^7.11.0",
+    "recharts": "^2.10.3",
+    "tailwind-merge": "^3.4.0",
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
