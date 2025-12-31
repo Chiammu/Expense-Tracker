@@ -10,8 +10,6 @@ import { Overview } from './components/Overview';
 import { Investments } from './components/Investments';
 import { Settings } from './components/Settings';
 import { LockScreen } from './components/LockScreen';
-import { ChatAssistant } from './components/ChatAssistant';
-import { PartnerChat } from './components/PartnerChat';
 import { Toast } from './components/Toast';
 import { RecurringModal } from './components/RecurringModal';
 import { Auth } from './components/Auth';
@@ -27,13 +25,12 @@ function App() {
   const [state, setState] = useState<AppState>(INITIAL_STATE);
   const [loaded, setLoaded] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
-  const [showChat, setShowChat] = useState(false);
-  
+
   const [duePayments, setDuePayments] = useState<FixedPayment[]>([]);
   const [showRecurringModal, setShowRecurringModal] = useState(false);
   const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
-  const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
-  
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
+
   const lastUpdateWasRemote = useRef(false);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -67,7 +64,7 @@ function App() {
     const init = async () => {
       const localData = loadFromStorage();
       let currentState = localData;
-      
+
       if (session?.user?.id) {
         try {
           const cloudData = await fetchCloudState(session.user.id);
@@ -90,8 +87,8 @@ function App() {
         const lastCheck = currentState.settings.lastFixedPaymentCheck ? new Date(currentState.settings.lastFixedPaymentCheck) : new Date();
         const now = new Date();
         if (now.getMonth() !== lastCheck.getMonth() || now.getFullYear() !== lastCheck.getFullYear()) {
-           setDuePayments(currentState.fixedPayments.filter(p => p.day <= now.getDate()));
-           setShowRecurringModal(true);
+          setDuePayments(currentState.fixedPayments.filter(p => p.day <= now.getDate()));
+          setShowRecurringModal(true);
         }
       }
     };
@@ -109,13 +106,13 @@ function App() {
   const addExpense = (expense: Omit<Expense, 'id' | 'updatedAt'>) => {
     const newExpense: Expense = { ...expense, id: Date.now(), updatedAt: Date.now() };
     setState(prev => {
-        let updatedCards = prev.creditCards;
-        if (newExpense.paymentMode === 'Card' && newExpense.cardId) {
-          updatedCards = prev.creditCards.map(c => c.id === newExpense.cardId ? { ...c, currentBalance: c.currentBalance + newExpense.amount, updatedAt: Date.now() } : c);
-        }
-        const next = { ...prev, expenses: [...prev.expenses, newExpense], creditCards: updatedCards };
-        if (!isGuest && session) forceCloudSync(next);
-        return next;
+      let updatedCards = prev.creditCards;
+      if (newExpense.paymentMode === 'Card' && newExpense.cardId) {
+        updatedCards = prev.creditCards.map(c => c.id === newExpense.cardId ? { ...c, currentBalance: c.currentBalance + newExpense.amount, updatedAt: Date.now() } : c);
+      }
+      const next = { ...prev, expenses: [...prev.expenses, newExpense], creditCards: updatedCards };
+      if (!isGuest && session) forceCloudSync(next);
+      return next;
     });
     logAuditEvent('EXPENSE_ADDED', { amount: expense.amount, category: expense.category });
     showToast("Expense added", 'success');
@@ -131,16 +128,16 @@ function App() {
     logAuditEvent('EXPENSE_UPDATED', { id: updatedExpense.id });
     setExpenseToEdit(null);
     showToast("Updated", 'success');
-    setActiveSection('summaries'); 
+    setActiveSection('summaries');
   };
 
   const deleteExpense = (id: number) => {
     const exp = state.expenses.find(e => e.id === id);
     if (window.confirm("Delete this?")) {
       setState(prev => {
-          const next = { ...prev, expenses: prev.expenses.filter(e => e.id !== id) };
-          if (!isGuest && session) forceCloudSync(next);
-          return next;
+        const next = { ...prev, expenses: prev.expenses.filter(e => e.id !== id) };
+        if (!isGuest && session) forceCloudSync(next);
+        return next;
       });
       logAuditEvent('EXPENSE_DELETED', { id, amount: exp?.amount });
     }
@@ -180,20 +177,19 @@ function App() {
   return (
     <>
       {isLocked && (state.settings.pin || state.settings.webAuthnCredentialId) && (
-        <LockScreen 
-          pin={state.settings.pin} 
-          webAuthnId={state.settings.webAuthnCredentialId} 
-          onUnlock={() => setIsLocked(false)} 
+        <LockScreen
+          pin={state.settings.pin}
+          webAuthnId={state.settings.webAuthnCredentialId}
+          onUnlock={() => setIsLocked(false)}
         />
       )}
       {showRecurringModal && <RecurringModal payments={duePayments} onConfirm={() => setShowRecurringModal(false)} onCancel={() => setShowRecurringModal(false)} />}
-      {showChat && <ChatAssistant state={state} addExpense={addExpense} onClose={() => setShowChat(false)} />}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {!authInitialized ? (
         <SkeletonLoader />
       ) : !session && !isGuest ? (
-        <Auth onAuthSuccess={() => {}} onGuestLogin={() => setIsGuest(true)} showToast={showToast} />
+        <Auth onAuthSuccess={() => { }} onGuestLogin={() => setIsGuest(true)} showToast={showToast} />
       ) : (
         <div className={`min-h-screen bg-background text-text ${state.settings.privacyMode ? 'privacy-active' : ''}`}>
           <div className="max-w-3xl mx-auto px-2 pt-4">
@@ -203,13 +199,11 @@ function App() {
                 {activeSection === 'add-expense' && <AddExpense state={state} addExpense={addExpense} updateExpense={updateExpense} expenseToEdit={expenseToEdit} cancelEdit={() => setExpenseToEdit(null)} switchTab={setActiveSection} showToast={showToast} />}
                 {activeSection === 'summaries' && <Summaries state={state} deleteExpense={deleteExpense} editExpense={exp => { setExpenseToEdit(exp); setActiveSection('add-expense'); }} />}
                 {activeSection === 'investments' && <Investments state={state} updateState={updates => setState(prev => ({ ...prev, ...updates }))} showToast={showToast} />}
-                {activeSection === 'overview' && <Overview state={state} updateBudget={b => setState(p => ({...p, monthlyBudget: b}))} updateIncome={(p1, p2) => setState(p => ({...p, incomePerson1: p1, incomePerson2: p2}))} addFixedPayment={(n, a, d) => setState(p => ({...p, fixedPayments: [...p.fixedPayments, {id: Date.now(), name: n, amount: a, day: d, updatedAt: Date.now()}]}))} removeFixedPayment={id => setState(p => ({...p, fixedPayments: p.fixedPayments.filter(fp => fp.id !== id)}))} updateState={updates => setState(prev => ({ ...prev, ...updates }))} />}
-                {activeSection === 'chat' && <PartnerChat state={state} />}
-                {activeSection === 'settings' && <Settings state={state} updateSettings={updateSettings} resetData={() => {localStorage.clear(); window.location.reload();}} deleteAccount={deleteAccount} showToast={showToast} installApp={() => {}} canInstall={false} isIos={false} isStandalone={false} />}
+                {activeSection === 'overview' && <Overview state={state} updateBudget={b => setState(p => ({ ...p, monthlyBudget: b }))} updateIncome={(p1, p2) => setState(p => ({ ...p, incomePerson1: p1, incomePerson2: p2 }))} addFixedPayment={(n, a, d) => setState(p => ({ ...p, fixedPayments: [...p.fixedPayments, { id: Date.now(), name: n, amount: a, day: d, updatedAt: Date.now() }] }))} removeFixedPayment={id => setState(p => ({ ...p, fixedPayments: p.fixedPayments.filter(fp => fp.id !== id) }))} updateState={updates => setState(prev => ({ ...prev, ...updates }))} />}
+                {activeSection === 'settings' && <Settings state={state} updateSettings={updateSettings} resetData={() => { localStorage.clear(); window.location.reload(); }} deleteAccount={deleteAccount} showToast={showToast} installApp={() => { }} canInstall={false} isIos={false} isStandalone={false} />}
               </ErrorBoundary>
             </main>
             <BottomNav activeSection={activeSection} setSection={setActiveSection} />
-            <button onClick={() => setShowChat(true)} className="fixed bottom-24 right-4 w-12 h-12 bg-gradient-to-tr from-primary to-purple-600 text-white rounded-full shadow-lg flex items-center justify-center text-xl z-40 hover:scale-110 active:scale-90 transition-transform">🤖</button>
           </div>
         </div>
       )}

@@ -15,15 +15,5 @@ export default defineConfig({
         }
       }
     }
-  },
-  define: {
-    // API Keys configuration
-    'process.env.API_KEY': JSON.stringify(process.env.GEMINI_API_KEY || process.env.VITE_API_KEY || ""),
-    'process.env.SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || ""),
-    'process.env.SUPABASE_ANON_KEY': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || ""),
-    
-    // Mock global process for library compatibility
-    'process.version': JSON.stringify('1.0.0'),
-    'process.platform': JSON.stringify('browser')
   }
 });
