@@ -172,7 +172,7 @@ function App() {
                     updateExpense={store.updateExpense}
                     expenseToEdit={store.expenseToEdit}
                     cancelEdit={() => store.setExpenseToEdit(null)}
-                    switchTab={(tab) => navigate(`/ ${tab} `)}
+                    switchTab={(tab) => navigate(`/${tab}`)}
                     showToast={showToast}
                   />
                 } />
@@ -222,7 +222,7 @@ function App() {
 
           <BottomNav
             activeSection={store.activeSection}
-            setSection={(s) => navigate(`/ ${s} `)}
+            setSection={(s) => navigate(`/${s}`)}
           />
         </div>
       </div>
