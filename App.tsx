@@ -1,4 +1,3 @@
-```javascript
 import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from './store/useStore';
@@ -22,13 +21,13 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const store = useAppStore();
-  
+
   // Local state for UI that doesn't need to be global/persisted
   const [session, setSession] = React.useState<any>(null);
   const [authInitialized, setAuthInitialized] = React.useState(false);
   const [loaded, setLoaded] = React.useState(false);
   const [isLocked, setIsLocked] = React.useState(false);
-  const [toast, setToast] = React.useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
+  const [toast, setToast] = React.useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
   const [showRecurringModal, setShowRecurringModal] = React.useState(false);
   const [duePayments, setDuePayments] = React.useState<any[]>([]);
 
@@ -72,7 +71,7 @@ function App() {
     const init = async () => {
       const localData = loadFromStorage();
       let currentState = localData;
-      
+
       if (session?.user?.id) {
         try {
           const cloudData = await fetchCloudState(session.user.id);
@@ -98,8 +97,8 @@ function App() {
         const lastCheck = currentState.settings.lastFixedPaymentCheck ? new Date(currentState.settings.lastFixedPaymentCheck) : new Date();
         const now = new Date();
         if (now.getMonth() !== lastCheck.getMonth() || now.getFullYear() !== lastCheck.getFullYear()) {
-           setDuePayments(currentState.fixedPayments.filter(p => p.day <= now.getDate()));
-           setShowRecurringModal(true);
+          setDuePayments(currentState.fixedPayments.filter(p => p.day <= now.getDate()));
+          setShowRecurringModal(true);
         }
       }
     };
@@ -111,119 +110,119 @@ function App() {
     if (loaded) {
       // We pass the full store state to saveToStorage, excluding functions
       // The store is already the AppState interface + methods
-      saveToStorage(store, 'local'); 
+      saveToStorage(store, 'local');
       if (!store.isGuest && session && loaded) {
-         // Debounced sync could go here
-         forceCloudSync(store);
+        // Debounced sync could go here
+        forceCloudSync(store);
       }
     }
   }, [store.expenses, store.settings, store.investments, loaded]);
 
   const handleTogglePrivacy = () => {
-     store.setState({ 
-       settings: { ...store.settings, privacyMode: !store.settings.privacyMode } 
-     });
-     showToast(!store.settings.privacyMode ? "Privacy Mode Enabled" : "Disabled", "info");
+    store.setState({
+      settings: { ...store.settings, privacyMode: !store.settings.privacyMode }
+    });
+    showToast(!store.settings.privacyMode ? "Privacy Mode Enabled" : "Disabled", "info");
   };
 
   if (!authInitialized) return <SkeletonLoader />;
 
   if (!session && !store.isGuest) {
-    return <Auth onAuthSuccess={() => {}} onGuestLogin={() => store.setGuest(true)} showToast={showToast} />;
+    return <Auth onAuthSuccess={() => { }} onGuestLogin={() => store.setGuest(true)} showToast={showToast} />;
   }
 
   return (
     <>
       {isLocked && (
-        <LockScreen 
-          pin={store.settings.pin} 
-          webAuthnId={store.settings.webAuthnCredentialId} 
-          onUnlock={() => setIsLocked(false)} 
-        />
-      )}
-      
-      {showRecurringModal && (
-        <RecurringModal 
-          payments={duePayments} 
-          onConfirm={() => setShowRecurringModal(false)} 
-          onCancel={() => setShowRecurringModal(false)} 
-        />
-      )}
-      
-      {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={() => setToast(null)} 
+        <LockScreen
+          pin={store.settings.pin}
+          webAuthnId={store.settings.webAuthnCredentialId}
+          onUnlock={() => setIsLocked(false)}
         />
       )}
 
-      <div className={`min - h - screen bg - background text - text ${ store.settings.privacyMode ? 'privacy-active' : '' } `}>
+      {showRecurringModal && (
+        <RecurringModal
+          payments={duePayments}
+          onConfirm={() => setShowRecurringModal(false)}
+          onCancel={() => setShowRecurringModal(false)}
+        />
+      )}
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      <div className={`min - h - screen bg - background text - text ${store.settings.privacyMode ? 'privacy-active' : ''} `}>
         <div className="max-w-3xl mx-auto px-2 pt-4">
           <Header settings={store.settings} onTogglePrivacy={handleTogglePrivacy} />
-          
+
           <main className="relative pb-24">
             <ErrorBoundary fallbackTitle="Section Error">
               <Routes>
                 <Route path="/" element={<Navigate to="/add-expense" replace />} />
                 <Route path="/add-expense" element={
-                  <AddExpense 
-                    state={store} 
-                    addExpense={store.addExpense} 
-                    updateExpense={store.updateExpense} 
-                    expenseToEdit={store.expenseToEdit} 
+                  <AddExpense
+                    state={store}
+                    addExpense={store.addExpense}
+                    updateExpense={store.updateExpense}
+                    expenseToEdit={store.expenseToEdit}
                     cancelEdit={() => store.setExpenseToEdit(null)}
-                    switchTab={(tab) => navigate(`/ ${ tab } `)}
-                    showToast={showToast} 
+                    switchTab={(tab) => navigate(`/ ${tab} `)}
+                    showToast={showToast}
                   />
                 } />
                 <Route path="/summaries" element={
-                  <Summaries 
-                    state={store} 
-                    deleteExpense={store.deleteExpense} 
+                  <Summaries
+                    state={store}
+                    deleteExpense={store.deleteExpense}
                     editExpense={(exp) => {
-                       store.setExpenseToEdit(exp);
-                       navigate('/add-expense');
-                    }} 
+                      store.setExpenseToEdit(exp);
+                      navigate('/add-expense');
+                    }}
                   />
                 } />
                 <Route path="/investments" element={
-                  <Investments 
-                    state={store} 
-                    updateState={store.setState} 
-                    showToast={showToast} 
+                  <Investments
+                    state={store}
+                    updateState={store.setState}
+                    showToast={showToast}
                   />
                 } />
                 <Route path="/overview" element={
-                  <Overview 
-                    state={store} 
+                  <Overview
+                    state={store}
                     updateBudget={(b) => store.setState({ monthlyBudget: b })}
-                    updateIncome={(p1, p2) => store.setState({ incomePerson1: p1, incomePerson2: p2 })} 
-                    addFixedPayment={(n, a, d) => store.setState({ fixedPayments: [...store.fixedPayments, {id: Date.now(), name: n, amount: a, day: d, updatedAt: Date.now()}] })}
+                    updateIncome={(p1, p2) => store.setState({ incomePerson1: p1, incomePerson2: p2 })}
+                    addFixedPayment={(n, a, d) => store.setState({ fixedPayments: [...store.fixedPayments, { id: Date.now(), name: n, amount: a, day: d, updatedAt: Date.now() }] })}
                     removeFixedPayment={(id) => store.setState({ fixedPayments: store.fixedPayments.filter(fp => fp.id !== id) })}
-                    updateState={store.setState} 
+                    updateState={store.setState}
                   />
                 } />
                 <Route path="/settings" element={
-                  <Settings 
-                    state={store} 
-                    updateSettings={(s) => store.setState({ settings: { ...store.settings, ...s } })} 
-                    resetData={store.reset} 
-                    deleteAccount={store.reset} 
-                    showToast={showToast} 
-                    installApp={() => {}} 
-                    canInstall={false} 
-                    isIos={false} 
-                    isStandalone={false} 
+                  <Settings
+                    state={store}
+                    updateSettings={(s) => store.setState({ settings: { ...store.settings, ...s } })}
+                    resetData={store.reset}
+                    deleteAccount={store.reset}
+                    showToast={showToast}
+                    installApp={() => { }}
+                    canInstall={false}
+                    isIos={false}
+                    isStandalone={false}
                   />
                 } />
               </Routes>
             </ErrorBoundary>
           </main>
-          
-          <BottomNav 
-            activeSection={store.activeSection} 
-            setSection={(s) => navigate(`/ ${ s } `)} 
+
+          <BottomNav
+            activeSection={store.activeSection}
+            setSection={(s) => navigate(`/ ${s} `)}
           />
         </div>
       </div>
@@ -232,4 +231,3 @@ function App() {
 }
 
 export default App;
-```
