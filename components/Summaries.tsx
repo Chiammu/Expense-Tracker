@@ -158,27 +158,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
 
       {viewMode === 'list' ? (
         <>
-          <div className="bg-surface rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
-            <h3 className="text-xs font-black text-text-light uppercase tracking-widest mb-3">Recent Activity</h3>
-            <div className="space-y-3">
-              {filteredExpenses.slice(0, 5).map(exp => (
-                <div key={exp.id} className="flex justify-between items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg transition-colors group">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${exp.person === 'Person1' ? 'bg-blue-100 text-blue-600' :
-                        exp.person === 'Person2' ? 'bg-orange-100 text-orange-600' : 'bg-purple-100 text-purple-600'
-                      }`}>
-                      {exp.person === 'Both' ? '👫' : (exp.person === 'Person1' ? state.settings.person1Name[0] : state.settings.person2Name[0])}
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-text">{exp.category}</div>
-                      <div className="text-[10px] text-text-light">{new Date(exp.date).toLocaleDateString()} • {exp.note || 'No note'}</div>
-                    </div>
-                  </div>
-                  <div className="font-bold text-sm mask-value">₹{exp.amount}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+
 
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div className="bg-gradient-to-br from-primary to-pink-600 rounded-xl p-4 text-white shadow-lg relative overflow-hidden group">
@@ -295,6 +275,37 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
                 )}
               </div>
             ))}
+          </div>
+
+          <div className="bg-surface rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-xs font-black text-text-light uppercase tracking-widest">Recent Activity</h3>
+              <button onClick={() => editExpense({} as any)} className="text-xs bg-primary text-white px-3 py-1 rounded-full font-bold">+ New</button>
+            </div>
+            <div className="space-y-3">
+              {filteredExpenses.slice(0, 10).map(exp => (
+                <div key={exp.id} className="flex justify-between items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg transition-colors group">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${exp.person === 'Person1' ? 'bg-blue-100 text-blue-600' :
+                        exp.person === 'Person2' ? 'bg-orange-100 text-orange-600' : 'bg-purple-100 text-purple-600'
+                      }`}>
+                      {exp.person === 'Both' ? '👫' : (exp.person === 'Person1' ? state.settings.person1Name[0] : state.settings.person2Name[0])}
+                    </div>
+                    <div onClick={() => editExpense(exp)} className="cursor-pointer">
+                      <div className="text-sm font-bold text-text hover:underline">{exp.category}</div>
+                      <div className="text-[10px] text-text-light">{new Date(exp.date).toLocaleDateString()} • {exp.note || 'No note'}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-bold text-sm mask-value">₹{exp.amount}</div>
+                    <button onClick={() => editExpense(exp)} className="text-gray-400 hover:text-primary p-1">✏️</button>
+                  </div>
+                </div>
+              ))}
+              {filteredExpenses.length > 10 && (
+                <p className="text-center text-[10px] text-text-light pt-2">Showing last 10 transactions</p>
+              )}
+            </div>
           </div>
         </>
       ) : (
