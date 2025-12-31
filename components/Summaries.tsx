@@ -186,8 +186,8 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
                 key={t}
                 onClick={() => setFilterType(t as any)}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold capitalize whitespace-nowrap transition-colors ${filterType === t
-                    ? 'bg-primary text-white shadow-md'
-                    : 'bg-white dark:bg-gray-800 text-text-light border border-gray-200 dark:border-gray-700'
+                  ? 'bg-primary text-white shadow-md'
+                  : 'bg-white dark:bg-gray-800 text-text-light border border-gray-200 dark:border-gray-700'
                   }`}
               >
                 {t}
@@ -208,13 +208,6 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
                 <div className={`text-2xl font-bold mask-value`}>₹{stats.total.toFixed(0)}</div>
                 <div className="text-[10px] mt-1 opacity-80">{filteredExpenses.length} transactions</div>
               </div>
-              <button
-                onClick={handleRoast}
-                disabled={isRoasting}
-                className="absolute bottom-2 right-2 bg-white/20 hover:bg-white/40 p-3 px-4 rounded-xl text-sm font-black backdrop-blur-sm transition-all active:scale-95 shadow-lg border border-white/30"
-              >
-                {isRoasting ? '🔥...' : '🔥 ROAST'}
-              </button>
             </div>
             <div className="bg-surface rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-center">
               <div className="flex justify-between items-center text-xs mb-1">
@@ -233,6 +226,17 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
               </div>
             </div>
           </div>
+
+          <button
+            onClick={handleRoast}
+            disabled={isRoasting}
+            className="w-full bg-surface dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-xl flex items-center justify-center gap-3 shadow-sm hover:shadow-md transition-all active:scale-95 group"
+          >
+            <span className="text-2xl group-hover:animate-bounce">🔥</span>
+            <span className="font-black text-text dark:text-gray-100 tracking-wide uppercase text-sm">
+              {isRoasting ? 'Preparing Roast...' : 'Roast My Spending'}
+            </span>
+          </button>
 
           <div className="space-y-3">
             {stats.categories.map((cat) => (
@@ -263,8 +267,8 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
                       <div key={exp.id} className="p-3 flex justify-between items-start group">
                         <div className="flex gap-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${exp.person === 'Person1' ? 'bg-blue-100 text-blue-600' :
-                              exp.person === 'Person2' ? 'bg-orange-100 text-orange-600' :
-                                'bg-purple-100 text-purple-600'
+                            exp.person === 'Person2' ? 'bg-orange-100 text-orange-600' :
+                              'bg-purple-100 text-purple-600'
                             }`}>
                             {exp.person === 'Both' ? '👫' : (exp.person === 'Person1' ? state.settings.person1Name[0] : state.settings.person2Name[0])}
                           </div>

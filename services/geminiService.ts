@@ -3,7 +3,7 @@ import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { AppState, Expense, Loan } from "../types";
 
 const getAI = () => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) throw new Error("API Key is missing.");
   return new GoogleGenAI({ apiKey });
 };
@@ -32,15 +32,15 @@ const addExpenseTool: FunctionDeclaration = {
   }
 };
 
-export const chatWithFinances = async (history: any[], userMessage: string, state: AppState): Promise<{text: string, toolCall?: any}> => {
+export const chatWithFinances = async (history: any[], userMessage: string, state: AppState): Promise<{ text: string, toolCall?: any }> => {
   try {
     const ai = getAI();
     const system = `You are a financial assistant for a couple: ${state.settings.person1Name} and ${state.settings.person2Name}. 
     Available categories: ${state.settings.customCategories.join(', ')}.
-    Context: Current month spending is ₹${state.expenses.reduce((s,e) => s+e.amount, 0)}.`;
-    
-    const response = await ai.models.generateContent({ 
-      model: 'gemini-3-flash-preview', 
+    Context: Current month spending is ₹${state.expenses.reduce((s, e) => s + e.amount, 0)}.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
       contents: [...history, { role: 'user', parts: [{ text: userMessage }] }],
       config: {
         systemInstruction: system,
@@ -49,12 +49,12 @@ export const chatWithFinances = async (history: any[], userMessage: string, stat
     });
 
     const toolCall = response.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall);
-    return { 
+    return {
       text: response.text || (toolCall ? "Processing your request..." : "I didn't catch that."),
       toolCall: toolCall?.functionCall
     };
-  } catch (error: any) { 
-    return { text: handleGeminiError(error) }; 
+  } catch (error: any) {
+    return { text: handleGeminiError(error) };
   }
 };
 
@@ -138,14 +138,14 @@ export const generateMonthlyDigest = async (state: AppState): Promise<string> =>
     const ai = getAI();
     const now = new Date();
     const lastMonthExpenses = state.expenses.filter(e => {
-        const d = new Date(e.date);
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      const d = new Date(e.date);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
 
     const totalSpent = lastMonthExpenses.reduce((s, e) => s + e.amount, 0);
     const catGroups = lastMonthExpenses.reduce((acc, e) => {
-        acc[e.category] = (acc[e.category] || 0) + e.amount;
-        return acc;
+      acc[e.category] = (acc[e.category] || 0) + e.amount;
+      return acc;
     }, {} as Record<string, number>);
 
     const prompt = `
@@ -185,26 +185,26 @@ export const roastSpending = async (state: AppState): Promise<string> => {
       INSTRUCTION: Be savage, hilarious, and brutal. Roast their spending habits based ONLY on the data provided. 
       Limit to 350 characters. Plain text only. Use 🔥 emojis.`;
 
-    const response = await ai.models.generateContent({ 
-      model: 'gemini-3-flash-preview', 
-      contents: prompt 
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt
     });
 
     return response.text?.trim() || "You spend money so boringly I have nothing to say.";
-  } catch (error) { 
-    return "Your spending is so chaotic it broke my circuits. Get help."; 
+  } catch (error) {
+    return "Your spending is so chaotic it broke my circuits. Get help.";
   }
 };
 
-export const getLatestMetalRates = async (): Promise<{gold: number, silver: number, source?: string}> => {
+export const getLatestMetalRates = async (): Promise<{ gold: number, silver: number, source?: string }> => {
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: "Output JSON only: { \"gold\": number, \"silver\": number } for current 24k gold and silver prices per gram in India in INR.",
-      config: { tools: [{googleSearch: {}}] }
+      config: { tools: [{ googleSearch: {} }] }
     });
-    
+
     const text = response.text || "";
     try {
       const start = text.indexOf('{');
