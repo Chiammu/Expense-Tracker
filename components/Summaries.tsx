@@ -159,47 +159,26 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
       {viewMode === 'list' ? (
         <>
           <div className="bg-surface rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
-            <h3 className="text-xs font-black text-text-light uppercase tracking-widest mb-4">Spending breakdown</h3>
-            <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888822" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
-                  <Tooltip
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                    formatter={(val: number) => [`₹${val}`, 'Spent']}
-                  />
-                  <Bar dataKey="value" radius={[6, 6, 0, 0]} onClick={(data) => data && toggleCategory(data.name)} cursor="pointer">
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={index === 0 ? 'var(--primary)' : 'var(--secondary)'} opacity={0.8} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+            <h3 className="text-xs font-black text-text-light uppercase tracking-widest mb-3">Recent Activity</h3>
+            <div className="space-y-3">
+              {filteredExpenses.slice(0, 5).map(exp => (
+                <div key={exp.id} className="flex justify-between items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg transition-colors group">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${exp.person === 'Person1' ? 'bg-blue-100 text-blue-600' :
+                        exp.person === 'Person2' ? 'bg-orange-100 text-orange-600' : 'bg-purple-100 text-purple-600'
+                      }`}>
+                      {exp.person === 'Both' ? '👫' : (exp.person === 'Person1' ? state.settings.person1Name[0] : state.settings.person2Name[0])}
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-text">{exp.category}</div>
+                      <div className="text-[10px] text-text-light">{new Date(exp.date).toLocaleDateString()} • {exp.note || 'No note'}</div>
+                    </div>
+                  </div>
+                  <div className="font-bold text-sm mask-value">₹{exp.amount}</div>
+                </div>
+              ))}
             </div>
           </div>
-
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {['today', 'week', 'month', 'all'].map(t => (
-              <button
-                key={t}
-                onClick={() => setFilterType(t as any)}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold capitalize whitespace-nowrap transition-colors ${filterType === t
-                  ? 'bg-primary text-white shadow-md'
-                  : 'bg-white dark:bg-gray-800 text-text-light border border-gray-200 dark:border-gray-700'
-                  }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-
-          {roast && (
-            <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl border border-red-100 dark:border-red-900/30 animate-shake">
-              <p className="text-xs font-bold text-red-600 dark:text-red-400 italic">"{roast}"</p>
-            </div>
-          )}
 
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div className="bg-gradient-to-br from-primary to-pink-600 rounded-xl p-4 text-white shadow-lg relative overflow-hidden group">
@@ -237,6 +216,28 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
               {isRoasting ? 'Preparing Roast...' : 'Roast My Spending'}
             </span>
           </button>
+
+          <div className="bg-surface rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
+            <h3 className="text-xs font-black text-text-light uppercase tracking-widest mb-4">Spending breakdown</h3>
+            <div className="h-48 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888822" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                    formatter={(val: number) => [`₹${val}`, 'Spent']}
+                  />
+                  <Bar dataKey="value" radius={[6, 6, 0, 0]} onClick={(data) => data && toggleCategory(data.name)} cursor="pointer">
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={index === 0 ? 'var(--primary)' : 'var(--secondary)'} opacity={0.8} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
 
           <div className="space-y-3">
             {stats.categories.map((cat) => (

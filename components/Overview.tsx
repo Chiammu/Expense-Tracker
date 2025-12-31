@@ -26,7 +26,7 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
   }, []);
 
   const totalIncomeValue = (state.incomePerson1 || 0) + (state.incomePerson2 || 0) + state.otherIncome.reduce((sum, i) => sum + i.amount, 0);
-  
+
   const handlePrediction = async () => {
     setLoadingPred(true);
     const res = await predictNextMonthSpending(state);
@@ -80,8 +80,8 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
                 {deepStrategy}
               </div>
             ) : null}
-            <button 
-              onClick={handleDeepAnalysis} 
+            <button
+              onClick={handleDeepAnalysis}
               disabled={loadingPro}
               className="w-full py-3 bg-white text-indigo-900 rounded-xl font-bold active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
             >
@@ -95,12 +95,49 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
       {/* Income Section */}
       <div className="bg-surface rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100 dark:border-gray-800">
         <div className="flex justify-between items-center mb-4">
-           <h3 className="text-lg font-bold text-primary flex items-center gap-2">💰 Monthly Income</h3>
-           <div className="text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1 rounded-full">₹{totalIncomeValue.toLocaleString()}</div>
+          <h3 className="text-lg font-bold text-primary flex items-center gap-2">💰 Monthly Income</h3>
+          <div className="text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1 rounded-full">₹{totalIncomeValue.toLocaleString()}</div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <input type="number" className="p-3 rounded-xl bg-background text-sm font-bold border border-gray-100 focus:ring-2 focus:ring-primary/20" value={state.incomePerson1 || ''} onChange={e => updateIncome(parseFloat(e.target.value) || 0, state.incomePerson2)} placeholder={state.settings.person1Name} />
           <input type="number" className="p-3 rounded-xl bg-background text-sm font-bold border border-gray-100 focus:ring-2 focus:ring-primary/20" value={state.incomePerson2 || ''} onChange={e => updateIncome(state.incomePerson1, parseFloat(e.target.value) || 0)} placeholder={state.settings.person2Name} />
+        </div>
+
+        <div className="mt-4 border-t border-gray-50 dark:border-gray-800 pt-4">
+          <h4 className="text-xs font-black text-text-light uppercase tracking-widest mb-3">Side Income & Extras</h4>
+          <div className="space-y-2 mb-3">
+            {state.otherIncome.map(inc => (
+              <div key={inc.id} className="flex justify-between items-center text-sm p-2 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                <span>{inc.source}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-green-600">+₹{inc.amount}</span>
+                  <button
+                    onClick={() => updateState({ otherIncome: state.otherIncome.filter(i => i.id !== inc.id) })}
+                    className="text-gray-400 hover:text-red-500"
+                  >×</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const form = e.target as HTMLFormElement;
+              const source = (form.elements.namedItem('source') as HTMLInputElement).value;
+              const amount = parseFloat((form.elements.namedItem('amount') as HTMLInputElement).value);
+              if (source && amount) {
+                updateState({
+                  otherIncome: [...state.otherIncome, { id: Date.now(), source, amount, date: new Date().toISOString().split('T')[0] }]
+                });
+                form.reset();
+              }
+            }}
+          >
+            <input name="source" className="flex-1 p-2 bg-background border border-gray-200 dark:border-gray-700 rounded-lg text-xs" placeholder="Rent, Dividends..." required />
+            <input name="amount" type="number" className="w-20 p-2 bg-background border border-gray-200 dark:border-gray-700 rounded-lg text-xs" placeholder="₹" required />
+            <button type="submit" className="bg-green-500 text-white px-3 rounded-lg text-xs font-bold">+</button>
+          </form>
         </div>
       </div>
 

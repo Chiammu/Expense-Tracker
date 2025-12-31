@@ -1,55 +1,56 @@
-# Full-Stack Review Findings
+# Comprehensive Project Review & Audit Results
 
-**Date:** December 31, 2025
-**Scope:** Frontend Codebase, Architecture, Security, config
-**Version Checked:** Reverted State (Dec 25 Commit)
+## 1. Code Quality & Maintenance
+### Findings
+- **Type Safety**: Significant use of explicit `any` types in critical services (`geminiService.ts`, `Auth.tsx`, `storage.ts`). This bypasses TypeScript's safety mechanisms and makes the codebase prone to runtime errors.
+- **Unused Code**: Several files appearing in the directory structure (`declarations.d.ts` and potentially old component artifacts) may be redundant.
+- **Error Handling**: `console.error` is the primary error handling mechanism. While useful for debugging, it doesn't provide user feedback or centralized error tracking (e.g., Sentry).
+- **Hardcoded Strings**: UI strings and error messages are hardcoded, making internationalization (i18n) difficult in the future.
 
-## 1. 🚨 Critical Issues (Immediate Action Required)
+### Recommendations
+1.  **Strict Typing**: Systematically replace `any` with defined interfaces (`Expense`, `Session`, `GeminiResponse`).
+2.  **Linting & Formatting**: Enforce strict ESLint rules and Prettier to maintain code consistency.
+3.  **Centralized Error Handling**: Create a global error boundary and a logging service wrapper.
 
-### A. Environment Variable Handling (The "Blank Screen" Cause)
-- **Current State**: The code uses `process.env.SUPABASE_URL` in `services/supabaseClient.ts`. React/Vite applications do not support `process.env` natively in the browser.
-- **The "Fix"**: The `vite.config.ts` attempts to polyfill this using `define`, but this is fragile and often fails in CI/CD environments (like Vercel) if the build process doesn't explicitly have access to those system variables at the exact moment of compilation.
-- **Impact**: Application crashes immediately on load if variables are missing, leading to a White Screen of Death (WSOD).
-- **Recommendation**: Migrate fully to `import.meta.env.VITE_*` standard.
+## 2. Architecture & Performance
+### Strengths
+- **Tech Stack**: React + Vite provide a modern, fast development experience.
+- **State Management**: Recently migrated to **Zustand**, which significantly simplifies state logic compared to the previous `useState` drill-down.
+- **Routing**: **React Router** implementation is standard and allows for deep linking.
 
-### B. Monolithic State Management
-- **Current State**: `App.tsx` holds a massive `AppState` object containing expenses, settings, investments, chat, etc. a single `useState`.
-- **Impact**: 
-  - **Performance**: Every single character typed in a chat message or expense note triggers a re-render of the *entire application tree*.
-  - **Maintainability**: `App.tsx` is over 200 lines of "prop drilling" (passing callbacks down 3-4 levels).
-- **Recommendation**: Split state into context providers or a lightweight store (Zustand).
+### Weaknesses
+- **State Persistence**: The current custom implementation in `storage.ts` manually handles LocalStorage and Supabase syncing. This logic is complex ("Last-Write-Wins" merge) and potentially fragile.
+- **No Caching Layer**: Every page load potentially triggers a fetch/sync, though `loadFromStorage` mitigates this locally. `React Query` would handle server state much better than manual fetching.
+- **Bundle Optimization**: `vite.config.ts` has manual chunking, which is good, but further code-splitting (React.lazy) for routes could improve FCP (First Contentful Paint).
 
-### C. Missing Routing
-- **Current State**: `const [activeSection, setActiveSection] = useState('add-expense')`.
-- **Impact**: 
-  - Users cannot share links to specific pages.
-  - The browser "Back" button leaves the website instead of going to the previous screen.
-- **Recommendation**: Implement `react-router-dom`.
+### Recommendations
+1.  **React Query**: Adopt TanStack Query for all server-state (Supabase) operations. It handles caching, deduplication, and background updates out-of-the-box.
+2.  **Code Splitting**: Implement `React.lazy()` for route components (`Investments`, `Settings`, etc.) to reduce the initial bundle size.
 
-## 2. Code Quality & Architecture
+## 3. Security
+### Findings
+- **Critical Fix**: `GEMINI_API_KEY` was successfully migrated to `process.env` in Vite config, resolving the broken AI features.
+- **Data Privacy**: Complete expense data is stored in `LocalStorage` in plain text. If a device is shared or compromised, this data is accessible.
+- **Authentication**: Usage of Supabase Auth is correct, but relying on client-side checks for specific features (like locking) is bypassable if not enforced by RLS (Row Level Security) on the backend.
+- **API Keys**: Supabase Anon Key is public by design, but ensure RLS policies are strict.
 
-- **Unused/Dead Code**: 
-  - `services/auth.ts`, `services/webAuthn.ts`, `services/crypto.ts` exist but need verification of usage.
-  - `App.tsx` lines 112-115 contain complex logic for Card updates nested inside a state setter.
-- **Type Safety**:
-  - `App.tsx`: `const [session, setSession] = useState<any>(null);` (Line 23). Avoid `any`.
-  - Huge `AppState` interface makes it hard to decouple features.
+### Recommendations
+1.  **Encryption**: Encrypt sensitive fields (money, personal notes) before storing in LocalStorage or Supabase.
+2.  **RLS Audit**: rigorous audit of all Supabase Row Level Security policies to ensure users can ONLY access their own rows.
 
-## 3. Security Analysis
+## 4. Testing & Reliability
+### Findings
+- **Zero Tests**: There are currently **no unit tests** or **integration tests** in the codebase.
+- **Manual Verification**: Debugging relies on manual browser testing, which is slow and error-prone.
 
-- **LocalStorage**: Sensitive financial data is stored in `localStorage` in plain text.
-  - *Risk*: Malicious scripts or extensions could read this.
-- **Supabase**: 
-  - `supabaseClient.ts` warns on console if keys are missing but doesn't prevent the app from trying to function, possibly leading to confusing errors later.
-  - No evidence of RLS (Row Level Security) - assumed handled on backend, but client should handle auth errors gracefully.
+### Recommendations
+1.  **Vitest Setup**: Install Vitest for unit testing utility functions (esp. `mergeAppState` logic).
+2.  **E2E Testing**: Set up Playwright for critical flows (Login -> Add Expense -> Sync).
 
-## 4. UX & Design
+## 5. Deployment & DevOps
+### Findings
+- **Vercel**: Deployment is automated and currently working.
+- **Environment config**: We've added `vercel.json` to handle SPA routing, preventing 404s on refresh.
 
-- **Interaction**: Uses native `window.confirm()` and `window.alert()` which blocks the UI and looks "cheap"/"dated".
-- **Feedback**: No loading states for async actions (like adding an expense) other than a toast *after* completion.
-- **Mobile Experience**: Navigation logic is good, but PWA capabilities need verification (`manifest.json` exists).
-
-## 5. Deployment
-
-- **Vercel**: `vite.config.ts` manual chunks strategy is largely unnecessary for an app this size and might cause caching issues if not tuned.
-- **Tests**: Zero automated tests found.
+### Recommendations
+1.  **CI Checks**: Add a GitHub Action to run linting and type-checking before merge.
