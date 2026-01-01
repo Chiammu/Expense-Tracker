@@ -27,25 +27,25 @@ export const logAuditEvent = async (event: string, details: any = {}) => {
       details,
       created_at: new Date().toISOString()
     });
-  
+
   if (error) console.error("Audit log failed:", error);
 };
 
 const triggerCloudSave = async (state: AppState) => {
   if (!supabase) return;
-  
+
   // Get current session to find user ID
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) return;
 
   const { error } = await supabase
     .from('app_state')
-    .upsert({ 
+    .upsert({
       user_id: session.user.id, // Primary Key in DB
-      data: state, 
-      updated_at: new Date().toISOString() 
+      data: state,
+      updated_at: new Date().toISOString()
     }, { onConflict: 'user_id' });
-    
+
   if (error) console.error("Cloud sync failed:", error);
 };
 
@@ -55,29 +55,17 @@ export const forceCloudSync = (state: AppState) => {
 };
 
 export const saveToStorage = (state: AppState, origin: 'local' | 'remote' = 'local') => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    if (origin === 'local' && supabase) {
-      if (saveTimeout) clearTimeout(saveTimeout);
-      saveTimeout = setTimeout(() => {
-        triggerCloudSave(state);
-      }, 500); 
-    }
-  } catch (e) {
-    console.error("Failed to save state", e);
+  // Cloud-only mode: Only save to Supabase via debounce
+  if (supabase) {
+    if (saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      triggerCloudSave(state);
+    }, 2000);
   }
 };
 
 export const loadFromStorage = (): AppState => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return mergeState(parsed);
-    }
-  } catch (e) {
-    console.error("Failed to load state", e);
-  }
+  // Local storage disabled for privacy. Always return empty state initially.
   return INITIAL_STATE;
 };
 
@@ -124,7 +112,7 @@ export const mergeAppState = (local: AppState, remote: AppState): AppState => {
   };
 
   return {
-    ...remote, 
+    ...remote,
     settings: lwwMergeObject(local.settings, remote.settings),
     expenses: lwwMergeArray(local.expenses, remote.expenses),
     fixedPayments: lwwMergeArray(local.fixedPayments, remote.fixedPayments),
@@ -143,7 +131,7 @@ export const fetchCloudState = async (userId: string): Promise<AppState | null> 
     .select('data')
     .eq('user_id', userId)
     .single();
-    
+
   if (error || !data) return null;
   return mergeState(data.data);
 };
@@ -160,11 +148,11 @@ export const exportData = (state: AppState) => {
     document.body.appendChild(a);
     a.click();
     setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     }, 100);
-  } catch(e) {
-      console.error("Export failed:", e);
+  } catch (e) {
+    console.error("Export failed:", e);
   }
 };
 
@@ -182,7 +170,7 @@ export const shareBackup = async (state: AppState): Promise<boolean> => {
       return true;
     } catch (err) {
       exportData(state);
-      return false; 
+      return false;
     }
   } else {
     exportData(state);
@@ -192,32 +180,32 @@ export const shareBackup = async (state: AppState): Promise<boolean> => {
 
 export const exportToCSV = (expenses: AppState['expenses'], filenameSuffix: string = '') => {
   try {
-      let csv = 'Date,Person,Category,Amount,Payment Mode,Note\n';
-      expenses.forEach(exp => {
-          const row = [
-              exp.date,
-              exp.person,
-              exp.category,
-              exp.amount,
-              exp.paymentMode,
-              `"${(exp.note || '').replace(/"/g, '""')}"`
-          ].join(',');
-          csv += row + '\n';
-      });
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = `expenses-${filenameSuffix || new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-      }, 100);
-  } catch(e) {
-      console.error("CSV Export failed", e);
+    let csv = 'Date,Person,Category,Amount,Payment Mode,Note\n';
+    expenses.forEach(exp => {
+      const row = [
+        exp.date,
+        exp.person,
+        exp.category,
+        exp.amount,
+        exp.paymentMode,
+        `"${(exp.note || '').replace(/"/g, '""')}"`
+      ].join(',');
+      csv += row + '\n';
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = `expenses-${filenameSuffix || new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    }, 100);
+  } catch (e) {
+    console.error("CSV Export failed", e);
   }
 };
 

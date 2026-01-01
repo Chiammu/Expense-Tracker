@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+
 import { AppState, INITIAL_STATE, Expense, Section, FixedPayment } from '../types';
 import { loadFromStorage, saveToStorage, forceCloudSync } from '../services/storage';
 
@@ -18,79 +18,61 @@ interface AppStore extends AppState {
 }
 
 export const useAppStore = create<AppStore>()(
-    persist(
-        (set, get) => ({
-            ...INITIAL_STATE,
-            isGuest: false,
-            activeSection: 'add-expense',
-            expenseToEdit: null,
+    (set, get) => ({
+        ...INITIAL_STATE,
+        isGuest: false,
+        activeSection: 'add-expense',
+        expenseToEdit: null,
 
-            setSection: (section) => set({ activeSection: section }),
-            setGuest: (isGuest) => set({ isGuest }),
+        setSection: (section) => set({ activeSection: section }),
+        setGuest: (isGuest) => set({ isGuest }),
 
-            setExpenseToEdit: (expense) => set((state) => {
-                // Automatically switch tab when editing
-                return { expenseToEdit: expense, activeSection: expense ? 'add-expense' : state.activeSection };
-            }),
-
-            setState: (newState) => set((state) => ({ ...state, ...newState })),
-
-            addExpense: (expense) => set((state) => {
-                const newExpense = { ...expense, id: Date.now(), updatedAt: Date.now() };
-                let updatedCards = state.creditCards;
-
-                if (newExpense.paymentMode === 'Card' && newExpense.cardId) {
-                    updatedCards = state.creditCards.map(c =>
-                        c.id === newExpense.cardId
-                            ? { ...c, currentBalance: c.currentBalance + newExpense.amount, updatedAt: Date.now() }
-                            : c
-                    );
-                }
-
-                const nextState = {
-                    ...state,
-                    expenses: [...state.expenses, newExpense],
-                    creditCards: updatedCards,
-                    updatedAt: Date.now()
-                };
-
-                // Trigger background sync if needed (naive implementation)
-                // In a real app, this should be an effect or middleware
-                if (!state.isGuest) {
-                    // We'll handle sync in a useEffect in the Layout or App component
-                    // to avoid side-effects inside the reducer
-                }
-
-                return nextState;
-            }),
-
-            updateExpense: (updatedExpense) => set((state) => {
-                const nextState = {
-                    ...state,
-                    expenses: state.expenses.map(e => e.id === updatedExpense.id ? { ...updatedExpense, updatedAt: Date.now() } : e),
-                    expenseToEdit: null, // Clear edit mode
-                    activeSection: 'summaries', // Redirect to summaries after edit
-                    updatedAt: Date.now()
-                };
-                return nextState;
-            }),
-
-            deleteExpense: (id) => set((state) => ({
-                ...state,
-                expenses: state.expenses.filter(e => e.id !== id),
-                updatedAt: Date.now()
-            })),
-
-            reset: () => set({ ...INITIAL_STATE, isGuest: false })
+        setExpenseToEdit: (expense) => set((state) => {
+            // Automatically switch tab when editing
+            return { expenseToEdit: expense, activeSection: expense ? 'add-expense' : state.activeSection };
         }),
-        {
-            name: 'expense-app-storage',
-            partialize: (state) => {
-                // Only persist the AppState parts, not the UI state if you want
-                // But for now persisting everything is fine
-                const { activeSection, ...rest } = state;
-                return rest;
+
+        setState: (newState) => set((state) => ({ ...state, ...newState })),
+
+        addExpense: (expense) => set((state) => {
+            const newExpense = { ...expense, id: Date.now(), updatedAt: Date.now() };
+            let updatedCards = state.creditCards;
+
+            if (newExpense.paymentMode === 'Card' && newExpense.cardId) {
+                updatedCards = state.creditCards.map(c =>
+                    c.id === newExpense.cardId
+                        ? { ...c, currentBalance: c.currentBalance + newExpense.amount, updatedAt: Date.now() }
+                        : c
+                );
             }
-        }
-    )
+
+            const nextState = {
+                ...state,
+                expenses: [...state.expenses, newExpense],
+                creditCards: updatedCards,
+                updatedAt: Date.now()
+            };
+
+            return nextState;
+        }),
+
+        updateExpense: (updatedExpense) => set((state) => {
+            const nextState = {
+                ...state,
+                expenses: state.expenses.map(e => e.id === updatedExpense.id ? { ...updatedExpense, updatedAt: Date.now() } : e),
+                expenseToEdit: null, // Clear edit mode
+                activeSection: 'summaries', // Redirect to summaries after edit
+                updatedAt: Date.now()
+            };
+            return nextState;
+        }),
+
+        deleteExpense: (id) => set((state) => ({
+            ...state,
+            expenses: state.expenses.filter(e => e.id !== id),
+            updatedAt: Date.now()
+        })),
+
+        reset: () => set({ ...INITIAL_STATE, isGuest: false })
+    })
 );

@@ -71,6 +71,7 @@ function App() {
     if ((!session && !store.isGuest) || !authInitialized) return;
 
     const init = async () => {
+      // Start with clean state (loadFromStorage returns INITIAL_STATE now)
       const localData = loadFromStorage();
       let currentState = localData;
 
@@ -79,14 +80,11 @@ function App() {
           console.log("Fetching cloud state for user:", session.user.id);
           const cloudData = await fetchCloudState(session.user.id);
           if (cloudData) {
-            console.log("Cloud data found, syncing...");
-            // Merge cloud data into local data. 'cloudData' acts as the incoming source of truth.
-            currentState = mergeAppState(localData, cloudData);
-            // Save the merged state back to local storage immediately to ensure consistency
-            saveToStorage(currentState, 'local');
+            console.log("Cloud data found. Loading...");
+            // Use cloud data as source of truth
+            currentState = cloudData;
           } else {
-            console.log("No cloud data found, uploading local state...");
-            forceCloudSync(localData);
+            console.log("No cloud data found. Starting fresh.");
           }
         } catch (e) {
           console.error("Cloud fetch failed:", e);
@@ -115,14 +113,9 @@ function App() {
 
   // Save on Change
   useEffect(() => {
-    if (loaded) {
-      // We pass the full store state to saveToStorage, excluding functions
-      // The store is already the AppState interface + methods
-      saveToStorage(store, 'local');
-      if (!store.isGuest && session && loaded) {
-        // Debounced sync could go here
-        forceCloudSync(store);
-      }
+    if (loaded && !store.isGuest && session) {
+      // Trigger debounced cloud save
+      saveToStorage(store, 'remote');
     }
   }, [store.expenses, store.settings, store.investments, loaded]);
 
