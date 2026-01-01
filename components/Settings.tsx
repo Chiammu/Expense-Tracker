@@ -66,16 +66,26 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
           }
         }
 
-        // 2. Handle simple object wrapper (e.g. { "coupleExpenseTrackerV4_React": "..." })
-        if (parsed && typeof parsed === 'object') {
+        // 2. Handle simple object wrapper (e.g. { "coupleExpenseTrackerV4_React": ... })
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
           const keys = Object.keys(parsed);
-          if (keys.length === 1 && typeof parsed[keys[0]] === 'string') {
-            console.log(`Detected single key '${keys[0]}' containing string. Parsing inner...`);
-            try {
-              const inner = JSON.parse(parsed[keys[0]]);
-              if (typeof inner === 'object') parsed = inner;
-            } catch (e) {
-              // Not JSON
+          if (keys.length === 1) {
+            const inner = parsed[keys[0]];
+            // Case A: Inner is string (double serialized)
+            if (typeof inner === 'string') {
+              console.log(`Detected single key '${keys[0]}' containing string. Parsing inner...`);
+              try {
+                const unwrapped = JSON.parse(inner);
+                if (typeof unwrapped === 'object') parsed = unwrapped;
+              } catch (e) { }
+            }
+            // Case B: Inner is object (just nested)
+            else if (typeof inner === 'object' && !Array.isArray(inner)) {
+              // Check if this inner object looks promising (has state or expenses)
+              if (inner.state || inner.expenses) {
+                console.log(`Unwrapping single key '${keys[0]}' object...`);
+                parsed = inner;
+              }
             }
           }
         }
