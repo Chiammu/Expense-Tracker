@@ -156,6 +156,18 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
         </button>
       </div>
 
+      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+        {(['today', 'week', 'month', 'all'] as const).map(f => (
+          <button
+            key={f}
+            onClick={() => setFilterType(f)}
+            className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all whitespace-nowrap border ${filterType === f ? 'bg-black text-white dark:bg-white dark:text-black border-transparent shadow-md' : 'bg-surface text-text-light border-gray-100 dark:border-gray-800'}`}
+          >
+            {f === 'all' ? 'All Time' : f === 'month' ? 'This Month' : f === 'week' ? 'This Week' : 'Today'}
+          </button>
+        ))}
+      </div>
+
       {viewMode === 'list' ? (
         <>
 
