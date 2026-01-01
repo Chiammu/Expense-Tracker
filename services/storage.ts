@@ -85,8 +85,35 @@ export const saveToStorage = (state: AppState, origin: 'local' | 'remote' = 'loc
     if (saveTimeout) clearTimeout(saveTimeout);
     saveTimeout = setTimeout(() => {
       triggerCloudSave(state);
-    }, 2000);
+    }, 500); // Faster sync for "instant" feel
   }
+};
+
+export const setupRealtimeSubscription = (userId: string, onUpdate: (newState: AppState) => void) => {
+  if (!supabase) return null;
+
+  console.log("Setting up Realtime subscription for user:", userId);
+  const channel = supabase
+    .channel('app_state_changes')
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'app_state',
+        filter: `user_id=eq.${userId}`
+      },
+      (payload) => {
+        console.log("Realtime update received:", payload);
+        if (payload.new && payload.new.data) {
+          const remoteState = mergeState(payload.new.data);
+          onUpdate(remoteState);
+        }
+      }
+    )
+    .subscribe();
+
+  return channel;
 };
 
 export const loadFromStorage = (): AppState => {

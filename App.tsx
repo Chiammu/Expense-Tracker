@@ -15,7 +15,7 @@ import { Auth } from './components/Auth';
 import { supabase } from './services/supabaseClient';
 import { SkeletonLoader } from './components/SkeletonLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { loadFromStorage, saveToStorage, fetchCloudState, forceCloudSync, mergeAppState, logAuditEvent } from './services/storage';
+import { loadFromStorage, saveToStorage, fetchCloudState, forceCloudSync, mergeAppState, logAuditEvent, setupRealtimeSubscription } from './services/storage';
 
 function App() {
   const navigate = useNavigate();
@@ -127,6 +127,27 @@ function App() {
     };
     init();
   }, [session, store.isGuest, authInitialized]);
+
+  // Realtime Subscription
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const channel = setupRealtimeSubscription(session.user.id, (remoteState) => {
+      // Merge incoming remote state with current to avoid overwriting pending local edits if any
+      // But typically we trust remote. Let's merge using current store state.
+      const current = store.getState ? (store as any).getState() : store; // zustand API access if needed, or just rely on react state update
+      // Since 'store' is the hook result, getting current state inside useEffect might be stale if we don't depend on it.
+      // Actually, we can just setState(remoteState). If we want LWW, we use mergeAppState.
+
+      console.log("Applying Realtime Update...");
+      store.setState(remoteState);
+      showToast("Sync Received ☁️", "info");
+    });
+
+    return () => {
+      if (channel) supabase?.removeChannel(channel);
+    };
+  }, [session?.user?.id]); // Only re-sub if user changes
 
   // Save on Change
   useEffect(() => {
