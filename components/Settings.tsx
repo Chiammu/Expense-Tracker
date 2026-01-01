@@ -47,18 +47,52 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
     reader.onload = async (e) => {
       try {
         const json = e.target?.result as string;
-        let parsed = JSON.parse(json);
+        console.log("Importing JSON length:", json.length);
 
-        // Handle legacy Zustand persist format which wraps state in { state: ... }
-        if (parsed.state && typeof parsed.state === 'object' && !parsed.expenses) {
-          console.log("Detected legacy backup format (wrapped state). Unwrapping...");
+        let parsed: any;
+        try {
+          parsed = JSON.parse(json);
+        } catch (e) {
+          throw new Error("File is not valid JSON");
+        }
+
+        // 1. Handle double-stringified JSON (e.g. "{\"state\":...}")
+        if (typeof parsed === 'string') {
+          console.log("Detected stringified JSON. Parsing again...");
+          try {
+            parsed = JSON.parse(parsed);
+          } catch (e) {
+            // It was just a string, ignore
+          }
+        }
+
+        // 2. Handle simple object wrapper (e.g. { "coupleExpenseTrackerV4_React": "..." })
+        if (parsed && typeof parsed === 'object') {
+          const keys = Object.keys(parsed);
+          if (keys.length === 1 && typeof parsed[keys[0]] === 'string') {
+            console.log(`Detected single key '${keys[0]}' containing string. Parsing inner...`);
+            try {
+              const inner = JSON.parse(parsed[keys[0]]);
+              if (typeof inner === 'object') parsed = inner;
+            } catch (e) {
+              // Not JSON
+            }
+          }
+        }
+
+        // 3. Handle Zustand wrapper { state: ... }
+        if (parsed?.state && typeof parsed.state === 'object' && !parsed.expenses) {
+          console.log("Triggering Zustand unwrap...");
           parsed = parsed.state;
         }
 
+        console.log("Final parsed keys:", parsed ? Object.keys(parsed) : 'null');
+
         // Validate critical fields
-        if (!Array.isArray(parsed.expenses)) {
-          console.error("Missing 'expenses' array in import", parsed);
-          throw new Error("Invalid structure: missing expenses");
+        if (!parsed || !Array.isArray(parsed.expenses)) {
+          const foundKeys = parsed ? Object.keys(parsed).join(", ") : "null";
+          console.error("Validation failed. Found keys:", foundKeys);
+          throw new Error(`Invalid data structure. Found: [${foundKeys}]. Expected 'expenses' array.`);
         }
 
         // Robust merge: Ensure all current schema fields exist even if backup is old
@@ -75,14 +109,14 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
           }
         };
 
-        if (confirm(`Found ${newState.expenses.length} expenses in backup. Restore and overwrite current data?`)) {
+        if (confirm(`Found ${newState.expenses.length} expenses. Restore now?`)) {
           updateState(newState);
-          showToast(`Restored ${newState.expenses.length} expenses successfully!`, "success");
+          showToast(`Success! Restored ${newState.expenses.length} expenses.`, "success");
           haptic([10, 10]);
         }
       } catch (err: any) {
         console.error("Import error:", err);
-        showToast("Import failed: " + (err.message || "Invalid file"), "error");
+        showToast("Import Failed: " + (err.message || "Unknown error"), "error");
       }
     };
     reader.readAsText(file);
