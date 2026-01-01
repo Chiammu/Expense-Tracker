@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppState, AppSettings, INITIAL_STATE } from '../types';
-import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent, exportData } from '../services/storage';
+import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent, exportData, triggerCloudSave } from '../services/storage';
+import { EMERGENCY_DATA } from './EmergencyRestoreData';
 import { authService } from '../services/auth';
 import { generateMonthlyDigest } from '../services/geminiService';
 import { webAuthnService } from '../services/webAuthn';
@@ -205,6 +206,34 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
     }
   };
 
+  const handleEmergencyRestore = async () => {
+    if (!confirm("⚠️ EMERGENCY RESTORE: This will overwrite current data with the hardcoded backup in EmergencyRestoreData.ts. Continue?")) return;
+
+    try {
+      // Merge with initial state to be safe
+      const newState = {
+        ...INITIAL_STATE,
+        ...EMERGENCY_DATA,
+        settings: {
+          ...INITIAL_STATE.settings,
+          ...EMERGENCY_DATA.settings,
+        },
+        updatedAt: Date.now()
+      } as unknown as AppState;
+
+      updateState(newState);
+      await triggerCloudSave(newState);
+      showToast("Emergency Restore SUCCESS! Data injected & saved to cloud.", "success");
+      haptic([50, 50, 50]);
+
+      // Force reload to reflect changes if needed, though updateState should handle it
+      // window.location.reload(); 
+    } catch (e: any) {
+      console.error(e);
+      showToast("Emergency Restore Failed: " + e.message, "error");
+    }
+  };
+
   const handleSignOut = async () => {
     if (confirm("Sign out?")) {
       try {
@@ -226,6 +255,20 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
 
   return (
     <div className="pb-24 max-w-xl mx-auto space-y-8 animate-fade-in">
+
+      {/* Emergency Button */}
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 rounded-xl flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-black text-red-600 dark:text-red-400 uppercase">Emergency Action</h3>
+          <p className="text-[10px] text-red-500">Inject hardcoded data & sync to cloud.</p>
+        </div>
+        <button
+          onClick={handleEmergencyRestore}
+          className="bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md hover:bg-red-700 active:scale-95 transition-all"
+        >
+          RESTORE NOW
+        </button>
+      </div>
 
       {showScanner && <ScannerModal onScan={handleSyncScan} onClose={() => setShowScanner(false)} />}
 

@@ -31,7 +31,7 @@ export const logAuditEvent = async (event: string, details: any = {}) => {
   if (error) console.error("Audit log failed:", error);
 };
 
-const triggerCloudSave = async (state: AppState) => {
+export const triggerCloudSave = async (state: AppState) => {
   if (!supabase) return;
 
   // Get current session to find user ID
