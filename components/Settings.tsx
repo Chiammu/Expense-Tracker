@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppState, AppSettings, INITIAL_STATE } from '../types';
-import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent, exportData, deleteCloudData, triggerCloudSave, checkSupabaseConnection, uploadFile } from '../services/storage';
+import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent, exportData, deleteCloudData, triggerCloudSave } from '../services/storage';
 import { authService } from '../services/auth';
 import { generateMonthlyDigest } from '../services/geminiService';
 import { webAuthnService } from '../services/webAuthn';
@@ -139,36 +139,6 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
     event.target.value = '';
   };
 
-  const handleCoverPhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Check auth
-    if (!userEmail) {
-      showToast("Please sign in to upload cover photos.", "error");
-      return;
-    }
-
-    try {
-      const { data: { session } } = await authService.getSession();
-      if (!session?.user) throw new Error("No session");
-
-      showToast("Uploading Cover Photo...", "info");
-      const url = await uploadFile(file, session.user.id);
-
-      if (url) {
-        updateSettings({ coverPhotoData: url });
-        showToast("Cover Photo Updated!", "success");
-        haptic([10, 10]);
-      } else {
-        showToast("Upload failed. Ensure 'user-assets' bucket exists.", "error");
-      }
-    } catch (e: any) {
-      console.error("Cover upload error:", e);
-      showToast("Upload error: " + e.message, "error");
-    }
-  };
-
   useEffect(() => {
     const idToShare = state.settings.syncId || 'NOT_PAIRED';
     QRCode.toDataURL(idToShare)
@@ -296,16 +266,6 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
           <input type="text" className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 text-sm font-bold" value={state.settings.person1Name} onChange={e => updateSettings({ person1Name: e.target.value })} placeholder="Person 1" />
           <input type="text" className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 text-sm font-bold" value={state.settings.person2Name} onChange={e => updateSettings({ person2Name: e.target.value })} placeholder="Person 2" />
         </div>
-
-        <div className="mt-4">
-          <label className="block w-full text-center py-3 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-            <span className="text-xs text-text-light font-bold">🖼️ Change Cover Photo</span>
-            <input type="file" accept="image/*" className="hidden" onChange={handleCoverPhotoUpload} />
-          </label>
-          {state.settings.coverPhotoData && state.settings.coverPhotoData.startsWith('http') && (
-            <p className="text-[10px] text-center text-green-500 mt-1">Cloud Image Active</p>
-          )}
-        </div>
       </section>
 
       {/* SYNC CENTER */}
@@ -345,16 +305,7 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
             <strong>Note:</strong> Data is synchronized to the secure cloud. Use Export to create a manual backup. Importing will overwrite current data.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <button onClick={async () => {
-            showToast("Checking connection...", "info");
-            const res = await checkSupabaseConnection();
-            showToast(res.message, res.success ? "success" : "error");
-          }} className="py-3 bg-blue-50 dark:bg-blue-900/10 text-blue-600 font-bold rounded-xl text-xs flex flex-col items-center gap-1 active:scale-95 transition-all">
-            <span>☁️</span> Check Cloud Health
-          </button>
-          <div /> {/* Spacer or remove grid col-2 if only one item, but grid is fine */}
-        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <button onClick={() => exportData(state)} className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-xs flex flex-col items-center gap-1">
             <span>📤</span> Export JSON
@@ -364,10 +315,10 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
             <input type="file" accept=".json" onChange={handleImportData} className="hidden" />
           </label>
         </div>
-      </section>
+      </section >
 
-      {/* SECURITY & BIOMETRICS */}
-      <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+  {/* SECURITY & BIOMETRICS */ }
+  < section className = "bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800" >
         <SectionHeader icon="🛡️" title="Security & Biometrics" />
         <div className="space-y-4">
           <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl">
@@ -405,10 +356,10 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
             </div>
           )}
         </div>
-      </section>
+      </section >
 
-      {/* REPORTS SECTION */}
-      <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+  {/* REPORTS SECTION */ }
+  < section className = "bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800" >
         <SectionHeader icon="📩" title="Reports & Data" />
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -416,10 +367,10 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
             <button onClick={() => { haptic(5); exportToCSV(state.expenses); }} className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-xs">📊 Export CSV</button>
           </div>
         </div>
-      </section>
+      </section >
 
-      {/* ACCOUNT ACTIONS */}
-      <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+  {/* ACCOUNT ACTIONS */ }
+  < section className = "bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800" >
         <SectionHeader icon="🚪" title="Account Actions" />
         <div className="space-y-3">
           <button onClick={handleSignOut} className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-2xl">Sign Out</button>
@@ -428,58 +379,60 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
             Delete My Account
           </button>
         </div>
-      </section>
+      </section >
 
-      {/* DELETE ACCOUNT MODAL */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white dark:bg-gray-900 w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-gray-100 dark:border-gray-800">
-            <h3 className="text-xl font-bold mb-2 text-center text-red-600">Delete Account?</h3>
-            <p className="text-sm text-center text-gray-500 mb-6">Choose an action to perform.</p>
+  {/* DELETE ACCOUNT MODAL */ }
+{
+  showDeleteModal && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+      <div className="bg-white dark:bg-gray-900 w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-gray-100 dark:border-gray-800">
+        <h3 className="text-xl font-bold mb-2 text-center text-red-600">Delete Account?</h3>
+        <p className="text-sm text-center text-gray-500 mb-6">Choose an action to perform.</p>
 
-            <div className="space-y-3">
-              <button
-                onClick={() => {
-                  if (confirm("Reset local data only? Cloud backup remains.")) {
-                    resetData();
-                    setShowDeleteModal(false);
-                    showToast("Device data cleared", "info");
-                  }
-                }}
-                className="w-full py-4 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
-              >
-                <span>🧹</span> Clear Data from Device
-              </button>
+        <div className="space-y-3">
+          <button
+            onClick={() => {
+              if (confirm("Reset local data only? Cloud backup remains.")) {
+                resetData();
+                setShowDeleteModal(false);
+                showToast("Device data cleared", "info");
+              }
+            }}
+            className="w-full py-4 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
+          >
+            <span>🧹</span> Clear Data from Device
+          </button>
 
-              <button
-                onClick={async () => {
-                  if (confirm("⚠️ PERMANENTLY DELETE account & all cloud data? This cannot be undone.")) {
-                    const success = await deleteCloudData();
-                    if (success) {
-                      await authService.signOut();
-                      showToast("Account deleted successfully", "success");
-                    } else {
-                      showToast("Failed to delete cloud data", "error");
-                    }
-                    setShowDeleteModal(false);
-                  }
-                }}
-                className="w-full py-4 bg-red-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-red-500/30"
-              >
-                <span>🗑️</span> Delete EVERYTHING
-              </button>
-            </div>
-
-            <button onClick={() => setShowDeleteModal(false)} className="mt-6 w-full py-3 text-gray-400 font-bold text-xs uppercase tracking-wider">
-              Cancel
-            </button>
-          </div>
+          <button
+            onClick={async () => {
+              if (confirm("⚠️ PERMANENTLY DELETE account & all cloud data? This cannot be undone.")) {
+                const success = await deleteCloudData();
+                if (success) {
+                  await authService.signOut();
+                  showToast("Account deleted successfully", "success");
+                } else {
+                  showToast("Failed to delete cloud data", "error");
+                }
+                setShowDeleteModal(false);
+              }
+            }}
+            className="w-full py-4 bg-red-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-red-500/30"
+          >
+            <span>🗑️</span> Delete EVERYTHING
+          </button>
         </div>
-      )}
 
-      <div className="text-center text-[10px] text-gray-300 pt-4 pb-8">
-        v1.6.2 • E2EE Chat • Biometric Pro • PWA Standalone
+        <button onClick={() => setShowDeleteModal(false)} className="mt-6 w-full py-3 text-gray-400 font-bold text-xs uppercase tracking-wider">
+          Cancel
+        </button>
       </div>
     </div>
+  )
+}
+
+<div className="text-center text-[10px] text-gray-300 pt-4 pb-8">
+  v1.6.2 • E2EE Chat • Biometric Pro • PWA Standalone
+</div>
+    </div >
   );
 };
