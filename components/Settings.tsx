@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { AppState, AppSettings } from '../types';
+import { AppState, AppSettings, INITIAL_STATE } from '../types';
 import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent, exportData } from '../services/storage';
 import { authService } from '../services/auth';
 import { generateMonthlyDigest } from '../services/geminiService';
@@ -47,17 +47,42 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
     reader.onload = async (e) => {
       try {
         const json = e.target?.result as string;
-        const parsed = JSON.parse(json);
-        // Simple validation
-        if (!parsed.expenses || !parsed.settings) throw new Error("Invalid backup file");
+        let parsed = JSON.parse(json);
 
-        if (confirm("Restore from backup? This will overwrite current data.")) {
-          updateState(parsed);
-          showToast("Data restored successfully!", "success");
+        // Handle legacy Zustand persist format which wraps state in { state: ... }
+        if (parsed.state && typeof parsed.state === 'object' && !parsed.expenses) {
+          console.log("Detected legacy backup format (wrapped state). Unwrapping...");
+          parsed = parsed.state;
+        }
+
+        // Validate critical fields
+        if (!Array.isArray(parsed.expenses)) {
+          console.error("Missing 'expenses' array in import", parsed);
+          throw new Error("Invalid structure: missing expenses");
+        }
+
+        // Robust merge: Ensure all current schema fields exist even if backup is old
+        const newState: AppState = {
+          ...INITIAL_STATE,
+          ...parsed,
+          settings: {
+            ...INITIAL_STATE.settings,
+            ...(parsed.settings || {})
+          },
+          investments: {
+            ...INITIAL_STATE.investments,
+            ...(parsed.investments || {})
+          }
+        };
+
+        if (confirm(`Found ${newState.expenses.length} expenses in backup. Restore and overwrite current data?`)) {
+          updateState(newState);
+          showToast(`Restored ${newState.expenses.length} expenses successfully!`, "success");
           haptic([10, 10]);
         }
-      } catch (err) {
-        showToast("Import failed: Invalid file", "error");
+      } catch (err: any) {
+        console.error("Import error:", err);
+        showToast("Import failed: " + (err.message || "Invalid file"), "error");
       }
     };
     reader.readAsText(file);
