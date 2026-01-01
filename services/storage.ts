@@ -222,13 +222,45 @@ export const checkSupabaseConnection = async (): Promise<{ success: boolean; mes
     // History might be optional or restricted, so we don't fail hard if it errors, but good to know.
     if (historyError) console.warn("Could not access 'history': " + historyError.message);
 
+    // Check Storage Bucket Access
+    const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
+    let bucketMsg = bucketError ? "Buckets: Error" : `Buckets: ${buckets?.length || 0}`;
+
     return {
       success: true,
-      message: `Connected! app_state rows: ${appStateCount ?? 'N/A'}, history rows: ${historyCount ?? 'N/A'}`
+      message: `Connected! app_state rows: ${appStateCount ?? 'N/A'}, history rows: ${historyCount ?? 'N/A'}, ${bucketMsg}`
     };
   } catch (e: any) {
     return { success: false, message: e.message || "Unknown connection error" };
   }
+};
+
+export const uploadFile = async (file: File, userId: string): Promise<string | null> => {
+  if (!supabase) return null;
+
+  // 1. Sanitize file name
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${userId}-${Date.now()}.${fileExt}`;
+  const filePath = `cover_photos/${fileName}`;
+
+  // 2. Upload
+  // We assume 'user-assets' bucket exists.
+  const { error: uploadError } = await supabase.storage
+    .from('user-assets')
+    .upload(filePath, file, { upsert: true });
+
+  if (uploadError) {
+    console.error("Upload failed:", uploadError);
+    // Fallback: If bucket doesn't exist, we can try to create it? Client usually can't.
+    return null;
+  }
+
+  // 3. Get Public URL
+  const { data } = supabase.storage
+    .from('user-assets')
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
 };
 
 export const exportData = (state: AppState) => {

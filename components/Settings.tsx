@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppState, AppSettings, INITIAL_STATE } from '../types';
-import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent, exportData, deleteCloudData, triggerCloudSave, checkSupabaseConnection } from '../services/storage';
+import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent, exportData, deleteCloudData, triggerCloudSave, checkSupabaseConnection, uploadFile } from '../services/storage';
 import { authService } from '../services/auth';
 import { generateMonthlyDigest } from '../services/geminiService';
 import { webAuthnService } from '../services/webAuthn';
@@ -134,6 +134,39 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
     reader.readAsText(file);
     // Reset input
     event.target.value = '';
+    reader.readAsText(file);
+    // Reset input
+    event.target.value = '';
+  };
+
+  const handleCoverPhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Check auth
+    if (!userEmail) {
+      showToast("Please sign in to upload cover photos.", "error");
+      return;
+    }
+
+    try {
+      const { data: { session } } = await authService.getSession();
+      if (!session?.user) throw new Error("No session");
+
+      showToast("Uploading Cover Photo...", "info");
+      const url = await uploadFile(file, session.user.id);
+
+      if (url) {
+        updateSettings({ coverPhotoData: url });
+        showToast("Cover Photo Updated!", "success");
+        haptic([10, 10]);
+      } else {
+        showToast("Upload failed. Ensure 'user-assets' bucket exists.", "error");
+      }
+    } catch (e: any) {
+      console.error("Cover upload error:", e);
+      showToast("Upload error: " + e.message, "error");
+    }
   };
 
   useEffect(() => {
@@ -260,6 +293,18 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
         <div className="grid grid-cols-2 gap-4">
           <input type="text" className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 text-sm font-bold" value={state.settings.person1Name} onChange={e => updateSettings({ person1Name: e.target.value })} placeholder="Person 1" />
           <input type="text" className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 text-sm font-bold" value={state.settings.person2Name} onChange={e => updateSettings({ person2Name: e.target.value })} placeholder="Person 2" />
+          <input type="text" className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 text-sm font-bold" value={state.settings.person1Name} onChange={e => updateSettings({ person1Name: e.target.value })} placeholder="Person 1" />
+          <input type="text" className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 text-sm font-bold" value={state.settings.person2Name} onChange={e => updateSettings({ person2Name: e.target.value })} placeholder="Person 2" />
+        </div>
+
+        <div className="mt-4">
+          <label className="block w-full text-center py-3 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            <span className="text-xs text-text-light font-bold">🖼️ Change Cover Photo</span>
+            <input type="file" accept="image/*" className="hidden" onChange={handleCoverPhotoUpload} />
+          </label>
+          {state.settings.coverPhotoData && state.settings.coverPhotoData.startsWith('http') && (
+            <p className="text-[10px] text-center text-green-500 mt-1">Cloud Image Active</p>
+          )}
         </div>
       </section>
 
