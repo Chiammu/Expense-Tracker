@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppState, AppSettings, INITIAL_STATE } from '../types';
-import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent, exportData, deleteCloudData } from '../services/storage';
+import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent, exportData, deleteCloudData, triggerCloudSave } from '../services/storage';
 import { authService } from '../services/auth';
 import { generateMonthlyDigest } from '../services/geminiService';
 import { webAuthnService } from '../services/webAuthn';
@@ -122,6 +122,7 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
 
         if (confirm(`Found ${newState.expenses.length} expenses. Restore now?`)) {
           updateState(newState);
+          triggerCloudSave(newState); // Force immediate cloud sync
           showToast(`Success! Restored ${newState.expenses.length} expenses.`, "success");
           haptic([10, 10]);
         }
