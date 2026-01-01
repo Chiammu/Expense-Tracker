@@ -39,9 +39,18 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
     setLoading(true);
     try {
       if (mode === 'login') {
-        const { error } = await authService.signIn(email, password);
+        const { data, error } = await authService.signIn(email, password);
+        console.log("SignIn Result:", { data, error });
         if (error) throw error;
-        showToast("Welcome back!", "success");
+        if (data.session) {
+          showToast("Login successful! Redirecting...", "success");
+          onAuthSuccess();
+        } else {
+          // Sometimes session is null if email confirmation is required but no error returned (rare)
+          if (data.user && !data.session) {
+            showToast("Please check your email to confirm your account.", "info");
+          }
+        }
       } else if (mode === 'signup') {
         if (password !== confirmPassword) {
           throw new Error("Passwords do not match!");
