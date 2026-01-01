@@ -15,9 +15,7 @@ import { Auth } from './components/Auth';
 import { supabase } from './services/supabaseClient';
 import { SkeletonLoader } from './components/SkeletonLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { loadFromStorage, saveToStorage, fetchCloudState, forceCloudSync, mergeAppState, logAuditEvent, triggerCloudSave } from './services/storage';
-import { EMERGENCY_DATA } from './components/EmergencyRestoreData';
-import { INITIAL_STATE, AppState } from './types';
+import { loadFromStorage, saveToStorage, fetchCloudState, forceCloudSync, mergeAppState, logAuditEvent } from './services/storage';
 
 function App() {
   const navigate = useNavigate();
@@ -95,30 +93,6 @@ function App() {
 
       store.setState(currentState);
       setLoaded(true);
-
-      setLoaded(true);
-
-      // --- MANUAL RESTORE INJECTION ---
-      // User requested "do it manually". We auto-inject once.
-      const hasRestored = localStorage.getItem('MANUAL_RESTORE_V1');
-      if (!hasRestored && session?.user?.id) {
-        console.log("EXECUTION MANUAL RESTORE INJECTION...");
-        const injectedState = {
-          ...INITIAL_STATE,
-          ...EMERGENCY_DATA,
-          settings: {
-            ...INITIAL_STATE.settings,
-            ...EMERGENCY_DATA.settings,
-          },
-          updatedAt: Date.now()
-        } as unknown as AppState;
-
-        store.setState(injectedState);
-        triggerCloudSave(injectedState); // Force push to cloud
-        localStorage.setItem('MANUAL_RESTORE_V1', 'true');
-        showToast("♻️ System Restored Data Successfully", "success");
-      }
-      // --------------------------------
 
       if (currentState.settings.pin || currentState.settings.webAuthnCredentialId) {
         setIsLocked(true);
