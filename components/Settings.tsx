@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppState, AppSettings, INITIAL_STATE } from '../types';
-import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent, exportData } from '../services/storage';
+import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent, exportData, deleteCloudData } from '../services/storage';
 import { authService } from '../services/auth';
 import { generateMonthlyDigest } from '../services/geminiService';
 import { webAuthnService } from '../services/webAuthn';
@@ -38,6 +38,7 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
   const [showScanner, setShowScanner] = useState(false);
   const [manualSyncId, setManualSyncId] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -366,11 +367,59 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
         <SectionHeader icon="🚪" title="Account Actions" />
         <div className="space-y-3">
           <button onClick={handleSignOut} className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-2xl">Sign Out</button>
-          <button onClick={deleteAccount} className="w-full py-3 bg-red-50 dark:bg-red-900/10 text-red-600 font-bold rounded-2xl border border-red-100 dark:border-red-900/20 active:bg-red-200 transition-colors">
+          <button onClick={handleSignOut} className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-2xl">Sign Out</button>
+          <button onClick={() => setShowDeleteModal(true)} className="w-full py-3 bg-red-50 dark:bg-red-900/10 text-red-600 font-bold rounded-2xl border border-red-100 dark:border-red-900/20 active:bg-red-200 transition-colors">
             Delete My Account
           </button>
         </div>
       </section>
+
+      {/* DELETE ACCOUNT MODAL */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white dark:bg-gray-900 w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-gray-100 dark:border-gray-800">
+            <h3 className="text-xl font-bold mb-2 text-center text-red-600">Delete Account?</h3>
+            <p className="text-sm text-center text-gray-500 mb-6">Choose an action to perform.</p>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  if (confirm("Reset local data only? Cloud backup remains.")) {
+                    resetData();
+                    setShowDeleteModal(false);
+                    showToast("Device data cleared", "info");
+                  }
+                }}
+                className="w-full py-4 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
+              >
+                <span>🧹</span> Clear Data from Device
+              </button>
+
+              <button
+                onClick={async () => {
+                  if (confirm("⚠️ PERMANENTLY DELETE account & all cloud data? This cannot be undone.")) {
+                    const success = await deleteCloudData();
+                    if (success) {
+                      await authService.signOut();
+                      showToast("Account deleted successfully", "success");
+                    } else {
+                      showToast("Failed to delete cloud data", "error");
+                    }
+                    setShowDeleteModal(false);
+                  }
+                }}
+                className="w-full py-4 bg-red-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-red-500/30"
+              >
+                <span>🗑️</span> Delete EVERYTHING
+              </button>
+            </div>
+
+            <button onClick={() => setShowDeleteModal(false)} className="mt-6 w-full py-3 text-gray-400 font-bold text-xs uppercase tracking-wider">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="text-center text-[10px] text-gray-300 pt-4 pb-8">
         v1.6.2 • E2EE Chat • Biometric Pro • PWA Standalone

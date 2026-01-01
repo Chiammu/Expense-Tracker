@@ -161,6 +161,23 @@ export const fetchCloudState = async (userId: string): Promise<AppState | null> 
   return mergeState(data.data);
 };
 
+export const deleteCloudData = async (): Promise<boolean> => {
+  if (!supabase) return false;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return false;
+
+  const { error } = await supabase
+    .from('app_state')
+    .delete()
+    .eq('user_id', session.user.id);
+
+  if (error) {
+    console.error("Failed to delete cloud data:", error);
+    return false;
+  }
+  return true;
+};
+
 export const exportData = (state: AppState) => {
   try {
     const data = JSON.stringify(state, null, 2);
