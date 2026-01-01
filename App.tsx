@@ -76,6 +76,17 @@ function App() {
       let currentState = localData;
 
       if (session?.user?.id) {
+        // --- DATA LEAKAGE PREVENTION ---
+        const lastUserId = localStorage.getItem('last_user_id');
+        if (lastUserId && lastUserId !== session.user.id) {
+          console.warn("User mismatch detected. Clearing local storage to prevent leakage.");
+          localStorage.removeItem('coupleExpenseTrackerV4_React');
+          localStorage.removeItem('MANUAL_RESTORE_V1');
+          localData = { ...INITIAL_STATE }; // Reset local reference
+        }
+        localStorage.setItem('last_user_id', session.user.id);
+        // -------------------------------
+
         try {
           console.log("Fetching cloud state for user:", session.user.id);
           const cloudData = await fetchCloudState(session.user.id);
@@ -85,9 +96,15 @@ function App() {
             currentState = cloudData;
           } else {
             console.log("No cloud data found. Starting fresh.");
+            // SAFETY: If logged in but no cloud data, assume fresh user.
+            // Do NOT fall back to localData unless it's confirmed guest data, which we can't easily do.
+            // To be safe against leaks, we reset to INITIAL_STATE.
+            currentState = { ...INITIAL_STATE, settings: { ...INITIAL_STATE.settings, reportEmail: session.user.email || '' } };
           }
         } catch (e) {
           console.error("Cloud fetch failed:", e);
+          // If offline, we might fall back to localData, but only if we didn't just mistakenly load another user's data.
+          // Since we cleared it on mismatch above, this is safe-ish.
         }
       }
 
