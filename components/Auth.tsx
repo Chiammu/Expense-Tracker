@@ -21,10 +21,12 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
 
   const isConfigured = !!supabase;
 
-  // Detect if we are returning from an OAuth flow
+  // Detect if we are returning from an OAuth flow or Email Confirmation (PKCE)
   useEffect(() => {
     const hash = window.location.hash;
-    if (hash && (hash.includes('access_token=') || hash.includes('error='))) {
+    const search = window.location.search;
+    if ((hash && (hash.includes('access_token=') || hash.includes('error='))) ||
+      (search && search.includes('code='))) {
       setIsFinalizing(true);
       // Give it a few seconds to settle, the listener in App.tsx will handle the actual session change
       const timer = setTimeout(() => setIsFinalizing(false), 5000);

@@ -4,8 +4,8 @@ import { supabase } from './supabaseClient';
 export const authService = {
   signUp: async (email: string, pass: string) => {
     if (!supabase) throw new Error("Supabase not configured");
-    return await supabase.auth.signUp({ 
-      email, 
+    return await supabase.auth.signUp({
+      email,
       password: pass,
       options: {
         emailRedirectTo: window.location.origin,
