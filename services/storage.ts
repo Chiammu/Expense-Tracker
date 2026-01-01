@@ -38,15 +38,40 @@ const triggerCloudSave = async (state: AppState) => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) return;
 
-  const { error } = await supabase
-    .from('app_state')
-    .upsert({
-      user_id: session.user.id, // Primary Key in DB
-      data: state,
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'user_id' });
+  try {
+    // Check if row exists for this user
+    const { data: existingRows } = await supabase
+      .from('app_state')
+      .select('id')
+      .eq('user_id', session.user.id)
+      .limit(1);
 
-  if (error) console.error("Cloud sync failed:", error);
+    if (existingRows && existingRows.length > 0) {
+      // Update existing row
+      const { error } = await supabase
+        .from('app_state')
+        .update({
+          data: state,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingRows[0].id);
+
+      if (error) console.error("Cloud update failed:", error);
+    } else {
+      // Insert new row
+      const { error } = await supabase
+        .from('app_state')
+        .insert({
+          user_id: session.user.id,
+          data: state,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) console.error("Cloud insert failed:", error);
+    }
+  } catch (err) {
+    console.error("Cloud sync exception:", err);
+  }
 };
 
 export const forceCloudSync = (state: AppState) => {
