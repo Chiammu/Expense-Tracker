@@ -11,7 +11,7 @@ interface AuthProps {
 
 type AuthMode = 'login' | 'signup' | 'forgot';
 
-export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin }) => {
+export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin, onAuthSuccess }) => {
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
