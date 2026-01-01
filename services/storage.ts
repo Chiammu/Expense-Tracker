@@ -205,6 +205,32 @@ export const deleteCloudData = async (): Promise<boolean> => {
   return true;
 };
 
+export const checkSupabaseConnection = async (): Promise<{ success: boolean; message: string }> => {
+  if (!supabase) return { success: false, message: "Supabase client not initialized (missing credentials)." };
+
+  try {
+    const { count: appStateCount, error: appStateError } = await supabase
+      .from('app_state')
+      .select('*', { count: 'exact', head: true });
+
+    if (appStateError) throw new Error("Could not access 'app_state': " + appStateError.message);
+
+    const { count: historyCount, error: historyError } = await supabase
+      .from('history')
+      .select('*', { count: 'exact', head: true });
+
+    // History might be optional or restricted, so we don't fail hard if it errors, but good to know.
+    if (historyError) console.warn("Could not access 'history': " + historyError.message);
+
+    return {
+      success: true,
+      message: `Connected! app_state rows: ${appStateCount ?? 'N/A'}, history rows: ${historyCount ?? 'N/A'}`
+    };
+  } catch (e: any) {
+    return { success: false, message: e.message || "Unknown connection error" };
+  }
+};
+
 export const exportData = (state: AppState) => {
   try {
     const data = JSON.stringify(state, null, 2);

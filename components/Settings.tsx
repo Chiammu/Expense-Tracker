@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppState, AppSettings, INITIAL_STATE } from '../types';
-import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent, exportData, deleteCloudData, triggerCloudSave } from '../services/storage';
+import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent, exportData, deleteCloudData, triggerCloudSave, checkSupabaseConnection } from '../services/storage';
 import { authService } from '../services/auth';
 import { generateMonthlyDigest } from '../services/geminiService';
 import { webAuthnService } from '../services/webAuthn';
@@ -299,6 +299,16 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
           <p className="text-[10px] text-yellow-800 dark:text-yellow-200">
             <strong>Note:</strong> Data is synchronized to the secure cloud. Use Export to create a manual backup. Importing will overwrite current data.
           </p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <button onClick={async () => {
+            showToast("Checking connection...", "info");
+            const res = await checkSupabaseConnection();
+            showToast(res.message, res.success ? "success" : "error");
+          }} className="py-3 bg-blue-50 dark:bg-blue-900/10 text-blue-600 font-bold rounded-xl text-xs flex flex-col items-center gap-1 active:scale-95 transition-all">
+            <span>☁️</span> Check Cloud Health
+          </button>
+          <div /> {/* Spacer or remove grid col-2 if only one item, but grid is fine */}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <button onClick={() => exportData(state)} className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-xs flex flex-col items-center gap-1">
