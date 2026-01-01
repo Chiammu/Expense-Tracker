@@ -208,6 +208,7 @@ function App() {
                   <Settings
                     state={store}
                     updateSettings={(s) => store.setState({ settings: { ...store.settings, ...s } })}
+                    updateState={store.setState}
                     resetData={store.reset}
                     deleteAccount={store.reset}
                     showToast={showToast}
@@ -215,6 +216,7 @@ function App() {
                     canInstall={false}
                     isIos={false}
                     isStandalone={false}
+                    userEmail={session?.user?.email}
                   />
                 } />
               </Routes>

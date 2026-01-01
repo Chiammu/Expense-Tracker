@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppState, AppSettings } from '../types';
-import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent } from '../services/storage';
+import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent, exportData } from '../services/storage';
 import { authService } from '../services/auth';
 import { generateMonthlyDigest } from '../services/geminiService';
 import { webAuthnService } from '../services/webAuthn';
@@ -12,6 +12,7 @@ import QRCode from 'qrcode';
 interface SettingsProps {
   state: AppState;
   updateSettings: (newSettings: Partial<AppSettings>) => void;
+  updateState: (newState: Partial<AppState>) => void;
   resetData: () => void;
   deleteAccount: () => void;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
@@ -19,6 +20,7 @@ interface SettingsProps {
   canInstall: boolean;
   isIos: boolean;
   isStandalone: boolean;
+  userEmail?: string;
 }
 
 const haptic = (pattern: number | number[] = 10) => {
@@ -27,7 +29,7 @@ const haptic = (pattern: number | number[] = 10) => {
   }
 };
 
-export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, resetData, deleteAccount, showToast }) => {
+export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updateState, resetData, deleteAccount, showToast, userEmail }) => {
   const [pinInput, setPinInput] = useState('');
   const [qrUrl, setQrUrl] = useState('');
   const [generatingReport, setGeneratingReport] = useState(false);
@@ -36,7 +38,33 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
   const [showScanner, setShowScanner] = useState(false);
   const [manualSyncId, setManualSyncId] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  
+
+  const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const json = e.target?.result as string;
+        const parsed = JSON.parse(json);
+        // Simple validation
+        if (!parsed.expenses || !parsed.settings) throw new Error("Invalid backup file");
+
+        if (confirm("Restore from backup? This will overwrite current data.")) {
+          updateState(parsed);
+          showToast("Data restored successfully!", "success");
+          haptic([10, 10]);
+        }
+      } catch (err) {
+        showToast("Import failed: Invalid file", "error");
+      }
+    };
+    reader.readAsText(file);
+    // Reset input
+    event.target.value = '';
+  };
+
   useEffect(() => {
     const idToShare = state.settings.syncId || 'NOT_PAIRED';
     QRCode.toDataURL(idToShare)
@@ -122,133 +150,161 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, reset
 
   const SectionHeader = ({ icon, title }: { icon: string, title: string }) => (
     <div className="flex items-center gap-2 mb-4">
-       <span className="text-xl">{icon}</span>
-       <h3 className="text-lg font-bold text-text">{title}</h3>
+      <span className="text-xl">{icon}</span>
+      <h3 className="text-lg font-bold text-text">{title}</h3>
     </div>
   );
 
   return (
     <div className="pb-24 max-w-xl mx-auto space-y-8 animate-fade-in">
-      
+
       {showScanner && <ScannerModal onScan={handleSyncScan} onClose={() => setShowScanner(false)} />}
 
       {/* PWA INSTALL PROMOTION */}
       {deferredPrompt && (
         <section className="bg-gradient-to-r from-primary/10 to-secondary/10 rounded-3xl p-6 border border-primary/20 animate-slide-up">
-           <div className="flex items-center gap-4">
-              <div className="text-3xl">📱</div>
-              <div className="flex-1">
-                 <h3 className="text-sm font-bold">Install as App</h3>
-                 <p className="text-[10px] text-text-light">Get faster access and a fullscreen experience.</p>
-              </div>
-              <button onClick={handleInstallClick} className="bg-primary text-white text-[10px] font-bold px-4 py-2 rounded-full shadow-lg">Install</button>
-           </div>
+          <div className="flex items-center gap-4">
+            <div className="text-3xl">📱</div>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold">Install as App</h3>
+              <p className="text-[10px] text-text-light">Get faster access and a fullscreen experience.</p>
+            </div>
+            <button onClick={handleInstallClick} className="bg-primary text-white text-[10px] font-bold px-4 py-2 rounded-full shadow-lg">Install</button>
+          </div>
         </section>
       )}
 
       {/* IDENTITY SECTION */}
       <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
-         <SectionHeader icon="👤" title="Identity & Profile" />
-         <div className="grid grid-cols-2 gap-4">
-            <input type="text" className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 text-sm font-bold" value={state.settings.person1Name} onChange={e => updateSettings({ person1Name: e.target.value })} placeholder="Person 1" />
-            <input type="text" className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 text-sm font-bold" value={state.settings.person2Name} onChange={e => updateSettings({ person2Name: e.target.value })} placeholder="Person 2" />
-         </div>
+        <SectionHeader icon="👤" title="Identity & Profile" />
+        {userEmail && (
+          <div className="mb-4 p-3 bg-primary/5 rounded-xl border border-primary/10 flex items-center gap-3">
+            <span className="text-xl">📧</span>
+            <div>
+              <p className="text-[10px] uppercase font-black text-primary/60 tracking-wider">Logged in as</p>
+              <p className="text-sm font-bold text-primary">{userEmail}</p>
+            </div>
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-4">
+          <input type="text" className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 text-sm font-bold" value={state.settings.person1Name} onChange={e => updateSettings({ person1Name: e.target.value })} placeholder="Person 1" />
+          <input type="text" className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 text-sm font-bold" value={state.settings.person2Name} onChange={e => updateSettings({ person2Name: e.target.value })} placeholder="Person 2" />
+        </div>
       </section>
 
       {/* SYNC CENTER */}
       <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
-         <SectionHeader icon="👫" title="Couple Sync" />
-         <div className="space-y-6">
-            <div className="flex flex-col items-center">
-               {qrUrl ? (
-                 <div className="p-4 bg-white rounded-2xl shadow-inner border border-gray-100 mb-4">
-                    <img src={qrUrl} alt="Sync QR" className="w-32 h-32" />
-                 </div>
-               ) : (
-                 <div className="w-32 h-32 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center text-text-light mb-4">No ID</div>
-               )}
-               <div className="text-center">
-                 <p className="text-[10px] font-black uppercase text-text-light tracking-widest mb-1">Your Sync ID</p>
-                 <code className="text-xs bg-gray-50 dark:bg-gray-900/50 px-2 py-1 rounded text-primary font-mono">{state.settings.syncId || 'None'}</code>
-               </div>
+        <SectionHeader icon="👫" title="Couple Sync" />
+        <div className="space-y-6">
+          <div className="flex flex-col items-center">
+            {qrUrl ? (
+              <div className="p-4 bg-white rounded-2xl shadow-inner border border-gray-100 mb-4">
+                <img src={qrUrl} alt="Sync QR" className="w-32 h-32" />
+              </div>
+            ) : (
+              <div className="w-32 h-32 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center text-text-light mb-4">No ID</div>
+            )}
+            <div className="text-center">
+              <p className="text-[10px] font-black uppercase text-text-light tracking-widest mb-1">Your Sync ID</p>
+              <code className="text-xs bg-gray-50 dark:bg-gray-900/50 px-2 py-1 rounded text-primary font-mono">{state.settings.syncId || 'None'}</code>
             </div>
+          </div>
 
-            <div className="grid grid-cols-2 gap-3">
-               <button onClick={() => setShowScanner(true)} className="py-3 bg-primary text-white font-bold rounded-xl text-xs flex flex-col items-center gap-1 shadow-lg shadow-primary/20 active:scale-95 transition-all">
-                 <span>📷</span> Scan Partner
-               </button>
-               <button onClick={generateSyncId} className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-xs flex flex-col items-center gap-1 active:scale-95 transition-all">
-                 <span>🆕</span> New ID
-               </button>
-            </div>
-         </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={() => setShowScanner(true)} className="py-3 bg-primary text-white font-bold rounded-xl text-xs flex flex-col items-center gap-1 shadow-lg shadow-primary/20 active:scale-95 transition-all">
+              <span>📷</span> Scan Partner
+            </button>
+            <button onClick={generateSyncId} className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-xs flex flex-col items-center gap-1 active:scale-95 transition-all">
+              <span>🆕</span> New ID
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* DATA MANAGEMENT */}
+      <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+        <SectionHeader icon="💾" title="Data Management" />
+        <div className="p-4 bg-yellow-50 dark:bg-yellow-900/10 rounded-xl border border-yellow-100 dark:border-yellow-900/20 mb-4">
+          <p className="text-[10px] text-yellow-800 dark:text-yellow-200">
+            <strong>Note:</strong> Data is synchronized to the secure cloud. Use Export to create a manual backup. Importing will overwrite current data.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={() => exportData(state)} className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-xs flex flex-col items-center gap-1">
+            <span>📤</span> Export JSON
+          </button>
+          <label className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-xs flex flex-col items-center gap-1 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+            <span>📥</span> Import JSON
+            <input type="file" accept=".json" onChange={handleImportData} className="hidden" />
+          </label>
+        </div>
       </section>
 
       {/* SECURITY & BIOMETRICS */}
       <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
-         <SectionHeader icon="🛡️" title="Security & Biometrics" />
-         <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl">
-               <div className="flex flex-col">
-                 <span className="text-sm font-bold">PIN Lock</span>
-                 <span className="text-[10px] text-text-light">{state.settings.pin ? 'Currently Active' : 'Not configured'}</span>
-               </div>
-               {state.settings.pin ? (
-                  <button onClick={() => { haptic(5); updateSettings({ pin: null }); }} className="text-xs bg-red-100 text-red-600 px-3 py-1.5 rounded-lg font-bold">Remove</button>
-               ) : (
-                  <div className="flex items-center gap-2">
-                     <input type="password" maxLength={4} className="w-14 p-1.5 text-center text-xs rounded-lg bg-white dark:bg-gray-800" placeholder="PIN" value={pinInput} onChange={e => setPinInput(e.target.value)} />
-                     <button onClick={() => { if(pinInput.length===4) { haptic(10); updateSettings({ pin: pinInput }); setPinInput(''); showToast("PIN Set"); }}} className="text-primary text-xs font-bold">Set</button>
-                  </div>
-               )}
+        <SectionHeader icon="🛡️" title="Security & Biometrics" />
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl">
+            <div className="flex flex-col">
+              <span className="text-sm font-bold">PIN Lock</span>
+              <span className="text-[10px] text-text-light">{state.settings.pin ? 'Currently Active' : 'Not configured'}</span>
             </div>
-
-            {biometricSupported && (
-               <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-bold">Biometric Unlock</span>
-                    <span className="text-[10px] text-text-light">{state.settings.webAuthnCredentialId ? 'Registered' : 'FaceID/Fingerprint'}</span>
-                  </div>
-                  {state.settings.webAuthnCredentialId ? (
-                    <button onClick={() => updateSettings({ webAuthnCredentialId: null })} className="text-xs bg-red-100 text-red-600 px-3 py-1.5 rounded-lg font-bold">Disable</button>
-                  ) : (
-                    <button 
-                      onClick={handleRegisterBiometrics}
-                      disabled={registering}
-                      className="text-xs bg-primary text-white px-3 py-1.5 rounded-lg font-bold disabled:opacity-50"
-                    >
-                      {registering ? '...' : 'Register'}
-                    </button>
-                  )}
-               </div>
+            {state.settings.pin ? (
+              <button onClick={() => { haptic(5); updateSettings({ pin: null }); }} className="text-xs bg-red-100 text-red-600 px-3 py-1.5 rounded-lg font-bold">Remove</button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <input type="password" maxLength={4} className="w-14 p-1.5 text-center text-xs rounded-lg bg-white dark:bg-gray-800" placeholder="PIN" value={pinInput} onChange={e => setPinInput(e.target.value)} />
+                <button onClick={() => { if (pinInput.length === 4) { haptic(10); updateSettings({ pin: pinInput }); setPinInput(''); showToast("PIN Set"); } }} className="text-primary text-xs font-bold">Set</button>
+              </div>
             )}
-         </div>
+          </div>
+
+          {biometricSupported && (
+            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl">
+              <div className="flex flex-col">
+                <span className="text-sm font-bold">Biometric Unlock</span>
+                <span className="text-[10px] text-text-light">{state.settings.webAuthnCredentialId ? 'Registered' : 'FaceID/Fingerprint'}</span>
+              </div>
+              {state.settings.webAuthnCredentialId ? (
+                <button onClick={() => updateSettings({ webAuthnCredentialId: null })} className="text-xs bg-red-100 text-red-600 px-3 py-1.5 rounded-lg font-bold">Disable</button>
+              ) : (
+                <button
+                  onClick={handleRegisterBiometrics}
+                  disabled={registering}
+                  className="text-xs bg-primary text-white px-3 py-1.5 rounded-lg font-bold disabled:opacity-50"
+                >
+                  {registering ? '...' : 'Register'}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </section>
 
       {/* REPORTS SECTION */}
       <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
-         <SectionHeader icon="📩" title="Reports & Data" />
-         <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-               <button onClick={handleDownloadMonthlyPDF} disabled={generatingReport} className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-xs">📄 Export PDF</button>
-               <button onClick={() => { haptic(5); exportToCSV(state.expenses); }} className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-xs">📊 Export CSV</button>
-            </div>
-         </div>
+        <SectionHeader icon="📩" title="Reports & Data" />
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={handleDownloadMonthlyPDF} disabled={generatingReport} className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-xs">📄 Export PDF</button>
+            <button onClick={() => { haptic(5); exportToCSV(state.expenses); }} className="py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-xl text-xs">📊 Export CSV</button>
+          </div>
+        </div>
       </section>
 
       {/* ACCOUNT ACTIONS */}
       <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
-         <SectionHeader icon="🚪" title="Account Actions" />
-         <div className="space-y-3">
-            <button onClick={handleSignOut} className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-2xl">Sign Out</button>
-            <button onClick={deleteAccount} className="w-full py-3 bg-red-50 dark:bg-red-900/10 text-red-600 font-bold rounded-2xl border border-red-100 dark:border-red-900/20 active:bg-red-200 transition-colors">
-              Delete My Account
-            </button>
-         </div>
+        <SectionHeader icon="🚪" title="Account Actions" />
+        <div className="space-y-3">
+          <button onClick={handleSignOut} className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-text font-bold rounded-2xl">Sign Out</button>
+          <button onClick={deleteAccount} className="w-full py-3 bg-red-50 dark:bg-red-900/10 text-red-600 font-bold rounded-2xl border border-red-100 dark:border-red-900/20 active:bg-red-200 transition-colors">
+            Delete My Account
+          </button>
+        </div>
       </section>
 
       <div className="text-center text-[10px] text-gray-300 pt-4 pb-8">
-         v1.6.2 • E2EE Chat • Biometric Pro • PWA Standalone
+        v1.6.2 • E2EE Chat • Biometric Pro • PWA Standalone
       </div>
     </div>
   );
