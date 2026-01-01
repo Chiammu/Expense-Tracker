@@ -56,6 +56,8 @@ function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       if (event === 'SIGNED_OUT') {
+        // Critical: Clear local storage to prevent data leakage to next user
+        localStorage.removeItem('coupleExpenseTrackerV4_React');
         store.reset();
         setLoaded(false);
       }
