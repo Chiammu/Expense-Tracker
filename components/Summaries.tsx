@@ -34,8 +34,17 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
     try {
       const result = await roastSpending(state);
       setRoast(result);
-    } catch (e) {
-      setRoast("You're so broke I can't even find words.");
+    } catch (e: any) {
+      console.error("Roast error:", e);
+      // Show the actual error message
+      const errorMsg = e.message || e.toString();
+      if (errorMsg.includes("API Key is missing")) {
+        setRoast("⚠️ AI features require a Gemini API key. Please add GEMINI_API_KEY to your .env file. Get one free at: https://aistudio.google.com/app/apikey");
+      } else if (errorMsg.includes("quota") || errorMsg.includes("429")) {
+        setRoast("⚠️ AI quota exhausted. Try again later or get a new API key at: https://aistudio.google.com/app/apikey");
+      } else {
+        setRoast(`⚠️ AI Error: ${errorMsg}. Your spending is so chaotic it broke my circuits!`);
+      }
     } finally {
       setIsRoasting(false);
     }
@@ -208,6 +217,26 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
               {isRoasting ? 'Preparing Roast...' : 'Roast My Spending'}
             </span>
           </button>
+
+          {roast && (
+            <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-2xl p-6 shadow-lg border-2 border-orange-200 dark:border-orange-800 animate-slide-up">
+              <div className="flex items-start gap-3">
+                <span className="text-3xl">🔥</span>
+                <div className="flex-1">
+                  <h3 className="text-sm font-black text-orange-800 dark:text-orange-300 uppercase tracking-widest mb-2">AI Roast</h3>
+                  <p className="text-base text-gray-800 dark:text-gray-200 leading-relaxed font-medium">
+                    {roast}
+                  </p>
+                  <button 
+                    onClick={() => setRoast(null)}
+                    className="mt-4 text-xs text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-200 font-bold uppercase tracking-wide"
+                  >
+                    Dismiss 🙈
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="bg-surface rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
             <h3 className="text-xs font-black text-text-light uppercase tracking-widest mb-4">Spending breakdown</h3>

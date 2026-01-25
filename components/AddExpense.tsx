@@ -92,8 +92,14 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
             }));
             haptic(20);
             showToast("Receipt parsed successfully", 'success');
-          } catch (err) {
-            showToast("Failed to parse receipt", 'error');
+          } catch (err: any) {
+            console.error("Receipt parsing error:", err);
+            const errorMsg = err.message || err.toString();
+            if (errorMsg.includes("API Key is missing")) {
+              showToast("AI features require Gemini API key in .env file", 'error');
+            } else {
+              showToast(`Failed to parse receipt: ${errorMsg}`, 'error');
+            }
           } finally {
             setIsProcessing(false);
           }
@@ -127,8 +133,14 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
       setNlpInput('');
       haptic(20);
       showToast("Processed", 'success');
-    } catch (err) {
-      showToast("Failed to understand text", 'error');
+    } catch (err: any) {
+      console.error("NLP parsing error:", err);
+      const errorMsg = err.message || err.toString();
+      if (errorMsg.includes("API Key is missing")) {
+        showToast("AI features require Gemini API key in .env file", 'error');
+      } else {
+        showToast(`Failed to understand text: ${errorMsg}`, 'error');
+      }
     } finally {
       setIsProcessing(false);
     }
