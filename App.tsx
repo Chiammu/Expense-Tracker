@@ -17,6 +17,7 @@ import { SkeletonLoader } from './components/SkeletonLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { loadFromStorage, saveToStorage, fetchCloudState, forceCloudSync, mergeAppState, logAuditEvent, setupRealtimeSubscription } from './services/storage';
 import { DebugView } from './components/DebugView';
+import { INITIAL_STATE } from './types';
 
 function App() {
   const navigate = useNavigate();
@@ -73,7 +74,7 @@ function App() {
 
     const init = async () => {
       // Start with clean state (loadFromStorage returns INITIAL_STATE now)
-      const localData = loadFromStorage();
+      let localData = loadFromStorage();
       let currentState = localData;
 
       if (session?.user?.id) {
@@ -197,7 +198,7 @@ function App() {
         />
       )}
 
-      <div className={`min - h - screen bg - background text - text ${store.settings.privacyMode ? 'privacy-active' : ''} `}>
+      <div className={`min-h-screen bg-background text-text ${store.settings.privacyMode ? 'privacy-active' : ''}`}>
         <div className="max-w-3xl mx-auto px-2 pt-4">
           <Header settings={store.settings} onTogglePrivacy={handleTogglePrivacy} />
 

@@ -134,9 +134,6 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
     reader.readAsText(file);
     // Reset input
     event.target.value = '';
-    reader.readAsText(file);
-    // Reset input
-    event.target.value = '';
   };
 
   useEffect(() => {
