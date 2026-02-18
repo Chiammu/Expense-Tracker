@@ -10,6 +10,7 @@ interface BottomNavProps {
 export const BottomNav: React.FC<BottomNavProps> = ({ activeSection, setSection }) => {
   const navItems: { id: Section; label: string; icon: string }[] = [
     { id: 'add-expense', label: 'Add', icon: '➕' },
+    { id: 'import', label: 'Import', icon: '📤' },
     { id: 'summaries', label: 'Stats', icon: '📊' },
     { id: 'investments', label: 'Wealth', icon: '📈' },
     { id: 'overview', label: 'Plan', icon: '📅' },

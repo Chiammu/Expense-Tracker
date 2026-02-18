@@ -8,6 +8,7 @@ import { LockScreen } from './components/LockScreen';
 import { Toast } from './components/Toast';
 import { RecurringModal } from './components/RecurringModal';
 import { Auth } from './components/Auth';
+import { StatementImporter } from './components/StatementImporter';
 import { supabase } from './services/supabaseClient';
 import { SkeletonLoader } from './components/SkeletonLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -219,6 +220,13 @@ function App() {
                       expenseToEdit={store.expenseToEdit}
                       cancelEdit={() => store.setExpenseToEdit(null)}
                       switchTab={(tab) => navigate(`/${tab}`)}
+                      showToast={showToast}
+                    />
+                  } />
+                  <Route path="/import" element={
+                    <StatementImporter
+                      state={store}
+                      addExpense={store.addExpense}
                       showToast={showToast}
                     />
                   } />

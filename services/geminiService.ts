@@ -1,4 +1,4 @@
-import { AppState, Expense } from "../types";
+import { AppState, Expense, ParsedTransaction } from "../types";
 
 // API base URL - defaults to same origin in production
 const API_BASE = import.meta.env.VITE_API_BASE || '';
@@ -184,5 +184,40 @@ export const parseNaturalLanguageExpense = async (
     return await callGeminiAPI('parseNLP', { text, person1Name, person2Name });
   } catch (error) {
     throw error;
+  }
+};
+
+export const parseStatementText = async (
+  rawText: string,
+  categories: string[]
+): Promise<ParsedTransaction[]> => {
+  try {
+    const prompt = `You are a bank statement parser for Indian banks. Parse this statement text and return a JSON array of transactions. Each transaction must have: date (YYYY-MM-DD format), description (merchant/payee name, cleaned up), debit (number, 0 if none), credit (number, 0 if none). Only include debit transactions (expenses). Raw text: ${rawText}. Return ONLY valid JSON array, no markdown.`;
+    return await callGeminiAPI('parseStatementText', { prompt, categories });
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const suggestTransactionCategories = async (
+  descriptions: string[],
+  categories: string[]
+): Promise<string[]> => {
+  try {
+    const prompt = `You are categorizing bank transactions. Categories: ${categories.join(', ')}. For each description, return the best category from the list. Descriptions: ${JSON.stringify(descriptions)}. Return ONLY a JSON array of category strings in the same order as descriptions.`;
+    const result = await callGeminiAPI('insights', { prompt });
+    const text = result.text || '';
+    const start = text.indexOf('[');
+    const end = text.lastIndexOf(']') + 1;
+    if (start === -1 || end === -1) {
+      return descriptions.map(() => 'Others');
+    }
+    const parsed = JSON.parse(text.slice(start, end));
+    if (!Array.isArray(parsed)) {
+      return descriptions.map(() => 'Others');
+    }
+    return parsed.map((entry) => (typeof entry === 'string' ? entry : 'Others'));
+  } catch (error) {
+    return descriptions.map(() => 'Others');
   }
 };
