@@ -14,6 +14,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { loadFromStorage, saveToStorage, fetchCloudState, forceCloudSync, mergeAppState, logAuditEvent, setupRealtimeSubscription } from './services/storage';
 import { DebugView } from './components/DebugView';
 import { INITIAL_STATE } from './types';
+import { Analytics } from '@vercel/analytics/react';
 
 // Lazy load heavy components
 const Summaries = lazy(() => import('./components/Summaries').then(m => ({ default: m.Summaries })));
@@ -274,6 +275,7 @@ function App() {
             setSection={(s) => navigate(`/${s}`)}
           />
         </div>
+        <Analytics />
       </div>
     </>
   );
