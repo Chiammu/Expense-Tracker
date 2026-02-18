@@ -11,6 +11,15 @@ export interface Expense {
   updatedAt: number; // For Last-Write-Wins conflict resolution
 }
 
+export interface ParsedTransaction {
+  date: string;
+  description: string;
+  debit: number;
+  credit: number;
+  suggestedCategory?: string;
+  isDuplicate?: boolean;
+}
+
 export interface CreditCard {
   id: number;
   name: string;
@@ -131,7 +140,7 @@ export interface AppState {
   updatedAt: number;
 }
 
-export type Section = 'add-expense' | 'summaries' | 'investments' | 'overview' | 'settings' | 'chat';
+export type Section = 'add-expense' | 'import' | 'summaries' | 'investments' | 'overview' | 'settings' | 'chat';
 
 export const DEFAULT_CATEGORIES = [
   "Groceries", "Rent", "Bills", "EMIs", "Shopping", "Travel", "Food",
