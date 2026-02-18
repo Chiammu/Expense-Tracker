@@ -1,6 +1,6 @@
 
 export interface Expense {
-  id: number;
+  id: string;
   person: string;
   date: string;
   amount: number;
@@ -128,6 +128,7 @@ export interface AppState {
   investments: Investments;
   loans: Loan[];
   creditCards: CreditCard[];
+  updatedAt: number;
 }
 
 export type Section = 'add-expense' | 'summaries' | 'investments' | 'overview' | 'settings' | 'chat';
@@ -193,4 +194,5 @@ export const INITIAL_STATE: AppState = {
   investments: INITIAL_INVESTMENTS,
   loans: [],
   creditCards: [],
+  updatedAt: Date.now(),
 };

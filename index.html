@@ -1,10 +1,10 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval' data: blob:; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https: wss:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https: wss:;">
+    <meta name="robots" content="noindex, nofollow">
     <title>Couple Expense Tracker</title>
     
     <!-- PWA Settings -->
@@ -13,152 +13,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Expenses" />
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2344/2344132.png" />
-
-    <!-- Tailwind CSS (CDN for simplicity) -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            colors: {
-              primary: 'var(--primary)',
-              secondary: 'var(--secondary)',
-              accent: 'var(--accent)',
-              surface: 'var(--surface)',
-              background: 'var(--background)',
-              text: 'var(--text)',
-              'text-light': 'var(--text-light)',
-            },
-            fontFamily: {
-              sans: 'var(--font-family)',
-            },
-            animation: {
-              'slide-up': 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-              'scale-in': 'scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-              'fade-in': 'fadeIn 0.3s ease-in-out',
-              'shimmer': 'shimmer 2s infinite linear',
-              'shake': 'shake 0.3s ease-in-out',
-            },
-            keyframes: {
-              slideUp: {
-                '0%': { opacity: 0, transform: 'translateY(15px)' },
-                '100%': { opacity: 1, transform: 'translateY(0)' },
-              },
-              scaleIn: {
-                '0%': { opacity: 0, transform: 'scale(0.95)' },
-                '100%': { opacity: 1, transform: 'scale(1)' },
-              },
-              fadeIn: {
-                '0%': { opacity: 0 },
-                '100%': { opacity: 1 },
-              },
-              shimmer: {
-                '0%': { transform: 'translateX(-100%)' },
-                '100%': { transform: 'translateX(100%)' },
-              },
-              shake: {
-                '0%, 100%': { transform: 'translateX(0)' },
-                '25%': { transform: 'translateX(-5px)' },
-                '75%': { transform: 'translateX(5px)' },
-              }
-            }
-          }
-        }
-      }
-    </script>
-    <style>
-      :root {
-        --primary: #e91e63;
-        --secondary: #2196f3;
-        --accent: #ff6f00;
-        --surface: #ffffff;
-        --background: #f8f9fa;
-        --text: #212121;
-        --text-light: #757575;
-        --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      }
-      
-      .dark {
-        --surface: #1e1e1e;
-        --background: #121212;
-        --text: #e0e0e0;
-        --text-light: #b0b0b0;
-      }
-
-      /* Privacy Mode blurring */
-      .privacy-active .mask-value {
-        filter: blur(8px);
-        user-select: none;
-        pointer-events: none;
-        transition: filter 0.3s ease;
-      }
-
-      /* Premium Scrollbar */
-      ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: var(--text-light);
-        border-radius: 10px;
-        opacity: 0.3;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: var(--primary);
-      }
-      
-      body {
-        background-color: var(--background);
-        color: var(--text);
-        font-family: var(--font-family);
-        transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s;
-        -webkit-tap-highlight-color: transparent;
-        /* Modern Gradient Background for Light Theme */
-        background-image: 
-          radial-gradient(at 0% 0%, rgba(233, 30, 99, 0.08) 0px, transparent 50%),
-          radial-gradient(at 100% 0%, rgba(33, 150, 243, 0.08) 0px, transparent 50%),
-          radial-gradient(at 100% 100%, rgba(255, 111, 0, 0.05) 0px, transparent 50%),
-          radial-gradient(at 0% 100%, rgba(255, 255, 255, 0) 0px, transparent 50%);
-        background-attachment: fixed;
-      }
-      
-      .dark body {
-        background-image: none;
-      }
-
-      input:focus, select:focus, textarea:focus {
-        outline: none;
-      }
-      
-      html {
-        scroll-behavior: smooth;
-      }
-    </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom": "https://esm.sh/react-dom@18.2.0",
-    "react/": "https://esm.sh/react@18.2.0/",
-    "react-dom/": "https://esm.sh/react-dom@18.2.0/",
-    "jspdf": "https://esm.sh/jspdf@2.5.1",
-    "@google/genai": "https://esm.sh/@google/genai?bundle",
-    "recharts": "https://esm.sh/recharts@2.10.3?external=react,react-dom",
-    "vite": "https://esm.sh/vite@5.0.8",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@4.2.1",
-    "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.8.1",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.39.0",
-    "qrcode": "https://esm.sh/qrcode@1.5.3",
-    "jsqr": "https://esm.sh/jsqr@1.4.0"
-  }
-}
-</script>
-</head>
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+  </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>

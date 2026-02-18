@@ -1,4 +1,3 @@
-
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -8,15 +7,14 @@ export default defineConfig({
     outDir: 'dist',
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
-      external: ['@google/genai'],
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom', 'recharts', 'jspdf', 'jspdf-autotable', '@supabase/supabase-js']
+          react: ['react', 'react-dom', 'react-router-dom'],
+          charts: ['recharts'],
+          pdf: ['jspdf', 'jspdf-autotable'],
+          supabase: ['@supabase/supabase-js'],
         }
       }
     }
-  },
-  define: {
-    'process.env.GEMINI_API_KEY': JSON.stringify(process.env.GEMINI_API_KEY)
   }
 });

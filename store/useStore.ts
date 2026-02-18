@@ -13,7 +13,7 @@ interface AppStore extends AppState {
     setState: (state: Partial<AppState>) => void;
     addExpense: (expense: Omit<Expense, 'id' | 'updatedAt'>) => void;
     updateExpense: (expense: Expense) => void;
-    deleteExpense: (id: number) => void;
+    deleteExpense: (id: string) => void;
     reset: () => void;
 }
 
@@ -35,7 +35,7 @@ export const useAppStore = create<AppStore>()(
         setState: (newState) => set((state) => ({ ...state, ...newState })),
 
         addExpense: (expense) => set((state) => {
-            const newExpense = { ...expense, id: Date.now(), updatedAt: Date.now() };
+            const newExpense = { ...expense, id: crypto.randomUUID(), updatedAt: Date.now() };
             let updatedCards = state.creditCards;
 
             if (newExpense.paymentMode === 'Card' && newExpense.cardId) {
@@ -61,7 +61,7 @@ export const useAppStore = create<AppStore>()(
                 ...state,
                 expenses: state.expenses.map(e => e.id === updatedExpense.id ? { ...updatedExpense, updatedAt: Date.now() } : e),
                 expenseToEdit: null, // Clear edit mode
-                activeSection: 'summaries', // Redirect to summaries after edit
+                activeSection: 'summaries' as Section, // Redirect to summaries after edit
                 updatedAt: Date.now()
             };
             return nextState;

@@ -1,13 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from './store/useStore';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { AddExpense } from './components/AddExpense';
-import { Summaries } from './components/Summaries';
-import { Overview } from './components/Overview';
-import { Investments } from './components/Investments';
-import { Settings } from './components/Settings';
 import { LockScreen } from './components/LockScreen';
 import { Toast } from './components/Toast';
 import { RecurringModal } from './components/RecurringModal';
@@ -19,19 +15,25 @@ import { loadFromStorage, saveToStorage, fetchCloudState, forceCloudSync, mergeA
 import { DebugView } from './components/DebugView';
 import { INITIAL_STATE } from './types';
 
+// Lazy load heavy components
+const Summaries = lazy(() => import('./components/Summaries').then(m => ({ default: m.Summaries })));
+const Overview = lazy(() => import('./components/Overview').then(m => ({ default: m.Overview })));
+const Investments = lazy(() => import('./components/Investments').then(m => ({ default: m.Investments })));
+const Settings = lazy(() => import('./components/Settings').then(m => ({ default: m.Settings })));
+
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const store = useAppStore();
 
   // Local state for UI that doesn't need to be global/persisted
-  const [session, setSession] = React.useState<any>(null);
+  const [session, setSession] = React.useState<{ user: { id: string; email?: string } } | null>(null);
   const [authInitialized, setAuthInitialized] = React.useState(false);
   const [loaded, setLoaded] = React.useState(false);
   const [isLocked, setIsLocked] = React.useState(false);
   const [toast, setToast] = React.useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
   const [showRecurringModal, setShowRecurringModal] = React.useState(false);
-  const [duePayments, setDuePayments] = React.useState<any[]>([]);
+  const [duePayments, setDuePayments] = React.useState<typeof INITIAL_STATE.fixedPayments>([]);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -55,7 +57,7 @@ function App() {
     };
     checkSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase!.auth.onAuthStateChange((event, session) => {
       setSession(session);
       if (event === 'SIGNED_OUT') {
         // Critical: Clear local storage to prevent data leakage to next user
@@ -130,20 +132,22 @@ function App() {
     init();
   }, [session, store.isGuest, authInitialized]);
 
-  // Realtime Subscription
+  // Realtime Subscription - use ref to avoid stale closure
+  const setStateRef = useRef(store.setState);
+  const showToastRef = useRef(showToast);
+  
+  useEffect(() => {
+    setStateRef.current = store.setState;
+    showToastRef.current = showToast;
+  });
+
   useEffect(() => {
     if (!session?.user?.id) return;
 
     const channel = setupRealtimeSubscription(session.user.id, (remoteState) => {
-      // Merge incoming remote state with current to avoid overwriting pending local edits if any
-      // But typically we trust remote. Let's merge using current store state.
-      const current = store.getState ? (store as any).getState() : store; // zustand API access if needed, or just rely on react state update
-      // Since 'store' is the hook result, getting current state inside useEffect might be stale if we don't depend on it.
-      // Actually, we can just setState(remoteState). If we want LWW, we use mergeAppState.
-
       console.log("Applying Realtime Update...");
-      store.setState(remoteState);
-      showToast("Sync Received ☁️", "info");
+      setStateRef.current(remoteState);
+      showToastRef.current("Sync Received ☁️", "info");
     });
 
     return () => {
@@ -204,62 +208,64 @@ function App() {
 
           <main className="relative pb-24">
             <ErrorBoundary fallbackTitle="Section Error">
-              <Routes>
-                <Route path="/" element={<Navigate to="/add-expense" replace />} />
-                <Route path="/add-expense" element={
-                  <AddExpense
-                    state={store}
-                    addExpense={store.addExpense}
-                    updateExpense={store.updateExpense}
-                    expenseToEdit={store.expenseToEdit}
-                    cancelEdit={() => store.setExpenseToEdit(null)}
-                    switchTab={(tab) => navigate(`/${tab}`)}
-                    showToast={showToast}
-                  />
-                } />
-                <Route path="/summaries" element={
-                  <Summaries
-                    state={store}
-                    deleteExpense={store.deleteExpense}
-                    editExpense={(exp) => {
-                      store.setExpenseToEdit(exp);
-                      navigate('/add-expense');
-                    }}
-                  />
-                } />
-                <Route path="/investments" element={
-                  <Investments
-                    state={store}
-                    updateState={store.setState}
-                    showToast={showToast}
-                  />
-                } />
-                <Route path="/overview" element={
-                  <Overview
-                    state={store}
-                    updateBudget={(b) => store.setState({ monthlyBudget: b })}
-                    updateIncome={(p1, p2) => store.setState({ incomePerson1: p1, incomePerson2: p2 })}
-                    addFixedPayment={(n, a, d) => store.setState({ fixedPayments: [...store.fixedPayments, { id: Date.now(), name: n, amount: a, day: d, updatedAt: Date.now() }] })}
-                    removeFixedPayment={(id) => store.setState({ fixedPayments: store.fixedPayments.filter(fp => fp.id !== id) })}
-                    updateState={store.setState}
-                  />
-                } />
-                <Route path="/settings" element={
-                  <Settings
-                    state={store}
-                    updateSettings={(s) => store.setState({ settings: { ...store.settings, ...s } })}
-                    updateState={store.setState}
-                    resetData={store.reset}
-                    deleteAccount={store.reset}
-                    showToast={showToast}
-                    installApp={() => { }}
-                    canInstall={false}
-                    isIos={false}
-                    isStandalone={false}
-                    userEmail={session?.user?.email}
-                  />
-                } />
-              </Routes>
+              <Suspense fallback={<SkeletonLoader />}>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/add-expense" replace />} />
+                  <Route path="/add-expense" element={
+                    <AddExpense
+                      state={store}
+                      addExpense={store.addExpense}
+                      updateExpense={store.updateExpense}
+                      expenseToEdit={store.expenseToEdit}
+                      cancelEdit={() => store.setExpenseToEdit(null)}
+                      switchTab={(tab) => navigate(`/${tab}`)}
+                      showToast={showToast}
+                    />
+                  } />
+                  <Route path="/summaries" element={
+                    <Summaries
+                      state={store}
+                      deleteExpense={store.deleteExpense as any}
+                      editExpense={(exp) => {
+                        store.setExpenseToEdit(exp);
+                        navigate('/add-expense');
+                      }}
+                    />
+                  } />
+                  <Route path="/investments" element={
+                    <Investments
+                      state={store}
+                      updateState={store.setState}
+                      showToast={showToast}
+                    />
+                  } />
+                  <Route path="/overview" element={
+                    <Overview
+                      state={store}
+                      updateBudget={(b) => store.setState({ monthlyBudget: b })}
+                      updateIncome={(p1, p2) => store.setState({ incomePerson1: p1, incomePerson2: p2 })}
+                      addFixedPayment={(n, a, d) => store.setState({ fixedPayments: [...store.fixedPayments, { id: Date.now(), name: n, amount: a, day: d, updatedAt: Date.now() }] })}
+                      removeFixedPayment={(id) => store.setState({ fixedPayments: store.fixedPayments.filter(fp => fp.id !== id) })}
+                      updateState={store.setState}
+                    />
+                  } />
+                  <Route path="/settings" element={
+                    <Settings
+                      state={store}
+                      updateSettings={(s) => store.setState({ settings: { ...store.settings, ...s } })}
+                      updateState={store.setState}
+                      resetData={store.reset}
+                      deleteAccount={store.reset}
+                      showToast={showToast}
+                      installApp={() => { }}
+                      canInstall={false}
+                      isIos={false}
+                      isStandalone={false}
+                      userEmail={session?.user?.email}
+                    />
+                  } />
+                </Routes>
+              </Suspense>
             </ErrorBoundary>
           </main>
 
