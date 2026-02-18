@@ -3,10 +3,11 @@ import React, { useState, useMemo } from 'react';
 import { AppState, Expense } from '../types';
 import { roastSpending } from '../services/geminiService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { MerchantDashboard } from './MerchantDashboard';
 
 interface SummariesProps {
   state: AppState;
-  deleteExpense: (id: number) => void;
+  deleteExpense: (id: string) => void;
   editExpense: (expense: Expense) => void;
 }
 
@@ -16,6 +17,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [calendarDate, setCalendarDate] = useState(new Date());
+  const [showMerchants, setShowMerchants] = useState(false);
 
   // Roast State
   const [roast, setRoast] = useState<string | null>(null);
@@ -158,6 +160,12 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
           />
         </div>
         <button
+          onClick={() => setShowMerchants(!showMerchants)}
+          className={`w-12 flex items-center justify-center rounded-lg transition-colors shadow-sm ${showMerchants ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-800 text-primary'}`}
+        >
+          <span className="text-xl">🏪</span>
+        </button>
+        <button
           onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}
           className={`w-12 flex items-center justify-center rounded-lg transition-colors shadow-sm ${viewMode === 'calendar' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-800 text-primary'}`}
         >
@@ -176,6 +184,11 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
           </button>
         ))}
       </div>
+
+      {/* Merchant Dashboard - shown when enabled */}
+      {showMerchants && viewMode === 'list' && (
+        <MerchantDashboard expenses={filteredExpenses} />
+      )}
 
       {viewMode === 'list' ? (
         <>
