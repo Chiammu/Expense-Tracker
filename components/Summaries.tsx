@@ -6,7 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 interface SummariesProps {
   state: AppState;
-  deleteExpense: (id: number) => void;
+  deleteExpense: (id: string) => void;
   editExpense: (expense: Expense) => void;
 }
 

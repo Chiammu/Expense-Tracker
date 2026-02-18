@@ -108,7 +108,7 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
           <div className="space-y-2 mb-3">
             {state.otherIncome.map(inc => (
               <div key={inc.id} className="flex justify-between items-center text-sm p-2 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-                <span>{inc.source}</span>
+                <span>{inc.desc}</span>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-green-600">+₹{inc.amount}</span>
                   <button
@@ -128,7 +128,7 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
               const amount = parseFloat((form.elements.namedItem('amount') as HTMLInputElement).value);
               if (source && amount) {
                 updateState({
-                  otherIncome: [...state.otherIncome, { id: Date.now(), source, amount, date: new Date().toISOString().split('T')[0] }]
+                  otherIncome: [...state.otherIncome, { id: Date.now(), desc: source, amount, updatedAt: Date.now() }]
                 });
                 form.reset();
               }
