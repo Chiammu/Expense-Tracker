@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { AppState, Expense, OtherIncome } from '../types';
 import { generateFinancialInsights, predictNextMonthSpending, getDeepFinancialStrategy } from '../services/geminiService';
 import { ErrorBoundary } from './ErrorBoundary';
+import { SpendScore } from './SpendScore';
 
 interface OverviewProps {
   state: AppState;
@@ -51,6 +52,11 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
 
   return (
     <div className="pb-24 space-y-4 sm:space-y-6 animate-fade-in">
+      {/* Financial Health Score */}
+      <ErrorBoundary fallbackTitle="Score Error">
+        <SpendScore state={state} />
+      </ErrorBoundary>
+
       {/* Predictive Budgeting Card */}
       <ErrorBoundary fallbackTitle="Prediction Error">
         <div className="bg-surface rounded-2xl p-5 border border-primary/20 shadow-sm relative overflow-hidden group">
