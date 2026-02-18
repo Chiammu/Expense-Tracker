@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { useAppStore } from './store/useStore';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
@@ -275,6 +276,7 @@ function App() {
           />
         </div>
       </div>
+      <SpeedInsights />
     </>
   );
 }
