@@ -139,6 +139,11 @@ export const Overview: React.FC = () => {
           Disclaimer: Insights are for informational purposes only.
         </div>
       </div>
+
+      {/* 30-Day Cash Flow Calendar */}
+      <ErrorBoundary fallbackTitle="Cash Flow Error">
+        <CashFlowCalendar state={state} />
+      </ErrorBoundary>
     </div>
   );
 };

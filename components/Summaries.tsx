@@ -8,7 +8,7 @@ import { SplitBillModal } from './SplitBillModal';
 
 interface SummariesProps {
   state: AppState;
-  deleteExpense: (id: number) => void;
+  deleteExpense: (id: string) => void;
   editExpense: (expense: Expense) => void;
 }
 
@@ -21,6 +21,12 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [calendarDate, setCalendarDate] = useState(new Date());
+  const [showMerchants, setShowMerchants] = useState(false);
+
+  // Month picker state
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth()); // 0=Jan, 11=Dec
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
 
   // Roast State
   const [roast, setRoast] = useState<string | null>(null);
@@ -194,7 +200,13 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
               ? 'bg-black dark:bg-white text-white dark:text-black border-transparent'
               : 'bg-transparent border-gray-200 dark:border-white/10 text-gray-400'}`}
           >
-            {f === 'all' ? 'All Time' : f === 'month' ? 'This Month' : f === 'week' ? 'This Week' : 'Today'}
+            <span>📅</span>
+            <span>
+              {filterType === 'custom-month'
+                ? new Date(selectedYear, selectedMonth).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+                : 'Pick Month'
+              }
+            </span>
           </button>
         ))}
         <button

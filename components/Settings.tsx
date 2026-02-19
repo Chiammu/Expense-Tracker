@@ -5,6 +5,7 @@ import { requestNotificationPermission, sendLocalNotification } from '../service
 import { authService } from '../services/auth';
 import { generateMonthlyDigest } from '../services/geminiService';
 import { webAuthnService } from '../services/webAuthn';
+import { requestNotificationPermission } from '../services/alertService';
 import { ScannerModal } from './ScannerModal';
 // @ts-ignore
 import QRCode from 'qrcode';
@@ -476,6 +477,33 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
           )}
         </div>
       </section >
+
+      {/* NOTIFICATIONS SECTION */}
+      <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800" >
+        <SectionHeader icon="🔔" title="Notifications" />
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl">
+            <div className="flex flex-col">
+              <span className="text-sm font-bold">Smart Alerts</span>
+              <span className="text-[10px] text-text-light">
+                {state.settings.notificationsEnabled ? 'Budget alerts enabled' : 'Get notified about budget warnings'}
+              </span>
+            </div>
+            <button
+              onClick={handleToggleNotifications}
+              className={`relative w-12 h-7 rounded-full transition-colors ${
+                state.settings.notificationsEnabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
+              }`}
+            >
+              <span
+                className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                  state.settings.notificationsEnabled ? 'left-6' : 'left-1'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+      </section>
 
       {/* REPORTS SECTION */}
       <section className="bg-white dark:bg-[#1a1a1a] rounded-[24px] p-6 shadow-sm border border-gray-100 dark:border-white/5">

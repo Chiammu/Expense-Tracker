@@ -1,21 +1,13 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval' data: blob:; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https: wss:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https: wss:;">
+    <meta name="robots" content="noindex, nofollow">
     <title>Couple Expense Tracker</title>
-    
-    <!-- PWA Settings -->
-    <link rel="manifest" href="./manifest.json" />
-    <meta name="theme-color" content="#e91e63" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Expenses" />
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2344/2344132.png" />
 
-    <!-- Tailwind CSS (CDN for simplicity) -->
+    <!-- Tailwind CSS CDN with Custom Configuration -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -68,6 +60,8 @@
         }
       }
     </script>
+
+    <!-- Custom Styles -->
     <style>
       :root {
         --primary: #e91e63;
@@ -88,7 +82,7 @@
         --radius-card: 20px;
         --radius-btn: 14px;
       }
-      
+
       .dark {
         --surface: #1e1e1e;
         --background: #121212;
@@ -123,7 +117,7 @@
       ::-webkit-scrollbar-thumb:hover {
         background: var(--primary);
       }
-      
+
       body {
         background-color: var(--background);
         color: var(--text);
@@ -137,7 +131,7 @@
           radial-gradient(ellipse at 50% 100%, rgba(255, 111, 0, 0.06) 0px, transparent 45%);
         background-attachment: fixed;
       }
-      
+
       .dark body {
         background-image:
           radial-gradient(ellipse at 0% 0%, rgba(233, 30, 99, 0.08) 0px, transparent 45%),
@@ -147,31 +141,22 @@
       input:focus, select:focus, textarea:focus {
         outline: none;
       }
-      
+
       html {
         scroll-behavior: smooth;
       }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom": "https://esm.sh/react-dom@18.2.0",
-    "react/": "https://esm.sh/react@18.2.0/",
-    "react-dom/": "https://esm.sh/react-dom@18.2.0/",
-    "jspdf": "https://esm.sh/jspdf@2.5.1",
-    "@google/genai": "https://esm.sh/@google/genai?bundle",
-    "recharts": "https://esm.sh/recharts@2.10.3?external=react,react-dom",
-    "vite": "https://esm.sh/vite@5.0.8",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@4.2.1",
-    "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.8.1",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.39.0",
-    "qrcode": "https://esm.sh/qrcode@1.5.3",
-    "jsqr": "https://esm.sh/jsqr@1.4.0"
-  }
-}
-</script>
-</head>
+
+    <!-- PWA Settings -->
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="theme-color" content="#e91e63" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Expenses" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+  </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>

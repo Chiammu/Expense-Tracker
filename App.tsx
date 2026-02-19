@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { Challenges } from './components/Challenges';
@@ -9,14 +9,11 @@ import { useAppStore } from './store/useStore';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { AddExpense } from './components/AddExpense';
-import { Summaries } from './components/Summaries';
-import { Overview } from './components/Overview';
-import { Investments } from './components/Investments';
-import { Settings } from './components/Settings';
 import { LockScreen } from './components/LockScreen';
 import { Toast } from './components/Toast';
 import { RecurringModal } from './components/RecurringModal';
 import { Auth } from './components/Auth';
+import { StatementImporter } from './components/StatementImporter';
 import { supabase } from './services/supabaseClient';
 import { SkeletonLoader } from './components/SkeletonLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -25,6 +22,13 @@ import { checkBudgetAlerts, sendLocalNotification, requestNotificationPermission
 import { DebugView } from './components/DebugView';
 import { Chat } from './components/Chat';
 import { INITIAL_STATE } from './types';
+import { Analytics } from '@vercel/analytics/react';
+
+// Lazy load heavy components
+const Summaries = lazy(() => import('./components/Summaries').then(m => ({ default: m.Summaries })));
+const Overview = lazy(() => import('./components/Overview').then(m => ({ default: m.Overview })));
+const Investments = lazy(() => import('./components/Investments').then(m => ({ default: m.Investments })));
+const Settings = lazy(() => import('./components/Settings').then(m => ({ default: m.Settings })));
 
 function App() {
   const navigate = useNavigate();
@@ -32,7 +36,7 @@ function App() {
   const store = useAppStore();
 
   // Local state for UI that doesn't need to be global/persisted
-  const [session, setSession] = React.useState<any>(null);
+  const [session, setSession] = React.useState<{ user: { id: string; email?: string } } | null>(null);
   const [authInitialized, setAuthInitialized] = React.useState(false);
   const [loaded, setLoaded] = React.useState(false);
   const [isLocked, setIsLocked] = React.useState(false);
@@ -171,7 +175,15 @@ function App() {
     init();
   }, [session, store.isGuest, authInitialized]);
 
-  // Realtime Subscription
+  // Realtime Subscription - use ref to avoid stale closure
+  const setStateRef = useRef(store.setState);
+  const showToastRef = useRef(showToast);
+  
+  useEffect(() => {
+    setStateRef.current = store.setState;
+    showToastRef.current = showToast;
+  });
+
   useEffect(() => {
     if (!session?.user?.id) return;
 
@@ -183,8 +195,8 @@ function App() {
       // Actually, we can just setState(remoteState). If we want LWW, we use mergeAppState.
 
       console.log("Applying Realtime Update...");
-      store.setState(remoteState);
-      showToast("Sync Received ☁️", "info");
+      setStateRef.current(remoteState);
+      showToastRef.current("Sync Received ☁️", "info");
     });
 
     return () => {
@@ -237,6 +249,28 @@ function App() {
       }
     }
   }, [store.expenses, loaded]); // Evaluate when expenses change
+
+  // Check for budget alerts when expenses change
+  useEffect(() => {
+    if (!loaded) return;
+    
+    const allAlerts = checkBudgetAlerts(store);
+    // Filter out dismissed alerts
+    const activeAlerts = allAlerts.filter(a => !dismissedAlertsRef.current.has(a.id));
+    setAlerts(activeAlerts);
+
+    // Send notifications for new alerts if app is in background and notifications enabled
+    if (store.settings.notificationsEnabled && document.hidden && activeAlerts.length > 0) {
+      activeAlerts.forEach(alert => {
+        sendLocalNotification(alert.title, alert.message);
+      });
+    }
+  }, [store.expenses, store.monthlyBudget, store.categoryBudgets, store.fixedPayments, store.savingsGoals, loaded]);
+
+  const dismissAlert = (alertId: string) => {
+    dismissedAlertsRef.current.add(alertId);
+    setAlerts(prev => prev.filter(a => a.id !== alertId));
+  };
 
   const handleTogglePrivacy = () => {
     store.setState({
@@ -394,6 +428,7 @@ function App() {
             chatUnreadCount={chatUnreadCount}
           />
         </div>
+        <Analytics />
       </div>
     </>
   );

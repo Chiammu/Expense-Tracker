@@ -1,6 +1,6 @@
 
 export interface Expense {
-  id: number;
+  id: string;
   person: string;
   date: string;
   amount: number;
@@ -9,6 +9,15 @@ export interface Expense {
   note: string;
   cardId?: number;
   updatedAt: number; // For Last-Write-Wins conflict resolution
+}
+
+export interface ParsedTransaction {
+  date: string;
+  description: string;
+  debit: number;
+  credit: number;
+  suggestedCategory?: string;
+  isDuplicate?: boolean;
 }
 
 export interface CreditCard {

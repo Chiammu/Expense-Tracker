@@ -1,3 +1,4 @@
+import { AppState, Expense, ParsedTransaction } from "../types";
 
 import { GoogleGenerativeAI, Part } from "@google/generative-ai";
 import { AppState, Expense } from "../types";
@@ -12,8 +13,10 @@ const getModel = (modelName: string = "gemini-1.5-flash") => {
 
 const handleGeminiError = (error: any) => {
   console.error("Gemini API Error details:", error);
-  const msg = error.toString().toLowerCase() + (error.message || "").toLowerCase();
-  if (msg.includes("429") || msg.includes("quota")) return "⚠️ AI is exhausted. Try again later.";
+  const msg = error.toString().toLowerCase();
+  if (msg.includes("429") || msg.includes("quota")) {
+    return "⚠️ AI is exhausted. Try again later.";
+  }
   return `⚠️ AI Error: ${error.message || "Connection failed"}`;
 };
 
@@ -40,7 +43,14 @@ const addExpenseTool = {
   }]
 };
 
-export const chatWithFinances = async (history: any[], userMessage: string, state: AppState): Promise<{ text: string, toolCall?: any }> => {
+  return response.json();
+}
+
+export const chatWithFinances = async (
+  history: any[],
+  userMessage: string,
+  state: AppState
+): Promise<{ text: string; toolCall?: any }> => {
   try {
     const model = getModel("gemini-1.5-flash");
 
@@ -192,7 +202,7 @@ export const roastSpending = async (state: AppState): Promise<string> => {
   }
 };
 
-export const getLatestMetalRates = async (): Promise<{ gold: number, silver: number, source?: string }> => {
+export const getLatestMetalRates = async (): Promise<{ gold: number; silver: number; source?: string }> => {
   try {
     const model = getModel("gemini-1.5-flash");
     // Google Search tool is not standard in the basic SDK call without specific setup, 
@@ -244,7 +254,11 @@ export const parseReceiptImage = async (base64Image: string): Promise<Partial<Ex
   } catch (error) { throw error; }
 };
 
-export const parseNaturalLanguageExpense = async (text: string, person1Name: string, person2Name: string): Promise<Partial<Expense>> => {
+export const parseNaturalLanguageExpense = async (
+  text: string,
+  person1Name: string,
+  person2Name: string
+): Promise<Partial<Expense>> => {
   try {
     const model = getModel("gemini-1.5-flash");
     const prompt = `Parse this expense: "${text}". Names: ${person1Name}, ${person2Name}. Return JSON.`;
