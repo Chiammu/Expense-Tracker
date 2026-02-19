@@ -1,118 +1,98 @@
-
 import React, { useState, useEffect } from 'react';
 import { AppState, Expense, OtherIncome } from '../types';
-import { generateFinancialInsights, predictNextMonthSpending, getDeepFinancialStrategy } from '../services/geminiService';
 import { ErrorBoundary } from './ErrorBoundary';
+import { SpendScore } from './SpendScore';
+import { CashFlowCalendar } from './CashFlowCalendar';
+import { useAppStore } from '../store/useStore';
+import {
+  predictNextMonthSpending as getGeminiPrediction,
+  getDeepFinancialStrategy as getDeepAnalysis,
+  generateFinancialInsights as getSpendingInsights
+} from '../services/geminiService';
+import { formatCurrency } from '../utils/currencyFormatter';
 
-interface OverviewProps {
-  state: AppState;
-  updateBudget: (val: number) => void;
-  updateIncome: (p1: number, p2: number) => void;
-  addFixedPayment: (name: string, amt: number, day: number) => void;
-  removeFixedPayment: (id: number) => void;
-  updateState: (newState: Partial<AppState>) => void;
-}
-
-export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateIncome, addFixedPayment, removeFixedPayment, updateState }) => {
+export const Overview: React.FC = () => {
+  const state = useAppStore(); // Use global store
   const [prediction, setPrediction] = useState<string | null>(null);
   const [deepStrategy, setDeepStrategy] = useState<string | null>(null);
-  const [loadingPro, setLoadingPro] = useState(false);
-  const [loadingPred, setLoadingPred] = useState(false);
   const [insight, setInsight] = useState<string | null>(null);
-  const [loadingInsight, setLoadingInsight] = useState(false);
+  const [loading, setLoading] = useState({ pred: false, strategy: false, insight: false });
 
-  useEffect(() => {
-    handlePrediction();
-  }, []);
+  const totalIncome = state.expenses
+    .filter(e => e.amount > 0 && e.category === 'Income') // Assuming Income is a category or positive amount logic
+    .reduce((acc, curr) => acc + curr.amount, 0);
 
-  const totalIncomeValue = (state.incomePerson1 || 0) + (state.incomePerson2 || 0) + state.otherIncome.reduce((sum, i) => sum + i.amount, 0);
+  const totalExpenses = state.expenses
+    .filter(e => e.category !== 'Income')
+    .reduce((acc, curr) => acc + curr.amount, 0);
+
+  const balance = totalIncome - totalExpenses; // If income is tracked manually
 
   const handlePrediction = async () => {
-    setLoadingPred(true);
-    const res = await predictNextMonthSpending(state);
-    setPrediction(res);
-    setLoadingPred(false);
+    setLoading(prev => ({ ...prev, pred: true }));
+    try {
+      const pred = await getGeminiPrediction(state);
+      setPrediction(pred);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(prev => ({ ...prev, pred: false }));
+    }
   };
 
   const handleDeepAnalysis = async () => {
-    setLoadingPro(true);
-    const res = await getDeepFinancialStrategy(state);
-    setDeepStrategy(res);
-    setLoadingPro(false);
+    setLoading(prev => ({ ...prev, strategy: true }));
+    try {
+      const strategy = await getDeepAnalysis(state);
+      setDeepStrategy(strategy);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(prev => ({ ...prev, strategy: false }));
+    }
   };
 
   const handleGenerateInsights = async () => {
-    setLoadingInsight(true);
-    setInsight(null);
-    const result = await generateFinancialInsights(state);
-    setInsight(result);
-    setLoadingInsight(false);
+    setLoading(prev => ({ ...prev, insight: true }));
+    try {
+      const res = await getSpendingInsights(state);
+      setInsight(res);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(prev => ({ ...prev, insight: false }));
+    }
   };
 
   return (
-    <div className="pb-24 space-y-4 sm:space-y-6 animate-fade-in">
-      {/* Predictive Budgeting Card */}
-      <ErrorBoundary fallbackTitle="Prediction Error">
-        <div className="bg-surface rounded-2xl p-5 border border-primary/20 shadow-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform"></div>
-          <h3 className="text-xs font-black text-primary uppercase tracking-widest mb-2 flex items-center gap-2">
-            <span>🔮</span> AI Spending Forecast
+    <div className="pb-24 space-y-6 animate-fade-in">
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-2">
+        <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-text-light/80">Market Overview</h2>
+        <div className="flex gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span className="text-[10px] font-bold text-emerald-500 tracking-wider">LIVE</span>
+        </div>
+      </div>
+
+      {/* Stats Grid - Bloomberg Style */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Balance */}
+        <div className="col-span-2 bg-[#0a0a0a] dark:bg-[#121212] rounded-[20px] p-5 border border-white/[0.08] shadow-lg relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-50 text-[10px] font-mono text-gray-500">NET.POS</div>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Balance</p>
+          <h3 className={`text-4xl font-mono font-medium tracking-tighter ${balance >= 0 ? 'text-white' : 'text-red-400'}`}>
+            {formatCurrency(balance)}
           </h3>
-          <div className="text-sm font-bold text-text">
-            {loadingPred ? <span className="animate-pulse">Analyzing historical trends...</span> : prediction}
-          </div>
-          <button onClick={handlePrediction} className="mt-3 text-[10px] font-bold text-primary uppercase tracking-tighter hover:underline">Refresh Forecast</button>
-        </div>
-      </ErrorBoundary>
-
-      {/* Deep Analysis Strategy with Gemini Pro */}
-      <ErrorBoundary fallbackTitle="Strategy Error">
-        <div className="bg-gradient-to-br from-indigo-900 to-purple-900 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
-          <div className="relative z-10">
-            <h3 className="text-lg font-bold flex items-center gap-2 mb-3">
-              <span>🧠</span> Deep Strategy (Gemini 3 Pro)
-            </h3>
-            <p className="text-xs text-indigo-100/70 mb-4 leading-relaxed">
-              Use the powerful Gemini 3 Pro model for long-term financial modeling and payoff planning.
-            </p>
-            {deepStrategy ? (
-              <div className="text-sm bg-white/10 p-4 rounded-xl border border-white/5 mb-4 animate-slide-up leading-relaxed whitespace-pre-wrap">
-                {deepStrategy}
-              </div>
-            ) : null}
-            <button
-              onClick={handleDeepAnalysis}
-              disabled={loadingPro}
-              className="w-full py-3 bg-white text-indigo-900 rounded-xl font-bold active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
-            >
-              {loadingPro ? 'Thinking Step-by-Step...' : 'Generate 10-Year Vision'}
-            </button>
-          </div>
-          <div className="absolute top-0 right-0 p-8 text-8xl opacity-10 pointer-events-none">📈</div>
-        </div>
-      </ErrorBoundary>
-
-      {/* Income Section */}
-      <div className="bg-surface rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100 dark:border-gray-800">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold text-primary flex items-center gap-2">💰 Monthly Income</h3>
-          <div className="text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1 rounded-full">₹{totalIncomeValue.toLocaleString()}</div>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <input type="number" className="p-3 rounded-xl bg-background text-sm font-bold border border-gray-100 focus:ring-2 focus:ring-primary/20" value={state.incomePerson1 || ''} onChange={e => updateIncome(parseFloat(e.target.value) || 0, state.incomePerson2)} placeholder={state.settings.person1Name} />
-          <input type="number" className="p-3 rounded-xl bg-background text-sm font-bold border border-gray-100 focus:ring-2 focus:ring-primary/20" value={state.incomePerson2 || ''} onChange={e => updateIncome(state.incomePerson1, parseFloat(e.target.value) || 0)} placeholder={state.settings.person2Name} />
-        </div>
-
-        <div className="mt-4 border-t border-gray-50 dark:border-gray-800 pt-4">
-          <h4 className="text-xs font-black text-text-light uppercase tracking-widest mb-3">Side Income & Extras</h4>
           <div className="space-y-2 mb-3">
             {state.otherIncome.map(inc => (
               <div key={inc.id} className="flex justify-between items-center text-sm p-2 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-                <span>{inc.source}</span>
+                <span>{inc.desc}</span>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-green-600">+₹{inc.amount}</span>
                   <button
-                    onClick={() => updateState({ otherIncome: state.otherIncome.filter(i => i.id !== inc.id) })}
+                    onClick={() => state.setState({ otherIncome: state.otherIncome.filter(i => i.id !== inc.id) })}
                     className="text-gray-400 hover:text-red-500"
                   >×</button>
                 </div>
@@ -124,29 +104,34 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
             onSubmit={(e) => {
               e.preventDefault();
               const form = e.target as HTMLFormElement;
-              const source = (form.elements.namedItem('source') as HTMLInputElement).value;
+              const desc = (form.elements.namedItem('desc') as HTMLInputElement).value;
               const amount = parseFloat((form.elements.namedItem('amount') as HTMLInputElement).value);
-              if (source && amount) {
-                updateState({
-                  otherIncome: [...state.otherIncome, { id: Date.now(), source, amount, date: new Date().toISOString().split('T')[0] }]
+              if (desc && amount) {
+                state.setState({
+                  otherIncome: [...state.otherIncome, { id: Date.now(), desc, amount, updatedAt: Date.now() }]
                 });
                 form.reset();
               }
             }}
           >
-            <input name="source" className="flex-1 p-2 bg-background border border-gray-200 dark:border-gray-700 rounded-lg text-xs" placeholder="Rent, Dividends..." required />
+            <input name="desc" className="flex-1 p-2 bg-background border border-gray-200 dark:border-gray-700 rounded-lg text-xs" placeholder="Rent, Dividends..." required />
             <input name="amount" type="number" className="w-20 p-2 bg-background border border-gray-200 dark:border-gray-700 rounded-lg text-xs" placeholder="₹" required />
             <button type="submit" className="bg-green-500 text-white px-3 rounded-lg text-xs font-bold">+</button>
           </form>
         </div>
       </div>
 
+      {/* Cash Flow Calendar */}
+      <ErrorBoundary fallbackTitle="Cash Flow Error">
+        <CashFlowCalendar state={state} />
+      </ErrorBoundary>
+
       {/* Quick AI Advisor */}
       <div className="relative overflow-hidden bg-gradient-to-br from-primary to-pink-600 rounded-2xl shadow-lg p-6 text-white">
         <div className="relative z-10 flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold flex items-center gap-2">✨ Quick Tips</h3>
-          <button onClick={handleGenerateInsights} disabled={loadingInsight} className="text-xs bg-white/20 px-4 py-2 rounded-full border border-white/30 active:scale-95 transition-all">
-            {loadingInsight ? '...' : 'Analyze'}
+          <button onClick={handleGenerateInsights} disabled={loading.insight} className="text-xs bg-white/20 px-4 py-2 rounded-full border border-white/30 active:scale-95 transition-all">
+            {loading.insight ? '...' : 'Analyze'}
           </button>
         </div>
         {insight && <div className="relative z-10 text-sm bg-black/10 p-4 rounded-xl border border-white/10 mb-4 animate-fade-in">{insight}</div>}

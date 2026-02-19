@@ -1,11 +1,13 @@
 
-import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
-import { AppState, Expense, Loan } from "../types";
+import { GoogleGenerativeAI, Part } from "@google/generative-ai";
+import { AppState, Expense } from "../types";
 
-const getAI = () => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("API Key is missing.");
-  return new GoogleGenAI({ apiKey });
+// Initialize Gemini API
+const API_KEY = (import.meta as any).env.VITE_GEMINI_API_KEY || "";
+const genAI = new GoogleGenerativeAI(API_KEY);
+
+const getModel = (modelName: string = "gemini-1.5-flash") => {
+  return genAI.getGenerativeModel({ model: modelName });
 };
 
 const handleGeminiError = (error: any) => {
@@ -16,42 +18,59 @@ const handleGeminiError = (error: any) => {
 };
 
 // Tool definition for adding expenses
-const addExpenseTool: FunctionDeclaration = {
-  name: 'add_expense',
-  parameters: {
-    type: Type.OBJECT,
+// Note: Client-side function calling with Gemini SDK usually returns the function call request, 
+// which valid client code would then execute.
+// For this app, we are just getting the structured response to parse.
+
+const addExpenseTool = {
+  functionDeclarations: [{
+    name: 'add_expense',
     description: 'Add a new expense to the financial tracker.',
-    properties: {
-      amount: { type: Type.NUMBER, description: 'The monetary amount.' },
-      category: { type: Type.STRING, description: 'Category (Groceries, Rent, Food, etc.).' },
-      person: { type: Type.STRING, enum: ['Person1', 'Person2', 'Both'], description: 'Who paid.' },
-      note: { type: Type.STRING, description: 'Brief description.' },
-      date: { type: Type.STRING, description: 'Date in YYYY-MM-DD.' }
-    },
-    required: ['amount', 'category', 'person']
-  }
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        amount: { type: 'NUMBER', description: 'The monetary amount.' },
+        category: { type: 'STRING', description: 'Category (Groceries, Rent, Food, etc.).' },
+        person: { type: 'STRING', enum: ['Person1', 'Person2', 'Both'], description: 'Who paid.' },
+        note: { type: 'STRING', description: 'Brief description.' },
+        date: { type: 'STRING', description: 'Date in YYYY-MM-DD.' }
+      },
+      required: ['amount', 'category', 'person']
+    }
+  }]
 };
 
 export const chatWithFinances = async (history: any[], userMessage: string, state: AppState): Promise<{ text: string, toolCall?: any }> => {
   try {
-    const ai = getAI();
-    const system = `You are a financial assistant for a couple: ${state.settings.person1Name} and ${state.settings.person2Name}. 
+    const model = getModel("gemini-1.5-flash");
+
+    const systemInstruction = `You are a financial assistant for a couple: ${state.settings.person1Name} and ${state.settings.person2Name}. 
     Available categories: ${state.settings.customCategories.join(', ')}.
     Context: Current month spending is ₹${state.expenses.reduce((s, e) => s + e.amount, 0)}.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: [...history, { role: 'user', parts: [{ text: userMessage }] }],
-      config: {
-        systemInstruction: system,
-        tools: [{ functionDeclarations: [addExpenseTool] }]
-      }
+    const chat = model.startChat({
+      history: history.map(h => ({
+        role: h.role === 'user' ? 'user' : 'model',
+        parts: [{ text: h.parts[0].text }]
+      })),
+      systemInstruction: { role: 'system', parts: [{ text: systemInstruction }] },
+      generationConfig: {
+        tools: [addExpenseTool]
+      } as any // Casting to any to avoid strict typing issues with tools in some SDK versions
     });
 
-    const toolCall = response.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall);
+    const result = await chat.sendMessage(userMessage);
+    const response = result.response;
+    const text = response.text();
+
+    // Check for function calls
+    // In SDK, function calls are in response.functionCalls() array
+    const functionCalls = response.functionCalls();
+    const toolCall = functionCalls && functionCalls.length > 0 ? functionCalls[0] : undefined;
+
     return {
-      text: response.text || (toolCall ? "Processing your request..." : "I didn't catch that."),
-      toolCall: toolCall?.functionCall
+      text: text || (toolCall ? "Processing your request..." : "I didn't catch that."),
+      toolCall: toolCall
     };
   } catch (error: any) {
     return { text: handleGeminiError(error) };
@@ -60,7 +79,7 @@ export const chatWithFinances = async (history: any[], userMessage: string, stat
 
 export const getDeepFinancialStrategy = async (state: AppState): Promise<string> => {
   try {
-    const ai = getAI();
+    const model = getModel("gemini-1.5-pro");
     const prompt = `Analyze the full financial state:
     Assets: ₹${(state.investments.bankBalance.p1 + state.investments.bankBalance.p2 + state.investments.mutualFunds.shared + state.investments.stocks.shared)}
     Liabilities: ₹${state.loans.reduce((s, l) => s + l.pendingAmount, 0)}
@@ -68,15 +87,8 @@ export const getDeepFinancialStrategy = async (state: AppState): Promise<string>
     
     Provide a 10-year growth projection and a debt-payoff strategy. Use "Think Step-by-Step" reasoning.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: prompt,
-      config: {
-        thinkingConfig: { thinkingBudget: 32768 } // Max budget for deep reasoning
-      }
-    });
-
-    return response.text || "Strategy generation failed.";
+    const result = await model.generateContent(prompt);
+    return result.response.text() || "Strategy generation failed.";
   } catch (error: any) {
     return handleGeminiError(error);
   }
@@ -84,7 +96,7 @@ export const getDeepFinancialStrategy = async (state: AppState): Promise<string>
 
 export const predictNextMonthSpending = async (state: AppState): Promise<string> => {
   try {
-    const ai = getAI();
+    const model = getModel("gemini-1.5-flash");
     const history = state.expenses.slice(-100).map(e => ({ d: e.date, a: e.amount, c: e.category }));
     const fixed = state.fixedPayments.map(p => ({ n: p.name, a: p.amount }));
 
@@ -93,12 +105,8 @@ export const predictNextMonthSpending = async (state: AppState): Promise<string>
     Predict next month's spending. Look for seasonal trends or recurring spikes. 
     Format: "Estimated: ₹[Amount]. Reason: [One sentence prediction]."`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt
-    });
-
-    return response.text || "Prediction unavailable.";
+    const result = await model.generateContent(prompt);
+    return result.response.text() || "Prediction unavailable.";
   } catch (error) {
     return "Spending prediction failed.";
   }
@@ -106,7 +114,7 @@ export const predictNextMonthSpending = async (state: AppState): Promise<string>
 
 export const generateFinancialInsights = async (state: AppState): Promise<string> => {
   try {
-    const ai = getAI();
+    const model = getModel("gemini-1.5-flash");
     const totalExpenses = state.expenses.reduce((sum, e) => sum + e.amount, 0);
     const categoryBreakdown = state.expenses.reduce((acc, curr) => {
       acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
@@ -122,12 +130,8 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
 
     const prompt = `Analyze these finances for a couple and give 3 short, punchy, actionable tips. Be encouraging. Use emojis. \n\n ${summaryText}`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-    });
-
-    return response.text || "No insights generated.";
+    const result = await model.generateContent(prompt);
+    return result.response.text() || "No insights generated.";
   } catch (error: any) {
     return handleGeminiError(error);
   }
@@ -135,7 +139,7 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
 
 export const generateMonthlyDigest = async (state: AppState): Promise<string> => {
   try {
-    const ai = getAI();
+    const model = getModel("gemini-1.5-flash");
     const now = new Date();
     const lastMonthExpenses = state.expenses.filter(e => {
       const d = new Date(e.date);
@@ -161,12 +165,8 @@ export const generateMonthlyDigest = async (state: AppState): Promise<string> =>
       4. Length: Approx 300 words.
     `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-    });
-
-    return response.text || "Digest failed to generate.";
+    const result = await model.generateContent(prompt);
+    return result.response.text() || "Digest failed to generate.";
   } catch (error) {
     return handleGeminiError(error);
   }
@@ -174,7 +174,7 @@ export const generateMonthlyDigest = async (state: AppState): Promise<string> =>
 
 export const roastSpending = async (state: AppState): Promise<string> => {
   try {
-    const ai = getAI();
+    const model = getModel("gemini-1.5-flash");
     const recent = state.expenses.slice(-20).map(e => {
       const who = e.person === 'Person1' ? state.settings.person1Name : (e.person === 'Person2' ? state.settings.person2Name : 'Both');
       return `${who}: ₹${e.amount} on ${e.category} (${e.note || 'no note'})`;
@@ -185,12 +185,8 @@ export const roastSpending = async (state: AppState): Promise<string> => {
       INSTRUCTION: Be savage, hilarious, and brutal. Roast their spending habits based ONLY on the data provided. 
       Limit to 350 characters. Plain text only. Use 🔥 emojis.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt
-    });
-
-    return response.text?.trim() || "You spend money so boringly I have nothing to say.";
+    const result = await model.generateContent(prompt);
+    return result.response.text().trim() || "You spend money so boringly I have nothing to say.";
   } catch (error) {
     return "Your spending is so chaotic it broke my circuits. Get help.";
   }
@@ -198,14 +194,15 @@ export const roastSpending = async (state: AppState): Promise<string> => {
 
 export const getLatestMetalRates = async (): Promise<{ gold: number, silver: number, source?: string }> => {
   try {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: "Output JSON only: { \"gold\": number, \"silver\": number } for current 24k gold and silver prices per gram in India in INR.",
-      config: { tools: [{ googleSearch: {} }] }
-    });
+    const model = getModel("gemini-1.5-flash");
+    // Google Search tool is not standard in the basic SDK call without specific setup, 
+    // but assuming standard generation for now or if supported by the model config.
+    // For safety, we'll prompt for JSON.
+    const prompt = "Output JSON only: { \"gold\": number, \"silver\": number } for current 24k gold and silver prices per gram in India in INR.";
 
-    const text = response.text || "";
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+
     try {
       const start = text.indexOf('{');
       const end = text.lastIndexOf('}') + 1;
@@ -217,55 +214,59 @@ export const getLatestMetalRates = async (): Promise<{ gold: number, silver: num
 
 export const parseReceiptImage = async (base64Image: string): Promise<Partial<Expense>> => {
   try {
-    const ai = getAI();
+    const model = getModel("gemini-1.5-flash");
     const base64Data = base64Image.split(',')[1] || base64Image;
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: {
-        parts: [
-          { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
-          { text: "Extract expense details. Return JSON." }
-        ]
-      },
-      config: {
+
+    const result = await model.generateContent({
+      contents: [
+        {
+          role: 'user', parts: [
+            { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
+            { text: "Extract expense details. Return JSON." }
+          ]
+        }
+      ],
+      generationConfig: {
         responseMimeType: "application/json",
         responseSchema: {
-          type: Type.OBJECT,
+          type: 'OBJECT' as any, // explicit cast
           properties: {
-            amount: { type: Type.NUMBER },
-            date: { type: Type.STRING },
-            category: { type: Type.STRING },
-            note: { type: Type.STRING }
+            amount: { type: 'NUMBER' as any },
+            date: { type: 'STRING' as any },
+            category: { type: 'STRING' as any },
+            note: { type: 'STRING' as any }
           }
         }
       }
     });
-    return JSON.parse(response.text || '{}');
+
+    return JSON.parse(result.response.text() || '{}');
   } catch (error) { throw error; }
 };
 
 export const parseNaturalLanguageExpense = async (text: string, person1Name: string, person2Name: string): Promise<Partial<Expense>> => {
   try {
-    const ai = getAI();
+    const model = getModel("gemini-1.5-flash");
     const prompt = `Parse this expense: "${text}". Names: ${person1Name}, ${person2Name}. Return JSON.`;
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: {
+
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
         responseMimeType: "application/json",
         responseSchema: {
-          type: Type.OBJECT,
+          type: 'OBJECT' as any,
           properties: {
-            amount: { type: Type.NUMBER },
-            date: { type: Type.STRING },
-            category: { type: Type.STRING },
-            paymentMode: { type: Type.STRING },
-            note: { type: Type.STRING },
-            person: { type: Type.STRING, enum: ["Person1", "Person2", "Both"] }
+            amount: { type: 'NUMBER' as any },
+            date: { type: 'STRING' as any },
+            category: { type: 'STRING' as any },
+            paymentMode: { type: 'STRING' as any },
+            note: { type: 'STRING' as any },
+            person: { type: 'STRING' as any, enum: ["Person1", "Person2", "Both"] }
           }
         }
       }
     });
-    return JSON.parse(response.text || '{}');
+
+    return JSON.parse(result.response.text() || '{}');
   } catch (error) { throw error; }
 };

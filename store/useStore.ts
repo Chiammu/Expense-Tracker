@@ -21,10 +21,10 @@ export const useAppStore = create<AppStore>()(
     (set, get) => ({
         ...INITIAL_STATE,
         isGuest: false,
-        activeSection: 'add-expense',
+        activeSection: 'add-expense' as Section,
         expenseToEdit: null,
 
-        setSection: (section) => set({ activeSection: section }),
+        setSection: (section) => set({ activeSection: section as any }),
         setGuest: (isGuest) => set({ isGuest }),
 
         setExpenseToEdit: (expense) => set((state) => {
@@ -61,7 +61,7 @@ export const useAppStore = create<AppStore>()(
                 ...state,
                 expenses: state.expenses.map(e => e.id === updatedExpense.id ? { ...updatedExpense, updatedAt: Date.now() } : e),
                 expenseToEdit: null, // Clear edit mode
-                activeSection: 'summaries', // Redirect to summaries after edit
+                activeSection: 'summaries' as Section, // Redirect to summaries after edit
                 updatedAt: Date.now()
             };
             return nextState;
