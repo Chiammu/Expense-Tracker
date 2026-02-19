@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { AppState, Expense, OtherIncome } from '../types';
 import { generateFinancialInsights, predictNextMonthSpending, getDeepFinancialStrategy } from '../services/geminiService';
 import { ErrorBoundary } from './ErrorBoundary';
+import { SpendScore } from './SpendScore';
 
 interface OverviewProps {
   state: AppState;
@@ -51,6 +52,11 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
 
   return (
     <div className="pb-24 space-y-4 sm:space-y-6 animate-fade-in">
+      {/* Financial Health Score */}
+      <ErrorBoundary fallbackTitle="Score Error">
+        <SpendScore state={state} />
+      </ErrorBoundary>
+
       {/* Predictive Budgeting Card */}
       <ErrorBoundary fallbackTitle="Prediction Error">
         <div className="bg-surface rounded-2xl p-5 border border-primary/20 shadow-sm relative overflow-hidden group">
@@ -108,7 +114,7 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
           <div className="space-y-2 mb-3">
             {state.otherIncome.map(inc => (
               <div key={inc.id} className="flex justify-between items-center text-sm p-2 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-                <span>{inc.source}</span>
+                <span>{inc.desc}</span>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-green-600">+₹{inc.amount}</span>
                   <button
@@ -128,7 +134,7 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
               const amount = parseFloat((form.elements.namedItem('amount') as HTMLInputElement).value);
               if (source && amount) {
                 updateState({
-                  otherIncome: [...state.otherIncome, { id: Date.now(), source, amount, date: new Date().toISOString().split('T')[0] }]
+                  otherIncome: [...state.otherIncome, { id: Date.now(), desc: source, amount, updatedAt: Date.now() }]
                 });
                 form.reset();
               }
@@ -154,6 +160,11 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
           Disclaimer: Insights are for informational purposes only.
         </div>
       </div>
+
+      {/* 30-Day Cash Flow Calendar */}
+      <ErrorBoundary fallbackTitle="Cash Flow Error">
+        <CashFlowCalendar state={state} />
+      </ErrorBoundary>
     </div>
   );
 };

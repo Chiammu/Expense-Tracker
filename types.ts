@@ -11,6 +11,15 @@ export interface Expense {
   updatedAt: number; // For Last-Write-Wins conflict resolution
 }
 
+export interface ParsedTransaction {
+  date: string;
+  description: string;
+  debit: number;
+  credit: number;
+  suggestedCategory?: string;
+  isDuplicate?: boolean;
+}
+
 export interface CreditCard {
   id: number;
   name: string;
@@ -105,6 +114,7 @@ export interface AppSettings {
   lastReportSentMonth: string | null;
   privacyMode: boolean; // For blurring sensitive data in public
   webAuthnCredentialId: string | null; // For biometric unlock
+  notificationsEnabled: boolean; // For smart budget alerts
   updatedAt: number;
 }
 
@@ -131,7 +141,7 @@ export interface AppState {
   updatedAt: number;
 }
 
-export type Section = 'add-expense' | 'summaries' | 'investments' | 'overview' | 'settings' | 'chat';
+export type Section = 'add-expense' | 'import' | 'summaries' | 'investments' | 'overview' | 'settings' | 'chat';
 
 export const DEFAULT_CATEGORIES = [
   "Groceries", "Rent", "Bills", "EMIs", "Shopping", "Travel", "Food",
@@ -166,6 +176,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   lastReportSentMonth: null,
   privacyMode: false,
   webAuthnCredentialId: null,
+  notificationsEnabled: false,
   updatedAt: Date.now(),
 };
 

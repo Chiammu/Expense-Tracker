@@ -5,6 +5,7 @@ import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAudit
 import { authService } from '../services/auth';
 import { generateMonthlyDigest } from '../services/geminiService';
 import { webAuthnService } from '../services/webAuthn';
+import { requestNotificationPermission } from '../services/alertService';
 import { ScannerModal } from './ScannerModal';
 // @ts-ignore
 import QRCode from 'qrcode';
@@ -219,6 +220,25 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
     }
   };
 
+  const handleToggleNotifications = async () => {
+    if (state.settings.notificationsEnabled) {
+      // Disable notifications
+      updateSettings({ notificationsEnabled: false });
+      showToast("Smart Alerts disabled", "info");
+      haptic(5);
+    } else {
+      // Request permission and enable
+      const granted = await requestNotificationPermission();
+      if (granted) {
+        updateSettings({ notificationsEnabled: true });
+        showToast("Smart Alerts enabled!", "success");
+        haptic([10, 5, 10]);
+      } else {
+        showToast("Notification permission denied", "error");
+      }
+    }
+  };
+
   const SectionHeader = ({ icon, title }: { icon: string, title: string }) => (
     <div className="flex items-center gap-2 mb-4">
       <span className="text-xl">{icon}</span>
@@ -353,6 +373,33 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
           )}
         </div>
       </section >
+
+      {/* NOTIFICATIONS SECTION */}
+      <section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800" >
+        <SectionHeader icon="🔔" title="Notifications" />
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl">
+            <div className="flex flex-col">
+              <span className="text-sm font-bold">Smart Alerts</span>
+              <span className="text-[10px] text-text-light">
+                {state.settings.notificationsEnabled ? 'Budget alerts enabled' : 'Get notified about budget warnings'}
+              </span>
+            </div>
+            <button
+              onClick={handleToggleNotifications}
+              className={`relative w-12 h-7 rounded-full transition-colors ${
+                state.settings.notificationsEnabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
+              }`}
+            >
+              <span
+                className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                  state.settings.notificationsEnabled ? 'left-6' : 'left-1'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+      </section>
 
       {/* REPORTS SECTION */}
       < section className="bg-surface rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800" >

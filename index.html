@@ -6,7 +6,134 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://*.vercel-insights.com; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https: wss:;">
     <meta name="robots" content="noindex, nofollow">
     <title>Couple Expense Tracker</title>
-    
+
+    <!-- Tailwind CSS CDN with Custom Configuration -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              primary: 'var(--primary)',
+              secondary: 'var(--secondary)',
+              accent: 'var(--accent)',
+              surface: 'var(--surface)',
+              background: 'var(--background)',
+              text: 'var(--text)',
+              'text-light': 'var(--text-light)',
+            },
+            fontFamily: {
+              sans: 'var(--font-family)',
+            },
+            animation: {
+              'slide-up': 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+              'scale-in': 'scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+              'fade-in': 'fadeIn 0.3s ease-in-out',
+              'shimmer': 'shimmer 2s infinite linear',
+              'shake': 'shake 0.3s ease-in-out',
+            },
+            keyframes: {
+              slideUp: {
+                '0%': { opacity: 0, transform: 'translateY(15px)' },
+                '100%': { opacity: 1, transform: 'translateY(0)' },
+              },
+              scaleIn: {
+                '0%': { opacity: 0, transform: 'scale(0.95)' },
+                '100%': { opacity: 1, transform: 'scale(1)' },
+              },
+              fadeIn: {
+                '0%': { opacity: 0 },
+                '100%': { opacity: 1 },
+              },
+              shimmer: {
+                '0%': { transform: 'translateX(-100%)' },
+                '100%': { transform: 'translateX(100%)' },
+              },
+              shake: {
+                '0%, 100%': { transform: 'translateX(0)' },
+                '25%': { transform: 'translateX(-5px)' },
+                '75%': { transform: 'translateX(5px)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+
+    <!-- Custom Styles -->
+    <style>
+      :root {
+        --primary: #e91e63;
+        --secondary: #2196f3;
+        --accent: #ff6f00;
+        --surface: #ffffff;
+        --background: #f8f9fa;
+        --text: #212121;
+        --text-light: #757575;
+        --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      .dark {
+        --surface: #1e1e1e;
+        --background: #121212;
+        --text: #e0e0e0;
+        --text-light: #b0b0b0;
+      }
+
+      /* Privacy Mode blurring */
+      .privacy-active .mask-value {
+        filter: blur(8px);
+        user-select: none;
+        pointer-events: none;
+        transition: filter 0.3s ease;
+      }
+
+      /* Premium Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--text-light);
+        border-radius: 10px;
+        opacity: 0.3;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--primary);
+      }
+
+      body {
+        background-color: var(--background);
+        color: var(--text);
+        font-family: var(--font-family);
+        transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s;
+        -webkit-tap-highlight-color: transparent;
+        /* Modern Gradient Background for Light Theme */
+        background-image:
+          radial-gradient(at 0% 0%, rgba(233, 30, 99, 0.08) 0px, transparent 50%),
+          radial-gradient(at 100% 0%, rgba(33, 150, 243, 0.08) 0px, transparent 50%),
+          radial-gradient(at 100% 100%, rgba(255, 111, 0, 0.05) 0px, transparent 50%),
+          radial-gradient(at 0% 100%, rgba(255, 255, 255, 0) 0px, transparent 50%);
+        background-attachment: fixed;
+      }
+
+      .dark body {
+        background-image: none;
+      }
+
+      input:focus, select:focus, textarea:focus {
+        outline: none;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+    </style>
+
     <!-- PWA Settings -->
     <link rel="manifest" href="./manifest.json" />
     <meta name="theme-color" content="#e91e63" />

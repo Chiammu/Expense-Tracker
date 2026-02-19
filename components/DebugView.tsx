@@ -16,6 +16,12 @@ export const DebugView: React.FC = () => {
         const errs: string[] = [];
 
         // 1. Auth Check
+        if (!supabase) {
+            errs.push("Supabase client not initialized");
+            setErrors(errs);
+            return;
+        }
+        
         const { data: { session } } = await supabase.auth.getSession();
         diags.session = session ? "Active" : "None";
         diags.user = session?.user || null;
@@ -72,7 +78,7 @@ export const DebugView: React.FC = () => {
         }
 
         setErrors(errs);
-        setInfo(prev => ({ ...prev, ...diags }));
+        setInfo((prev: any) => ({ ...prev, ...diags }));
     };
 
     return (

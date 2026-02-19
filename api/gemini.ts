@@ -170,6 +170,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.json(JSON.parse(response.text || '{}'));
       }
 
+      case 'parseStatementText': {
+        const { prompt } = payload;
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.0-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json"
+          }
+        });
+        const text = response.text || "[]";
+        try {
+          return res.json(JSON.parse(text));
+        } catch (e) {
+          const start = text.indexOf('[');
+          const end = text.lastIndexOf(']') + 1;
+          if (start !== -1 && end !== -1) {
+            return res.json(JSON.parse(text.slice(start, end)));
+          }
+          return res.json([]);
+        }
+      }
+
       default:
         return res.status(400).json({ error: 'Unknown action' });
     }

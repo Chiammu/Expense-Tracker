@@ -9,12 +9,15 @@ import { LockScreen } from './components/LockScreen';
 import { Toast } from './components/Toast';
 import { RecurringModal } from './components/RecurringModal';
 import { Auth } from './components/Auth';
+import { StatementImporter } from './components/StatementImporter';
 import { supabase } from './services/supabaseClient';
 import { SkeletonLoader } from './components/SkeletonLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { loadFromStorage, saveToStorage, fetchCloudState, forceCloudSync, mergeAppState, logAuditEvent, setupRealtimeSubscription } from './services/storage';
+import { checkBudgetAlerts, sendLocalNotification, Alert } from './services/alertService';
 import { DebugView } from './components/DebugView';
 import { INITIAL_STATE } from './types';
+import { Analytics } from '@vercel/analytics/react';
 
 // Lazy load heavy components
 const Summaries = lazy(() => import('./components/Summaries').then(m => ({ default: m.Summaries })));
@@ -35,6 +38,8 @@ function App() {
   const [toast, setToast] = React.useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
   const [showRecurringModal, setShowRecurringModal] = React.useState(false);
   const [duePayments, setDuePayments] = React.useState<typeof INITIAL_STATE.fixedPayments>([]);
+  const [alerts, setAlerts] = React.useState<Alert[]>([]);
+  const dismissedAlertsRef = useRef<Set<string>>(new Set());
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -164,6 +169,28 @@ function App() {
     }
   }, [store.expenses, store.settings, store.investments, loaded]);
 
+  // Check for budget alerts when expenses change
+  useEffect(() => {
+    if (!loaded) return;
+    
+    const allAlerts = checkBudgetAlerts(store);
+    // Filter out dismissed alerts
+    const activeAlerts = allAlerts.filter(a => !dismissedAlertsRef.current.has(a.id));
+    setAlerts(activeAlerts);
+
+    // Send notifications for new alerts if app is in background and notifications enabled
+    if (store.settings.notificationsEnabled && document.hidden && activeAlerts.length > 0) {
+      activeAlerts.forEach(alert => {
+        sendLocalNotification(alert.title, alert.message);
+      });
+    }
+  }, [store.expenses, store.monthlyBudget, store.categoryBudgets, store.fixedPayments, store.savingsGoals, loaded]);
+
+  const dismissAlert = (alertId: string) => {
+    dismissedAlertsRef.current.add(alertId);
+    setAlerts(prev => prev.filter(a => a.id !== alertId));
+  };
+
   const handleTogglePrivacy = () => {
     store.setState({
       settings: { ...store.settings, privacyMode: !store.settings.privacyMode }
@@ -207,6 +234,57 @@ function App() {
         <div className="max-w-3xl mx-auto px-2 pt-4">
           <Header settings={store.settings} onTogglePrivacy={handleTogglePrivacy} />
 
+          {/* Smart Budget Alerts Banner */}
+          {alerts.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {alerts.map(alert => (
+                <div
+                  key={alert.id}
+                  className={`flex items-start justify-between p-3 rounded-xl border animate-slide-up ${
+                    alert.type === 'danger'
+                      ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                      : alert.type === 'warning'
+                      ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                      : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                  }`}
+                >
+                  <div className="flex-1 pr-2">
+                    <p className={`text-xs font-bold ${
+                      alert.type === 'danger'
+                        ? 'text-red-700 dark:text-red-300'
+                        : alert.type === 'warning'
+                        ? 'text-yellow-700 dark:text-yellow-300'
+                        : 'text-blue-700 dark:text-blue-300'
+                    }`}>
+                      {alert.title}
+                    </p>
+                    <p className={`text-[11px] mt-0.5 ${
+                      alert.type === 'danger'
+                        ? 'text-red-600 dark:text-red-400'
+                        : alert.type === 'warning'
+                        ? 'text-yellow-600 dark:text-yellow-400'
+                        : 'text-blue-600 dark:text-blue-400'
+                    }`}>
+                      {alert.message}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => dismissAlert(alert.id)}
+                    className={`text-lg font-bold leading-none opacity-60 hover:opacity-100 ${
+                      alert.type === 'danger'
+                        ? 'text-red-500'
+                        : alert.type === 'warning'
+                        ? 'text-yellow-500'
+                        : 'text-blue-500'
+                    }`}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <main className="relative pb-24">
             <ErrorBoundary fallbackTitle="Section Error">
               <Suspense fallback={<SkeletonLoader />}>
@@ -220,6 +298,13 @@ function App() {
                       expenseToEdit={store.expenseToEdit}
                       cancelEdit={() => store.setExpenseToEdit(null)}
                       switchTab={(tab) => navigate(`/${tab}`)}
+                      showToast={showToast}
+                    />
+                  } />
+                  <Route path="/import" element={
+                    <StatementImporter
+                      state={store}
+                      addExpense={store.addExpense}
                       showToast={showToast}
                     />
                   } />
@@ -275,6 +360,7 @@ function App() {
             setSection={(s) => navigate(`/${s}`)}
           />
         </div>
+        <Analytics />
       </div>
       <SpeedInsights />
     </>
