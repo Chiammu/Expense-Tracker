@@ -6,16 +6,21 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 interface SummariesProps {
   state: AppState;
-  deleteExpense: (id: number) => void;
+  deleteExpense: (id: string) => void;
   editExpense: (expense: Expense) => void;
 }
 
 export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, editExpense }) => {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
-  const [filterType, setFilterType] = useState<'today' | 'week' | 'month' | 'all'>('month');
+  const [filterType, setFilterType] = useState<'today' | 'week' | 'month' | 'custom-month' | 'all'>('month');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [calendarDate, setCalendarDate] = useState(new Date());
+
+  // Month picker state
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth()); // 0=Jan, 11=Dec
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
 
   // Roast State
   const [roast, setRoast] = useState<string | null>(null);
@@ -81,10 +86,13 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
       } else if (filterType === 'month') {
         const d = new Date(exp.date);
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      } else if (filterType === 'custom-month') {
+        const d = new Date(exp.date + 'T00:00:00');
+        return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
       }
       return true;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [state.expenses, filterType, paymentFilter, searchTerm, viewMode]);
+  }, [state.expenses, filterType, paymentFilter, searchTerm, viewMode, selectedMonth, selectedYear]);
 
   const stats = useMemo(() => {
     let p1 = 0, p2 = 0, shared = 0;
@@ -165,16 +173,146 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
         </button>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-        {(['today', 'week', 'month', 'all'] as const).map(f => (
+      {/* Filter Row — Time Period Pills + Month Picker */}
+      <div className="space-y-2">
+
+        {/* Primary filter pills */}
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {(['today', 'week', 'month', 'all'] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => { setFilterType(f); setShowMonthPicker(false); }}
+              className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all whitespace-nowrap border ${
+                filterType === f
+                  ? 'bg-black text-white dark:bg-white dark:text-black border-transparent shadow-md'
+                  : 'bg-surface text-text-light border-gray-100 dark:border-gray-800'
+              }`}
+            >
+              {f === 'all' ? 'All Time' : f === 'month' ? 'This Month' : f === 'week' ? 'This Week' : 'Today'}
+            </button>
+          ))}
+
+          {/* Month Picker trigger pill */}
           <button
-            key={f}
-            onClick={() => setFilterType(f)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all whitespace-nowrap border ${filterType === f ? 'bg-black text-white dark:bg-white dark:text-black border-transparent shadow-md' : 'bg-surface text-text-light border-gray-100 dark:border-gray-800'}`}
+            onClick={() => {
+              setFilterType('custom-month');
+              setShowMonthPicker(prev => !prev);
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap border flex items-center gap-1.5 ${
+              filterType === 'custom-month'
+                ? 'bg-primary text-white border-transparent shadow-md'
+                : 'bg-surface text-text-light border-gray-100 dark:border-gray-800'
+            }`}
           >
-            {f === 'all' ? 'All Time' : f === 'month' ? 'This Month' : f === 'week' ? 'This Week' : 'Today'}
+            <span>📅</span>
+            <span>
+              {filterType === 'custom-month'
+                ? new Date(selectedYear, selectedMonth).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+                : 'Pick Month'
+              }
+            </span>
           </button>
-        ))}
+        </div>
+
+        {/* Month Picker Panel — shown when showMonthPicker is true */}
+        {showMonthPicker && (
+          <div className="bg-surface border border-gray-100 dark:border-gray-800 rounded-2xl p-4 shadow-lg animate-slide-up">
+
+            {/* Year Navigation */}
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={() => setSelectedYear(y => y - 1)}
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800 text-text font-bold active:scale-90 transition-all"
+              >
+                ‹
+              </button>
+              <span className="text-sm font-black text-text">{selectedYear}</span>
+              <button
+                onClick={() => setSelectedYear(y => Math.min(y + 1, new Date().getFullYear()))}
+                className={`w-8 h-8 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800 font-bold active:scale-90 transition-all ${
+                  selectedYear >= new Date().getFullYear() ? 'opacity-30 cursor-not-allowed' : 'text-text'
+                }`}
+                disabled={selectedYear >= new Date().getFullYear()}
+              >
+                ›
+              </button>
+            </div>
+
+            {/* Month Grid — 4 columns x 3 rows */}
+            <div className="grid grid-cols-4 gap-2">
+              {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((monthLabel, idx) => {
+                const isFuture = selectedYear === new Date().getFullYear() && idx > new Date().getMonth();
+                const isSelected = selectedMonth === idx;
+                const isCurrentMonth = idx === new Date().getMonth() && selectedYear === new Date().getFullYear();
+
+                return (
+                  <button
+                    key={monthLabel}
+                    disabled={isFuture}
+                    onClick={() => {
+                      setSelectedMonth(idx);
+                      setFilterType('custom-month');
+                      setShowMonthPicker(false);
+                    }}
+                    className={`py-2.5 rounded-xl text-xs font-bold transition-all active:scale-90 relative ${
+                      isFuture
+                        ? 'opacity-25 cursor-not-allowed bg-gray-50 dark:bg-gray-900/20 text-text-light'
+                        : isSelected
+                          ? 'bg-primary text-white shadow-md shadow-primary/30'
+                          : 'bg-gray-100 dark:bg-gray-800/60 text-text hover:bg-gray-200 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {monthLabel}
+                    {isCurrentMonth && !isSelected && (
+                      <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-primary/60" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Quick shortcuts row */}
+            <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+              <button
+                onClick={() => {
+                  const now = new Date();
+                  setSelectedMonth(now.getMonth() === 0 ? 11 : now.getMonth() - 1);
+                  setSelectedYear(now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear());
+                  setFilterType('custom-month');
+                  setShowMonthPicker(false);
+                }}
+                className="flex-1 py-2 rounded-xl text-[11px] font-bold bg-secondary/10 text-secondary border border-secondary/20 active:scale-95 transition-all"
+              >
+                Last Month
+              </button>
+              <button
+                onClick={() => {
+                  const now = new Date();
+                  setSelectedMonth(now.getMonth() <= 1 ? 10 + now.getMonth() : now.getMonth() - 2);
+                  setSelectedYear(now.getMonth() <= 1 ? now.getFullYear() - 1 : now.getFullYear());
+                  setFilterType('custom-month');
+                  setShowMonthPicker(false);
+                }}
+                className="flex-1 py-2 rounded-xl text-[11px] font-bold bg-gray-100 dark:bg-gray-800 text-text-light active:scale-95 transition-all"
+              >
+                2 Months Ago
+              </button>
+              <button
+                onClick={() => {
+                  const now = new Date();
+                  setSelectedMonth(now.getMonth());
+                  setSelectedYear(now.getFullYear());
+                  setFilterType('month');
+                  setShowMonthPicker(false);
+                }}
+                className="flex-1 py-2 rounded-xl text-[11px] font-bold bg-gray-100 dark:bg-gray-800 text-text-light active:scale-95 transition-all"
+              >
+                This Month
+              </button>
+            </div>
+
+          </div>
+        )}
       </div>
 
       {viewMode === 'list' ? (
@@ -184,7 +322,14 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div className="bg-gradient-to-br from-primary to-pink-600 rounded-xl p-4 text-white shadow-lg relative overflow-hidden group">
               <div className="relative z-10">
-                <div className="text-xs opacity-80 uppercase font-bold">Total Spent</div>
+                <div className="text-xs opacity-80 uppercase font-bold">
+                  {filterType === 'custom-month'
+                    ? new Date(selectedYear, selectedMonth).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+                    : filterType === 'month' ? 'This Month'
+                    : filterType === 'week' ? 'This Week'
+                    : filterType === 'today' ? 'Today'
+                    : 'All Time'}
+                </div>
                 <div className={`text-2xl font-bold mask-value`}>₹{stats.total.toFixed(0)}</div>
                 <div className="text-[10px] mt-1 opacity-80">{filteredExpenses.length} transactions</div>
               </div>
