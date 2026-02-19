@@ -7,9 +7,9 @@ const handleGeminiError = (error: any) => {
   console.error("Gemini API Error details:", error);
   const msg = error.toString().toLowerCase();
   if (msg.includes("429") || msg.includes("quota")) {
-    return "⚠️ AI is exhausted. Try again later.";
+    return "\u26a0\ufe0f AI is exhausted. Try again later.";
   }
-  return `⚠️ AI Error: ${error.message || "Connection failed"}`;
+  return `\u26a0\ufe0f AI Error: ${error.message || "Connection failed"}`;
 };
 
 async function callGeminiAPI(action: string, payload: any): Promise<any> {
@@ -35,7 +35,7 @@ export const chatWithFinances = async (
   try {
     const systemInstruction = `You are a financial assistant for a couple: ${state.settings.person1Name} and ${state.settings.person2Name}.
     Available categories: ${state.settings.customCategories.join(', ')}.
-    Context: Current month spending is ₹${state.expenses.reduce((s, e) => s + e.amount, 0)}.`;
+    Context: Current month spending is \u20b9${state.expenses.reduce((s, e) => s + e.amount, 0)}.`;
     const result = await callGeminiAPI('chat', { history, userMessage, systemInstruction });
     return { text: result.text, toolCall: result.toolCall };
   } catch (error: any) {
@@ -46,9 +46,9 @@ export const chatWithFinances = async (
 export const getDeepFinancialStrategy = async (state: AppState): Promise<string> => {
   try {
     const prompt = `Analyze the full financial state:
-    Assets: ₹${(state.investments.bankBalance.p1 + state.investments.bankBalance.p2 + state.investments.mutualFunds.shared + state.investments.stocks.shared)}
-    Liabilities: ₹${state.loans.reduce((s, l) => s + l.pendingAmount, 0)}
-    Monthly Budget: ₹${state.monthlyBudget}
+    Assets: \u20b9${(state.investments.bankBalance.p1 + state.investments.bankBalance.p2 + state.investments.mutualFunds.shared + state.investments.stocks.shared)}
+    Liabilities: \u20b9${state.loans.reduce((s, l) => s + l.pendingAmount, 0)}
+    Monthly Budget: \u20b9${state.monthlyBudget}
     Provide a 10-year growth projection and a debt-payoff strategy. Use "Think Step-by-Step" reasoning.`;
     const result = await callGeminiAPI('strategy', { prompt });
     return result.text;
@@ -64,7 +64,7 @@ export const predictNextMonthSpending = async (state: AppState): Promise<string>
     const prompt = `Based on historical data: ${JSON.stringify(history)}
     And fixed bills: ${JSON.stringify(fixed)}
     Predict next month's spending. Look for seasonal trends or recurring spikes.
-    Format: "Estimated: ₹[Amount]. Reason: [One sentence prediction]."``;
+    Format: "Estimated: \u20b9[Amount]. Reason: [One sentence prediction]."'`;
     const result = await callGeminiAPI('insights', { prompt });
     return result.text;
   } catch (error) {
@@ -81,8 +81,8 @@ export const generateFinancialInsights = async (state: AppState): Promise<string
     }, {} as Record<string, number>);
     const summaryText = `
       Names: ${state.settings.person1Name}, ${state.settings.person2Name}
-      Total Expenses: ₹${totalExpenses}
-      Budget: ₹${state.monthlyBudget}
+      Total Expenses: \u20b9${totalExpenses}
+      Budget: \u20b9${state.monthlyBudget}
       Top Categories: ${JSON.stringify(categoryBreakdown)}
     `;
     const prompt = `Analyze these finances for a couple and give 3 short, punchy, actionable tips. Be encouraging. Use emojis. \n\n ${summaryText}`;
@@ -107,8 +107,8 @@ export const generateMonthlyDigest = async (state: AppState): Promise<string> =>
     }, {} as Record<string, number>);
     const prompt = `
       Create a "Monthly Financial Report & AI Advisor Digest" for ${state.settings.person1Name} and ${state.settings.person2Name}.
-      Total Spent: ₹${totalSpent}
-      Budget: ₹${state.monthlyBudget}
+      Total Spent: \u20b9${totalSpent}
+      Budget: \u20b9${state.monthlyBudget}
       Category Totals: ${JSON.stringify(catGroups)}
       Instructions:
       1. Keep it professional but insightful.
@@ -127,11 +127,9 @@ export const roastSpending = async (state: AppState): Promise<string> => {
   try {
     const recent = state.expenses.slice(-20).map(e => {
       const who = e.person === 'Person1' ? state.settings.person1Name : (e.person === 'Person2' ? state.settings.person2Name : 'Both');
-      return `${who}: ₹${e.amount} on ${e.category} (${e.note || 'no note'})`;
+      return `${who}: \u20b9${e.amount} on ${e.category} (${e.note || 'no note'})`;
     }).join('\n');
-    const prompt = `CONTEXT: Financial roast for a couple: ${state.settings.person1Name} and ${state.settings.person2Name}.
-DATA: Last 20 expenses: ${recent}
-INSTRUCTION: Be savage, hilarious, and brutal. Roast their spending habits based ONLY on the data provided. Limit to 350 characters. Plain text only. Use 🔥 emojis.`;
+    const prompt = `CONTEXT: Financial roast for a couple: ${state.settings.person1Name} and ${state.settings.person2Name}.\nDATA: Last 20 expenses: ${recent}\nINSTRUCTION: Be savage, hilarious, and brutal. Roast their spending habits based ONLY on the data provided. Limit to 350 characters. Plain text only. Use \ud83d\udd25 emojis.`;
     const result = await callGeminiAPI('roast', { prompt });
     return result.text;
   } catch (error) {
