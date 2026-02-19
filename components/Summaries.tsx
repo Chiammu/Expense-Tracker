@@ -23,16 +23,11 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [showMerchants, setShowMerchants] = useState(false);
 
-  // Month picker state
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth()); // 0=Jan, 11=Dec
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [showMonthPicker, setShowMonthPicker] = useState(false);
-
+  
   // Roast State
   const [roast, setRoast] = useState<string | null>(null);
   const [isRoasting, setIsRoasting] = useState(false);
-  const [showMerchants, setShowMerchants] = useState(false);
-
+  
   // Accordion state
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
 
