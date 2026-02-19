@@ -1,5 +1,10 @@
 import React, { useEffect, useRef, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
+import { Challenges } from './components/Challenges';
+import { Confetti } from './components/Confetti';
+import { evaluateChallenges } from './utils/challenges';
+import { SplitBillView } from './components/SplitBillView';
 import { useAppStore } from './store/useStore';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
@@ -13,8 +18,9 @@ import { supabase } from './services/supabaseClient';
 import { SkeletonLoader } from './components/SkeletonLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { loadFromStorage, saveToStorage, fetchCloudState, forceCloudSync, mergeAppState, logAuditEvent, setupRealtimeSubscription } from './services/storage';
-import { checkBudgetAlerts, sendLocalNotification, Alert } from './services/alertService';
+import { checkBudgetAlerts, sendLocalNotification, requestNotificationPermission, Alert } from './services/alertService';
 import { DebugView } from './components/DebugView';
+import { Chat } from './components/Chat';
 import { INITIAL_STATE } from './types';
 import { Analytics } from '@vercel/analytics/react';
 
@@ -36,9 +42,41 @@ function App() {
   const [isLocked, setIsLocked] = React.useState(false);
   const [toast, setToast] = React.useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
   const [showRecurringModal, setShowRecurringModal] = React.useState(false);
-  const [duePayments, setDuePayments] = React.useState<typeof INITIAL_STATE.fixedPayments>([]);
+  const [duePayments, setDuePayments] = React.useState<any[]>([]);
   const [alerts, setAlerts] = React.useState<Alert[]>([]);
-  const dismissedAlertsRef = useRef<Set<string>>(new Set());
+  const [dismissedAlerts, setDismissedAlerts] = React.useState<string[]>([]);
+  const [celebrationReward, setCelebrationReward] = React.useState<string | null>(null);
+  const [lastReadChatTime, setLastReadChatTime] = React.useState(localStorage.getItem('last_read_chat_timestamp') || '0');
+
+  const updateLastReadChat = () => {
+    const now = new Date().toISOString();
+    localStorage.setItem('last_read_chat_timestamp', now);
+    setLastReadChatTime(now);
+  };
+
+  const chatUnreadCount = React.useMemo(() => {
+    if (location.pathname === '/chat') return 0;
+    return store.chatMessages.filter(m => m.timestamp > lastReadChatTime).length;
+  }, [store.chatMessages, lastReadChatTime, location.pathname]);
+
+  // Check Alerts
+  useEffect(() => {
+    if (!loaded) return;
+    const currentAlerts = checkBudgetAlerts(store);
+    setAlerts(currentAlerts);
+
+    // Filter for dangerous alerts to notify
+    if (store.settings.notificationsEnabled && document.hidden) {
+      currentAlerts.forEach(alert => {
+        if (alert.type === 'danger' && !dismissedAlerts.includes(alert.id)) {
+          sendLocalNotification(alert.title, alert.message);
+        }
+      });
+    }
+  }, [store.expenses, store.monthlyBudget, store.categoryBudgets, store.fixedPayments, store.savingsGoals, loaded, store.settings.notificationsEnabled]);
+
+  const activeAlerts = alerts.filter(a => !dismissedAlerts.includes(a.id));
+
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -62,7 +100,7 @@ function App() {
     };
     checkSession();
 
-    const { data: { subscription } } = supabase!.auth.onAuthStateChange((event, session) => {
+    const authListener = supabase?.auth.onAuthStateChange((event, session) => {
       setSession(session);
       if (event === 'SIGNED_OUT') {
         // Critical: Clear local storage to prevent data leakage to next user
@@ -72,7 +110,7 @@ function App() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => authListener?.data.subscription.unsubscribe();
   }, []);
 
   // Data Loading Logic
@@ -150,6 +188,12 @@ function App() {
     if (!session?.user?.id) return;
 
     const channel = setupRealtimeSubscription(session.user.id, (remoteState) => {
+      // Merge incoming remote state with current to avoid overwriting pending local edits if any
+      // But typically we trust remote. Let's merge using current store state.
+      const current = (store as any).getState ? (store as any).getState() : store;
+      // Since 'store' is the hook result, getting current state inside useEffect might be stale if we don't depend on it.
+      // Actually, we can just setState(remoteState). If we want LWW, we use mergeAppState.
+
       console.log("Applying Realtime Update...");
       setStateRef.current(remoteState);
       showToastRef.current("Sync Received ☁️", "info");
@@ -166,7 +210,45 @@ function App() {
       // Trigger debounced cloud save
       saveToStorage(store, 'remote');
     }
-  }, [store.expenses, store.settings, store.investments, loaded]);
+  }, [store.expenses, store.settings, store.investments, store.challenges, loaded]);
+
+  // Challenge Evaluation Loop
+  useEffect(() => {
+    if (!loaded || !store.challenges) return;
+
+    const activeChallenges = store.challenges.filter(c => c.status === 'active');
+    if (activeChallenges.length === 0) return;
+
+    const updatedChallenges = evaluateChallenges(store.challenges, store.expenses);
+
+    // Check for status changes to trigger celebrations
+    let hasChanges = false;
+    let newReward: string | null = null;
+
+    const newChallenges = updatedChallenges.map(updated => {
+      const original = store.challenges.find(c => c.id === updated.id);
+      if (original && original.status === 'active' && updated.status === 'completed') {
+        hasChanges = true;
+        newReward = updated.reward;
+      }
+      if (original && original.progress !== updated.progress) {
+        hasChanges = true;
+      }
+      if (original && original.status !== updated.status) {
+        hasChanges = true;
+      }
+      return updated;
+    });
+
+    if (hasChanges) {
+      store.setState({ challenges: newChallenges });
+      if (newReward) {
+        setCelebrationReward(newReward);
+        showToast(`🎉 Challenge Completed! You earned: ${newReward}`, 'success');
+        setTimeout(() => setCelebrationReward(null), 4000);
+      }
+    }
+  }, [store.expenses, loaded]); // Evaluate when expenses change
 
   // Check for budget alerts when expenses change
   useEffect(() => {
@@ -199,12 +281,20 @@ function App() {
 
   if (!authInitialized) return <SkeletonLoader />;
 
+  if (location.pathname.startsWith('/split/')) {
+    return <SplitBillView />;
+  }
+
   if (!session && !store.isGuest) {
     return <Auth onAuthSuccess={() => { }} onGuestLogin={() => store.setGuest(true)} showToast={showToast} />;
   }
 
   return (
     <>
+      <AnimatePresence>
+        {celebrationReward && <Confetti reward={celebrationReward} />}
+      </AnimatePresence>
+
       {isLocked && (
         <LockScreen
           pin={store.settings.pin}
@@ -233,130 +323,109 @@ function App() {
         <div className="max-w-3xl mx-auto px-2 pt-4">
           <Header settings={store.settings} onTogglePrivacy={handleTogglePrivacy} />
 
-          {/* Smart Budget Alerts Banner */}
-          {alerts.length > 0 && (
-            <div className="mt-3 space-y-2">
-              {alerts.map(alert => (
-                <div
-                  key={alert.id}
-                  className={`flex items-start justify-between p-3 rounded-xl border animate-slide-up ${
-                    alert.type === 'danger'
-                      ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                      : alert.type === 'warning'
-                      ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
-                      : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+          {/* Smart Alerts Banner */}
+          <div className="space-y-2 mb-4">
+            {activeAlerts.map((alert: Alert) => (
+              <div
+                key={alert.id}
+                className={`p-3 rounded-xl flex items-center justify-between text-sm font-bold shadow-sm animate-fade-in ${alert.type === 'danger' ? 'bg-red-100 text-red-700 border border-red-200' :
+                  alert.type === 'warning' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
+                    'bg-blue-50 text-blue-700 border border-blue-100'
                   }`}
-                >
-                  <div className="flex-1 pr-2">
-                    <p className={`text-xs font-bold ${
-                      alert.type === 'danger'
-                        ? 'text-red-700 dark:text-red-300'
-                        : alert.type === 'warning'
-                        ? 'text-yellow-700 dark:text-yellow-300'
-                        : 'text-blue-700 dark:text-blue-300'
-                    }`}>
-                      {alert.title}
-                    </p>
-                    <p className={`text-[11px] mt-0.5 ${
-                      alert.type === 'danger'
-                        ? 'text-red-600 dark:text-red-400'
-                        : alert.type === 'warning'
-                        ? 'text-yellow-600 dark:text-yellow-400'
-                        : 'text-blue-600 dark:text-blue-400'
-                    }`}>
-                      {alert.message}
-                    </p>
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">
+                    {alert.type === 'danger' ? '🚨' : alert.type === 'warning' ? '⚠️' : 'ℹ️'}
+                  </span>
+                  <div>
+                    <div className="text-xs uppercase opacity-70 tracking-wider">{alert.title}</div>
+                    <div>{alert.message}</div>
                   </div>
-                  <button
-                    onClick={() => dismissAlert(alert.id)}
-                    className={`text-lg font-bold leading-none opacity-60 hover:opacity-100 ${
-                      alert.type === 'danger'
-                        ? 'text-red-500'
-                        : alert.type === 'warning'
-                        ? 'text-yellow-500'
-                        : 'text-blue-500'
-                    }`}
-                  >
-                    ×
-                  </button>
                 </div>
-              ))}
-            </div>
-          )}
+                <button
+                  onClick={() => setDismissedAlerts((prev: string[]) => [...prev, alert.id])}
+                  className="p-1 px-2 hover:bg-black/5 rounded"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
 
           <main className="relative pb-24">
             <ErrorBoundary fallbackTitle="Section Error">
-              <Suspense fallback={<SkeletonLoader />}>
-                <Routes>
-                  <Route path="/" element={<Navigate to="/add-expense" replace />} />
-                  <Route path="/add-expense" element={
-                    <AddExpense
-                      state={store}
-                      addExpense={store.addExpense}
-                      updateExpense={store.updateExpense}
-                      expenseToEdit={store.expenseToEdit}
-                      cancelEdit={() => store.setExpenseToEdit(null)}
-                      switchTab={(tab) => navigate(`/${tab}`)}
-                      showToast={showToast}
-                    />
-                  } />
-                  <Route path="/import" element={
-                    <StatementImporter
-                      state={store}
-                      addExpense={store.addExpense}
-                      showToast={showToast}
-                    />
-                  } />
-                  <Route path="/summaries" element={
-                    <Summaries
-                      state={store}
-                      deleteExpense={store.deleteExpense as any}
-                      editExpense={(exp) => {
-                        store.setExpenseToEdit(exp);
-                        navigate('/add-expense');
-                      }}
-                    />
-                  } />
-                  <Route path="/investments" element={
-                    <Investments
-                      state={store}
-                      updateState={store.setState}
-                      showToast={showToast}
-                    />
-                  } />
-                  <Route path="/overview" element={
-                    <Overview
-                      state={store}
-                      updateBudget={(b) => store.setState({ monthlyBudget: b })}
-                      updateIncome={(p1, p2) => store.setState({ incomePerson1: p1, incomePerson2: p2 })}
-                      addFixedPayment={(n, a, d) => store.setState({ fixedPayments: [...store.fixedPayments, { id: Date.now(), name: n, amount: a, day: d, updatedAt: Date.now() }] })}
-                      removeFixedPayment={(id) => store.setState({ fixedPayments: store.fixedPayments.filter(fp => fp.id !== id) })}
-                      updateState={store.setState}
-                    />
-                  } />
-                  <Route path="/settings" element={
-                    <Settings
-                      state={store}
-                      updateSettings={(s) => store.setState({ settings: { ...store.settings, ...s } })}
-                      updateState={store.setState}
-                      resetData={store.reset}
-                      deleteAccount={store.reset}
-                      showToast={showToast}
-                      installApp={() => { }}
-                      canInstall={false}
-                      isIos={false}
-                      isStandalone={false}
-                      userEmail={session?.user?.email}
-                    />
-                  } />
-                </Routes>
-              </Suspense>
+              <Routes>
+                <Route path="/" element={<Navigate to="/add-expense" replace />} />
+                <Route path="/add-expense" element={
+                  <AddExpense
+                    state={store}
+                    addExpense={store.addExpense}
+                    updateExpense={(updatedExpense: any) => store.updateExpense(updatedExpense)}
+                    expenseToEdit={store.expenseToEdit}
+                    cancelEdit={() => store.setExpenseToEdit(null)}
+                    switchTab={(tab) => navigate(`/${tab}`)}
+                    showToast={showToast}
+                  />
+                } />
+                <Route path="/summaries" element={
+                  <Summaries
+                    state={store}
+                    deleteExpense={store.deleteExpense}
+                    editExpense={(exp) => {
+                      store.setExpenseToEdit(exp);
+                      navigate('/add-expense');
+                    }}
+                  />
+                } />
+                <Route path="/investments" element={
+                  <Investments
+                    state={store}
+                    updateState={store.setState}
+                    showToast={showToast}
+                  />
+                } />
+                <Route path="/overview" element={
+                  <Overview />
+                } />
+                <Route path="/challenges" element={
+                  <Challenges
+                    state={store}
+                    updateState={store.setState}
+                    showToast={showToast}
+                  />
+                } />
+                <Route path="/settings" element={
+                  <Settings
+                    state={store}
+                    updateSettings={(s) => store.setState({ settings: { ...store.settings, ...s } })}
+                    updateState={store.setState}
+                    resetData={store.reset}
+                    deleteAccount={store.reset}
+                    showToast={showToast}
+                    installApp={() => { }}
+                    canInstall={false}
+                    isIos={false}
+                    isStandalone={false}
+                    userEmail={session?.user?.email}
+                  />
+                } />
+                <Route path="/chat" element={
+                  <Chat
+                    state={store}
+                    updateState={store.setState}
+                    showToast={showToast}
+                    session={session}
+                    onRead={updateLastReadChat}
+                  />
+                } />
+              </Routes>
             </ErrorBoundary>
           </main>
 
           <BottomNav
             activeSection={store.activeSection}
             setSection={(s) => navigate(`/${s}`)}
+            chatUnreadCount={chatUnreadCount}
           />
         </div>
         <Analytics />

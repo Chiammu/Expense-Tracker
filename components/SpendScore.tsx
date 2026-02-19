@@ -1,190 +1,182 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppState } from '../types';
-import { calculateSpendScore, getScoreColor, getScoreGradient } from '../utils/spendScore';
+import { calculateSpendScore } from '../utils/spendScore';
 import { generateFinancialInsights } from '../services/geminiService';
 
 interface SpendScoreProps {
-  state: AppState;
+    state: AppState;
 }
 
 export const SpendScore: React.FC<SpendScoreProps> = ({ state }) => {
-  const [animatedScore, setAnimatedScore] = useState(0);
-  const [aiTip, setAiTip] = useState<string>('');
-  const [loadingTip, setLoadingTip] = useState(false);
-  const hasFetchedTip = useRef(false);
+    const [displayScore, setDisplayScore] = useState(0);
+    const [aiTip, setAiTip] = useState<string | null>(null);
+    const [loadingTip, setLoadingTip] = useState(false);
 
-  const { score, grade, breakdown, tip } = calculateSpendScore(state);
-  const color = getScoreColor(grade);
-  const gradient = getScoreGradient(grade);
+    // Calculate score derived from state
+    const { score, grade, breakdown, tip: calcTip } = calculateSpendScore(state);
 
-  // Animate score counting up
-  useEffect(() => {
-    const duration = 1500; // 1.5 seconds
-    const steps = 60;
-    const stepDuration = duration / steps;
-    const increment = score / steps;
-    let currentStep = 0;
+    // Animate score on mount/change
+    useEffect(() => {
+        let start = 0;
+        const end = score;
+        if (start === end) return;
 
-    const interval = setInterval(() => {
-      currentStep++;
-      const nextScore = Math.min(Math.round(increment * currentStep), score);
-      setAnimatedScore(nextScore);
-      
-      if (currentStep >= steps) {
-        clearInterval(interval);
-      }
-    }, stepDuration);
+        const duration = 1000;
+        const increment = end / (duration / 16); // 60fps
 
-    return () => clearInterval(interval);
-  }, [score]);
+        const timer = setInterval(() => {
+            start += increment;
+            if (start >= end) {
+                setDisplayScore(end);
+                clearInterval(timer);
+            } else {
+                setDisplayScore(Math.floor(start));
+            }
+        }, 16);
 
-  // Fetch AI tip once
-  useEffect(() => {
-    if (hasFetchedTip.current) return;
-    hasFetchedTip.current = true;
+        return () => clearInterval(timer);
+    }, [score]);
 
-    const fetchTip = async () => {
-      setLoadingTip(true);
-      try {
-        const insight = await generateFinancialInsights(state);
-        setAiTip(insight);
-      } catch {
-        setAiTip(tip); // Fallback to calculated tip
-      }
-      setLoadingTip(false);
+    // Fetch AI tip on mount
+    useEffect(() => {
+        let mounted = true;
+        const fetchTip = async () => {
+            setLoadingTip(true);
+            try {
+                // We use the simpler calculation tip as immediate feedback, 
+                // but we can also fetch a fresh one from Gemini if desired.
+                // For now, let's settle on the calculated tip as the primary "Instant" tip,
+                // and fetch a deeper one if the user clicks, or just auto-fetch if cheap.
+                // The requirement said "AI tip from Gemini...".
+                // Let's call it.
+                const insight = await generateFinancialInsights(state);
+                if (mounted) setAiTip(insight);
+            } catch (e) {
+                console.error("Failed to fetch AI tip", e);
+            } finally {
+                if (mounted) setLoadingTip(false);
+            }
+        };
+
+        // Debounce/avoid spamming API on every render, maybe only if expenses change significant amount?
+        // For this MVP, let's just fetch it once on mount or when score changes significantly.
+        // To save tokens, I'll restrict it to user action for "Deep" insight, 
+        // BUT the requirement said "Bottom: AI tip from Gemini".
+        // I will use the `calcTip` as the default showing tip, and have a button to "Ask Gemini" 
+        // or just show the Gemini one if available?
+        // Actually, `Overview` likely has the API key.
+
+        // Optimization: The user request implies it's always there. 
+        // I'll stick to using the `calcTip` (which is instant and free) as the main view,
+        // and maybe load the Gemini one in the background. 
+        fetchTip();
+
+        return () => { mounted = false; };
+    }, [state.expenses.length]); // Only re-fetch if expenses count changes to avoid simple re-renders
+
+    const getColor = (g: string) => {
+        switch (g) {
+            case 'A': return '#4caf50'; // Green
+            case 'B': return '#009688'; // Teal
+            case 'C': return '#ffeb3b'; // Yellow
+            case 'D': return '#ff9800'; // Orange
+            case 'F': return '#f44336'; // Red
+            default: return '#9e9e9e';
+        }
     };
 
-    fetchTip();
-  }, [state, tip]);
+    const color = getColor(grade);
+    const strokeDasharray = 440; // 2 * pi * r (approx for r=70)
+    const strokeDashoffset = strokeDasharray - (strokeDasharray * displayScore) / 100;
 
-  // SVG circle parameters
-  const size = 180;
-  const strokeWidth = 12;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const strokeDashoffset = circumference - (animatedScore / 100) * circumference;
+    return (
+        <div className="bg-surface rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 relative overflow-hidden mb-6">
+            <div className="flex flex-col sm:flex-row items-center gap-6">
 
-  // Breakdown labels
-  const breakdownLabels: Record<string, { label: string; icon: string }> = {
-    budgetAdherence: { label: 'Budget Adherence', icon: '📊' },
-    savingsRate: { label: 'Savings Rate', icon: '💰' },
-    loanBurden: { label: 'Loan Burden', icon: '🏦' },
-    categoryDiscipline: { label: 'Category Discipline', icon: '🎯' },
-    savingsGoalProgress: { label: 'Savings Goals', icon: '🎯' },
-  };
-
-  return (
-    <div className="bg-surface rounded-2xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm">
-      <h3 className="text-xs font-black text-primary uppercase tracking-widest mb-4 flex items-center gap-2">
-        <span>📈</span> Financial Health Score
-      </h3>
-
-      <div className="flex flex-col items-center">
-        {/* Circular Gauge */}
-        <div className="relative" style={{ width: size, height: size }}>
-          <svg
-            width={size}
-            height={size}
-            className="transform -rotate-90"
-          >
-            {/* Background circle */}
-            <circle
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={strokeWidth}
-              className="text-gray-200 dark:text-gray-700"
-            />
-            {/* Progress circle */}
-            <circle
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              fill="none"
-              stroke={color}
-              strokeWidth={strokeWidth}
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              className="transition-all duration-300 ease-out"
-              style={{
-                filter: `drop-shadow(0 0 6px ${color}40)`,
-              }}
-            />
-          </svg>
-          
-          {/* Center content */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span 
-              className="text-5xl font-black transition-colors duration-300"
-              style={{ color }}
-            >
-              {grade}
-            </span>
-            <span className="text-2xl font-bold text-text">
-              {animatedScore}
-            </span>
-            <span className="text-xs text-text-light">/ 100</span>
-          </div>
-        </div>
-
-        {/* Score label */}
-        <div 
-          className="mt-3 px-4 py-1.5 rounded-full text-xs font-bold text-white"
-          style={{ backgroundColor: color }}
-        >
-          {grade === 'A' && 'Excellent'}
-          {grade === 'B' && 'Good'}
-          {grade === 'C' && 'Fair'}
-          {grade === 'D' && 'Needs Work'}
-          {grade === 'F' && 'Critical'}
-        </div>
-
-        {/* Breakdown Table */}
-        <div className="w-full mt-5 space-y-2">
-          {Object.entries(breakdown).map(([key, value]) => {
-            const info = breakdownLabels[key];
-            const isPositive = value === 0;
-            return (
-              <div 
-                key={key}
-                className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900/50 rounded-lg"
-              >
-                <div className="flex items-center gap-2">
-                  <span>{info.icon}</span>
-                  <span className="text-xs font-medium text-text-light">{info.label}</span>
+                {/* Gauge Section */}
+                <div className="relative w-40 h-40 flex-shrink-0">
+                    <svg className="w-full h-full transform -rotate-90">
+                        <circle
+                            cx="80"
+                            cy="80"
+                            r="70"
+                            stroke="currentColor"
+                            strokeWidth="12"
+                            fill="transparent"
+                            className="text-gray-200 dark:text-gray-700"
+                        />
+                        <circle
+                            cx="80"
+                            cy="80"
+                            r="70"
+                            stroke={color}
+                            strokeWidth="12"
+                            fill="transparent"
+                            strokeDasharray={strokeDasharray}
+                            strokeDashoffset={strokeDashoffset}
+                            strokeLinecap="round"
+                            className="transition-all duration-1000 ease-out"
+                        />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-text">
+                        <span className="text-4xl font-black" style={{ color }}>{grade}</span>
+                        <span className="text-sm font-bold opacity-60">{displayScore}/100</span>
+                    </div>
                 </div>
-                <span 
-                  className={`text-xs font-bold ${isPositive ? 'text-green-600' : 'text-red-500'}`}
-                >
-                  {isPositive ? '✓' : value}
-                </span>
-              </div>
-            );
-          })}
-        </div>
 
-        {/* AI Tip */}
-        <div className="w-full mt-4 p-3 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-xl border border-primary/10">
-          <div className="flex items-start gap-2">
-            <span className="text-sm">💡</span>
-            <div className="flex-1">
-              <p className="text-[10px] uppercase font-black text-primary/60 tracking-wider mb-1">
-                AI Insight
-              </p>
-              {loadingTip ? (
-                <p className="text-xs text-text-light animate-pulse">Analyzing your finances...</p>
-              ) : (
-                <p className="text-xs text-text leading-relaxed">{aiTip || tip}</p>
-              )}
+                {/* Breakdown Section */}
+                <div className="flex-1 w-full">
+                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                        <span>❤️</span> Financial Health Score
+                    </h3>
+
+                    <div className="space-y-2 text-xs font-bold text-text-light">
+                        <div className="flex justify-between">
+                            <span>Budget Adherence</span>
+                            <span className={breakdown.budgetAdherence < 0 ? 'text-red-500' : 'text-green-500'}>
+                                {breakdown.budgetAdherence === 0 ? 'Perfect' : breakdown.budgetAdherence}
+                            </span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>Savings Rate</span>
+                            <span className={breakdown.savingsRate < 0 ? 'text-red-500' : 'text-green-500'}>
+                                {breakdown.savingsRate === 0 ? 'Good' : breakdown.savingsRate}
+                            </span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>Loan Burden</span>
+                            <span className={breakdown.loanBurden < 0 ? 'text-red-500' : 'text-green-500'}>
+                                {breakdown.loanBurden === 0 ? 'Low' : breakdown.loanBurden}
+                            </span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>Category Discipline</span>
+                            <span className={breakdown.categoryDiscipline < 0 ? 'text-red-500' : 'text-green-500'}>
+                                {breakdown.categoryDiscipline === 0 ? 'Focused' : breakdown.categoryDiscipline}
+                            </span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>Goals Progress</span>
+                            <span className={breakdown.savingsGoalProgress < 0 ? 'text-red-500' : 'text-green-500'}>
+                                {breakdown.savingsGoalProgress === 0 ? 'On Track' : breakdown.savingsGoalProgress}
+                            </span>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
-export default SpendScore;
+            {/* AI Tip Section */}
+            <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xl">✨</span>
+                    <span className="text-xs font-black uppercase tracking-widest text-primary">Smart Insight</span>
+                </div>
+                <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
+                    <p className="text-sm text-text leading-relaxed">
+                        {loadingTip ? <span className="animate-pulse">Analyzing spending patterns...</span> : (aiTip || calcTip)}
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+};

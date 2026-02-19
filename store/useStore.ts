@@ -21,10 +21,10 @@ export const useAppStore = create<AppStore>()(
     (set, get) => ({
         ...INITIAL_STATE,
         isGuest: false,
-        activeSection: 'add-expense',
+        activeSection: 'add-expense' as Section,
         expenseToEdit: null,
 
-        setSection: (section) => set({ activeSection: section }),
+        setSection: (section) => set({ activeSection: section as any }),
         setGuest: (isGuest) => set({ isGuest }),
 
         setExpenseToEdit: (expense) => set((state) => {

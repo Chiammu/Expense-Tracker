@@ -16,13 +16,7 @@ export const DebugView: React.FC = () => {
         const errs: string[] = [];
 
         // 1. Auth Check
-        if (!supabase) {
-            errs.push("Supabase client not initialized");
-            setErrors(errs);
-            return;
-        }
-        
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } = {} } = (await supabase?.auth.getSession()) || {};
         diags.session = session ? "Active" : "None";
         diags.user = session?.user || null;
         setInfo(diags);
@@ -35,10 +29,10 @@ export const DebugView: React.FC = () => {
 
         // 2. DB Check (app_state)
         try {
-            const { data, error } = await supabase
-                .from('app_state')
+            const { data, error } = (await supabase
+                ?.from('app_state')
                 .select('*')
-                .eq('user_id', session.user.id);
+                .eq('user_id', session.user.id)) || {};
 
             if (error) throw error;
             setDbData(data);
@@ -49,7 +43,7 @@ export const DebugView: React.FC = () => {
         // 3. Storage Check (Check buckets)
         try {
             // List all buckets to see if we can even access Storage
-            const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
+            const { data: buckets, error: bucketError } = (await supabase?.storage.listBuckets()) || {};
             if (bucketError) {
                 // RLS might block listing buckets, try specific common names
                 errs.push("List Buckets Error: " + bucketError.message);
@@ -62,10 +56,10 @@ export const DebugView: React.FC = () => {
             const targetBucket = 'images';
             const path = `cover_photos/${session.user.id}`;
 
-            const { data: files, error: fileError } = await supabase
-                .storage
+            const { data: files, error: fileError } = (await supabase
+                ?.storage
                 .from(targetBucket)
-                .list(path);
+                .list(path)) || {};
 
             if (fileError) {
                 errs.push(`Storage Error (${targetBucket}): ` + fileError.message);

@@ -88,52 +88,66 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin, onAuthSucce
 
   if (isFinalizing) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-        <div className="text-center animate-fade-in">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-[#0a0a0a] relative overflow-hidden">
+        {/* Ambient glow orbs */}
+        <div className="absolute top-[-30%] left-[-10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] bg-secondary/15 rounded-full blur-[100px] pointer-events-none" />
+
+        <div className="text-center animate-fade-in relative z-10">
           <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-6"></div>
-          <h2 className="text-xl font-bold text-text mb-2">Finalizing Login...</h2>
-          <p className="text-text-light text-sm">Setting up your secure workspace.</p>
+          <h2 className="text-xl font-bold text-white mb-2">Finalizing Login...</h2>
+          <p className="text-white/40 text-sm">Setting up your secure workspace.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <div className="w-full max-w-md bg-surface p-8 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 animate-scale-in">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[#0a0a0a] relative overflow-hidden">
+
+      {/* Ambient glow orbs */}
+      <div className="absolute top-[-30%] left-[-10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] bg-secondary/15 rounded-full blur-[100px] pointer-events-none" />
+
+      {/* Card */}
+      <div className="relative z-10 w-full max-w-sm bg-white/[0.05] backdrop-blur-2xl p-8 rounded-[28px] border border-white/[0.10] shadow-[0_24px_80px_rgba(0,0,0,0.5)] animate-scale-in">
+
+        {/* Brand Mark */}
         <div className="text-center mb-8">
-          <div className="text-5xl mb-4">💖</div>
-          <h1 className="text-2xl font-black text-primary transition-all">
-            {mode === 'login' && 'Welcome Back'}
-            {mode === 'signup' && 'Create Account'}
+          <div className="w-16 h-16 rounded-[20px] bg-gradient-to-br from-primary to-pink-400 mx-auto mb-5 flex items-center justify-center shadow-[0_8px_32px_rgba(233,30,99,0.5)]">
+            <span className="text-2xl">💸</span>
+          </div>
+          <h1 className="text-[26px] font-black text-white tracking-tight">
+            {mode === 'login' && 'Sign In'}
+            {mode === 'signup' && 'Get Started'}
             {mode === 'forgot' && 'Reset Password'}
           </h1>
-          <p className="text-text-light text-sm mt-2">
-            {mode === 'login' && 'Manage your couple finances together'}
-            {mode === 'signup' && 'Start your collaborative journey'}
-            {mode === 'forgot' && 'Enter your email to get a reset link'}
+          <p className="text-white/40 text-[13px] mt-1.5 font-medium">
+            {mode === 'login' && 'Track finances together'}
+            {mode === 'signup' && 'Your couples finance hub'}
+            {mode === 'forgot' && 'We\'ll send a recovery link'}
           </p>
         </div>
 
         {!isConfigured && (
-          <div className="mb-6 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800 rounded-2xl flex items-center gap-3">
+          <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-[16px] flex items-center gap-3">
             <span className="text-xl">☁️</span>
             <div>
-              <p className="text-[10px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-wider">Cloud Offline</p>
-              <p className="text-[10px] text-orange-600 dark:text-orange-300">Credentials missing. Please use guest mode to explore.</p>
+              <p className="text-[10px] font-black text-amber-300 uppercase tracking-wider">Cloud Offline</p>
+              <p className="text-[10px] text-amber-200/70">Credentials missing. Please use guest mode.</p>
             </div>
           </div>
         )}
 
         <form onSubmit={handleEmailAuth} className="space-y-4 animate-fade-in">
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-black text-text-light ml-1">Email Address</label>
+            <label className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/40 ml-1">Email Address</label>
             <input
               type="email"
               required
               disabled={!isConfigured || loading}
               autoFocus
-              className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border-none focus:ring-2 focus:ring-primary/20 text-sm disabled:opacity-50"
+              className="w-full px-4 py-3.5 bg-white/[0.07] border border-white/[0.10] rounded-[14px] text-white text-[15px] font-medium placeholder:text-white/25 focus:border-primary/60 focus:ring-2 focus:ring-primary/15 transition-all outline-none"
               placeholder="you@example.com"
               value={email}
               onChange={e => setEmail(e.target.value)}
@@ -143,7 +157,7 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin, onAuthSucce
           {mode !== 'forgot' && (
             <div className="space-y-1">
               <div className="flex justify-between items-center px-1">
-                <label className="text-[10px] uppercase font-black text-text-light">Password</label>
+                <label className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/40">Password</label>
                 {mode === 'login' && (
                   <button type="button" onClick={() => setMode('forgot')} className="text-[10px] text-primary font-bold hover:underline">Forgot?</button>
                 )}
@@ -152,7 +166,7 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin, onAuthSucce
                 type="password"
                 required
                 disabled={!isConfigured || loading}
-                className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border-none focus:ring-2 focus:ring-primary/20 text-sm disabled:opacity-50"
+                className="w-full px-4 py-3.5 bg-white/[0.07] border border-white/[0.10] rounded-[14px] text-white text-[15px] font-medium placeholder:text-white/25 focus:border-primary/60 focus:ring-2 focus:ring-primary/15 transition-all outline-none"
                 placeholder="••••••••"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
@@ -162,12 +176,12 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin, onAuthSucce
 
           {mode === 'signup' && (
             <div className="space-y-1">
-              <label className="text-[10px] uppercase font-black text-text-light ml-1">Confirm Password</label>
+              <label className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/40 ml-1">Confirm Password</label>
               <input
                 type="password"
                 required
                 disabled={!isConfigured || loading}
-                className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border-none focus:ring-2 focus:ring-primary/20 text-sm disabled:opacity-50"
+                className="w-full px-4 py-3.5 bg-white/[0.07] border border-white/[0.10] rounded-[14px] text-white text-[15px] font-medium placeholder:text-white/25 focus:border-primary/60 focus:ring-2 focus:ring-primary/15 transition-all outline-none"
                 placeholder="••••••••"
                 value={confirmPassword}
                 onChange={e => setConfirmPassword(e.target.value)}
@@ -178,7 +192,7 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin, onAuthSucce
           <button
             type="submit"
             disabled={loading || !isConfigured}
-            className="w-full py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
+            className="w-full py-4 bg-primary text-white font-bold rounded-[14px] shadow-[0_4px_24px_rgba(233,30,99,0.45)] active:scale-[0.97] transition-all duration-150 text-[15px] disabled:opacity-50 disabled:grayscale"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -190,8 +204,8 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin, onAuthSucce
         </form>
 
         <div className="relative my-8">
-          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100 dark:border-gray-800"></div></div>
-          <div className="relative flex justify-center text-xs uppercase"><span className="bg-surface px-2 text-text-light font-black">OR</span></div>
+          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/[0.08]"></div></div>
+          <div className="relative flex justify-center text-xs uppercase"><span className="bg-transparent px-2 text-white/30 font-black backdrop-blur-xl">OR</span></div>
         </div>
 
         <div className="space-y-3">
@@ -199,7 +213,7 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin, onAuthSucce
             type="button"
             onClick={handleGoogleAuth}
             disabled={loading || !isConfigured}
-            className="w-full py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-text font-bold rounded-xl shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+            className="w-full py-3.5 bg-white/[0.06] border border-white/[0.10] text-white font-semibold rounded-[14px] hover:bg-white/[0.10] active:scale-95 transition-all flex items-center justify-center gap-3 text-[15px] disabled:opacity-50"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -215,14 +229,14 @@ export const Auth: React.FC<AuthProps> = ({ showToast, onGuestLogin, onAuthSucce
             type="button"
             onClick={onGuestLogin}
             disabled={loading}
-            className="w-full py-3 bg-gradient-to-r from-secondary to-cyan-500 text-white font-bold rounded-xl shadow-lg shadow-secondary/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-gradient-to-r from-secondary to-cyan-400 text-white font-bold rounded-[14px] shadow-[0_4px_24px_rgba(33,150,243,0.35)] active:scale-[0.97] transition-all flex items-center justify-center gap-2 text-[15px]"
           >
             <span>🚀</span> Explore as Guest
           </button>
         </div>
 
-        <div className="mt-8 text-center border-t border-gray-50 dark:border-gray-800 pt-6">
-          <p className="text-sm text-text-light">
+        <div className="mt-8 text-center border-t border-white/[0.08] pt-6">
+          <p className="text-sm text-white/40">
             {mode === 'login' ? "Don't have an account?" : "Already have an account?"}
             <button
               type="button"

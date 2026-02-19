@@ -9,45 +9,35 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ settings, onTogglePrivacy }) => {
   return (
-    <div
-      className="relative w-full py-4 sm:py-6 px-4 text-center text-white mb-4 sm:mb-6 rounded-b-xl shadow-md overflow-hidden transition-all duration-500"
-      style={{
-        background: `linear-gradient(135deg, var(--primary), var(--secondary))`,
-      }}
-    >
-      {/* Overlay for better text readability if image exists */}
-      <div className="absolute inset-0 bg-black/30 z-0"></div>
+    <div className="sticky top-0 z-50 bg-white/80 dark:bg-[#121212]/80 backdrop-blur-xl border-b border-gray-100/50 dark:border-white/[0.04]">
+      <div className="flex items-center justify-between px-5 h-16">
 
-      {/* Action Indicators */}
-      <div className="absolute top-3 right-3 z-20 flex items-center gap-3">
-        {/* Privacy Toggle */}
-        <button
-          onClick={onTogglePrivacy}
-          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${settings.privacyMode ? 'bg-white text-primary scale-110 shadow-lg' : 'bg-black/20 text-white/70 hover:bg-black/40'}`}
-          title={settings.privacyMode ? "Disable Privacy Mode" : "Enable Privacy Mode"}
-        >
-          {settings.privacyMode ? '🙈' : '👁️'}
-        </button>
-
-        {/* Sync Indicator */}
-        <div className="flex items-center justify-center">
-          {settings.syncId ? (
-            <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.8)]" title="Connected"></div>
-          ) : (
-            <div className="w-3 h-3 rounded-full bg-red-500 animate-[pulse_1s_infinite] shadow-[0_0_8px_rgba(239,68,68,0.8)]" title="Disconnected"></div>
-          )}
+        {/* Left: App Identity */}
+        <div>
+          <h1 className="text-[17px] font-black text-text tracking-tight leading-none">{settings.headerTitle}</h1>
+          <p className="text-[11px] font-semibold text-text-light mt-0.5 tracking-wide">Couple Finance</p>
         </div>
-      </div>
 
-      <div className="relative z-10">
-        <h1 className="text-xl sm:text-2xl font-bold mb-0 shadow-sm drop-shadow-md">
-          {settings.headerTitle}
-        </h1>
-        {settings.privacyMode && (
-          <div className="mt-1">
-            <span className="text-[10px] font-black uppercase tracking-widest bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-sm">Privacy Mode Active</span>
-          </div>
-        )}
+        {/* Right: Actions */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onTogglePrivacy}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all ${settings.privacyMode
+                ? 'bg-primary text-white shadow-[0_0_12px_rgba(233,30,99,0.4)]'
+                : 'bg-gray-100 dark:bg-white/[0.06] text-text-light'
+              }`}
+          >
+            {settings.privacyMode ? '🔒 Private' : '👁 Visible'}
+          </button>
+          <div
+            className={`w-2 h-2 rounded-full ${settings.syncId
+                ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
+                : 'bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.8)]'
+              } animate-pulse`}
+            title={settings.syncId ? 'Synced' : 'Offline'}
+          />
+        </div>
+
       </div>
     </div>
   );
