@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, ChatMessage, Section } from '../types';
-import { format } from 'date-fns';
 
 interface ChatProps {
     state: AppState;
@@ -138,7 +137,7 @@ export const Chat: React.FC<ChatProps> = ({ state, updateState, showToast, sessi
                                     {msg.text}
 
                                     <div className={`text-[10px] mt-1 text-right ${isMe ? 'text-white/70' : 'text-text-light'}`}>
-                                        {format(new Date(msg.timestamp), 'h:mm a')}
+                                                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                                     </div>
                                 </div>
                                 <span className="text-[10px] text-text-light mt-1 px-1">
