@@ -1,184 +1,132 @@
-import { AppState, SavingsGoal, FixedPayment } from '../types';
+import { AppState } from '../types';
 
 export interface Alert {
-  id: string;
-  type: 'warning' | 'danger' | 'info';
-  title: string;
-  message: string;
-  category?: string;
+    id: string;
+    type: 'warning' | 'danger' | 'info';
+    title: string;
+    message: string;
+    category?: string;
+    dismissed?: boolean;
 }
 
-/**
- * Check for budget alerts based on current spending patterns
- */
 export const checkBudgetAlerts = (state: AppState): Alert[] => {
-  const alerts: Alert[] = [];
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
-  const currentDay = now.getDate();
+    const alerts: Alert[] = [];
+    const totalSpent = state.expenses.reduce((acc, curr) => acc + curr.amount, 0);
 
-  // Get current month expenses
-  const currentMonthExpenses = state.expenses.filter(e => {
-    const date = new Date(e.date);
-    return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-  });
-
-  const totalMonthlySpending = currentMonthExpenses.reduce((sum, e) => sum + e.amount, 0);
-
-  // 1. Check category budget alerts (>80% of categoryBudgets)
-  if (state.categoryBudgets && Object.keys(state.categoryBudgets).length > 0) {
+    // 1. Category Budget Alerts (> 80%)
     const categorySpending: Record<string, number> = {};
-    currentMonthExpenses.forEach(e => {
-      categorySpending[e.category] = (categorySpending[e.category] || 0) + e.amount;
+    state.expenses.forEach(e => {
+        categorySpending[e.category] = (categorySpending[e.category] || 0) + e.amount;
     });
 
-    for (const [category, budget] of Object.entries(state.categoryBudgets)) {
-      if (budget > 0) {
-        const spent = categorySpending[category] || 0;
-        const ratio = spent / budget;
+    for (const [cat, budget] of Object.entries(state.categoryBudgets)) {
+        if (budget > 0) {
+            const spent = categorySpending[cat] || 0;
+            const percentage = spent / budget;
 
-        if (ratio >= 0.8) {
-          const isDanger = ratio >= 1;
-          alerts.push({
-            id: `category-${category}-${currentMonth}-${currentYear}`,
-            type: isDanger ? 'danger' : 'warning',
-            title: `${category} Budget ${isDanger ? 'Exceeded' : 'Warning'}`,
-            message: isDanger
-              ? `${category} budget of ₹${budget.toLocaleString()} exceeded! Spent: ₹${spent.toLocaleString()}`
-              : `${category} spending at ${Math.round(ratio * 100)}% of budget (₹${spent.toLocaleString()} / ₹${budget.toLocaleString()})`,
-            category,
-          });
+            if (percentage >= 1.0) {
+                alerts.push({
+                    id: `cat-exceed-${cat}`,
+                    type: 'danger',
+                    title: `Over Budget: ${cat}`,
+                    message: `You've exceeded your ${cat} budget by ₹${spent - budget}.`,
+                    category: cat
+                });
+            } else if (percentage >= 0.8) {
+                alerts.push({
+                    id: `cat-warn-${cat}`,
+                    type: 'warning',
+                    title: `Budget Warning: ${cat}`,
+                    message: `You've used ${Math.round(percentage * 100)}% of your ${cat} budget.`,
+                    category: cat
+                });
+            }
         }
-      }
     }
-  }
 
-  // 2. Check monthly budget alert (>80% of monthlyBudget)
-  if (state.monthlyBudget > 0) {
-    const ratio = totalMonthlySpending / state.monthlyBudget;
-    if (ratio >= 0.8) {
-      const isDanger = ratio >= 1;
-      alerts.push({
-        id: `monthly-budget-${currentMonth}-${currentYear}`,
-        type: isDanger ? 'danger' : 'warning',
-        title: `Monthly Budget ${isDanger ? 'Exceeded' : 'Warning'}`,
-        message: isDanger
-          ? `Monthly budget of ₹${state.monthlyBudget.toLocaleString()} exceeded! Total spent: ₹${totalMonthlySpending.toLocaleString()}`
-          : `Monthly spending at ${Math.round(ratio * 100)}% of budget (₹${totalMonthlySpending.toLocaleString()} / ₹${state.monthlyBudget.toLocaleString()})`,
-      });
+    // 2. Total Monthly Budget Alert (> 80%)
+    if (state.monthlyBudget > 0) {
+        const totalPercentage = totalSpent / state.monthlyBudget;
+        if (totalPercentage >= 1.0) {
+            alerts.push({
+                id: 'total-exceed',
+                type: 'danger',
+                title: 'Monthly Budget Exceeded',
+                message: `You have spent ₹${totalSpent}, exceeding your budget of ₹${state.monthlyBudget}.`
+            });
+        } else if (totalPercentage >= 0.8) {
+            alerts.push({
+                id: 'total-warn',
+                type: 'warning',
+                title: 'Approaching Monthly Limit',
+                message: `You have spent ${Math.round(totalPercentage * 100)}% of your total budget.`
+            });
+        }
     }
-  }
 
-  // 3. Check for EMI due this week (fixedPayments within next 7 days)
-  if (state.fixedPayments && state.fixedPayments.length > 0) {
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    
-    state.fixedPayments.forEach(payment => {
-      const paymentDay = payment.day;
-      
-      // Check if payment day is within next 7 days
-      let daysUntilPayment = paymentDay - currentDay;
-      
-      // Handle month wrap-around
-      if (daysUntilPayment < 0) {
-        // Payment day has passed this month, calculate for next month
-        daysUntilPayment = (daysInMonth - currentDay) + paymentDay;
-      } else if (daysUntilPayment > daysInMonth) {
-        // Edge case: shouldn't happen normally
-        daysUntilPayment = paymentDay - currentDay;
-      }
+    // 3. Loan/Fixed Payment Due (Next 7 days)
+    const today = new Date();
+    const currentDay = today.getDate();
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
 
-      if (daysUntilPayment >= 0 && daysUntilPayment <= 7) {
-        alerts.push({
-          id: `payment-${payment.id}-${currentMonth}-${currentYear}`,
-          type: daysUntilPayment <= 2 ? 'danger' : 'warning',
-          title: `Upcoming Payment: ${payment.name}`,
-          message: daysUntilPayment === 0
-            ? `₹${payment.amount.toLocaleString()} payment due today!`
-            : daysUntilPayment === 1
-            ? `₹${payment.amount.toLocaleString()} payment due tomorrow`
-            : `₹${payment.amount.toLocaleString()} payment due in ${daysUntilPayment} days`,
-        });
-      }
+    state.fixedPayments.forEach(fp => {
+        let daysUntil = fp.day - currentDay;
+        if (daysUntil < 0) {
+            // If due day passed, check if it's "next month's check" or "overdue"?
+            // Use logic: if today is 28, and due is 2, it's 4 days away (next month).
+            daysUntil += daysInMonth;
+        }
+
+        if (daysUntil >= 0 && daysUntil <= 7) {
+            alerts.push({
+                id: `bill-due-${fp.id}`,
+                type: 'info',
+                title: 'Upcoming Bill',
+                message: `${fp.name} (₹${fp.amount}) is due in ${daysUntil === 0 ? 'today' : daysUntil + ' days'}.`
+            });
+        }
     });
-  }
 
-  // 4. Check for stagnant savings goals (no progress in 30+ days)
-  if (state.savingsGoals && state.savingsGoals.length > 0) {
-    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-    
+    // 4. Stagnant Savings Goal (30+ days no change)
+    // We need to check 'updatedAt' of savings goals.
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
     state.savingsGoals.forEach(goal => {
-      const progress = goal.currentAmount / goal.targetAmount;
-      const lastUpdated = goal.updatedAt || 0;
-
-      // Check if goal has been stagnant (less than 100% complete and not updated in 30 days)
-      if (progress < 1 && lastUpdated < thirtyDaysAgo) {
-        alerts.push({
-          id: `goal-stagnant-${goal.id}`,
-          type: 'info',
-          title: `Stagnant Goal: ${goal.name}`,
-          message: `No progress on "${goal.name}" in 30+ days. Current: ₹${goal.currentAmount.toLocaleString()} / ₹${goal.targetAmount.toLocaleString()}`,
-        });
-      }
+        if (goal.targetAmount > goal.currentAmount && (Date.now() - goal.updatedAt > thirtyDaysMs)) {
+            alerts.push({
+                id: `goal-stagnant-${goal.id}`,
+                type: 'info',
+                title: 'Stagnant Goal',
+                message: `You haven't contributed to '${goal.name}' in over 30 days.`
+            });
+        }
     });
-  }
 
-  return alerts;
+    return alerts;
 };
 
-/**
- * Request browser notification permission
- */
+// Browser Push / Local Notifications
 export const requestNotificationPermission = async (): Promise<boolean> => {
-  if (!('Notification' in window)) {
-    console.warn('This browser does not support notifications');
-    return false;
-  }
+    if (!('Notification' in window)) return false;
 
-  if (Notification.permission === 'granted') {
-    return true;
-  }
+    if (Notification.permission === 'granted') return true;
 
-  if (Notification.permission === 'denied') {
-    console.warn('Notification permission denied');
-    return false;
-  }
-
-  const permission = await Notification.requestPermission();
-  return permission === 'granted';
+    const permission = await Notification.requestPermission();
+    return permission === 'granted';
 };
 
-/**
- * Send a local browser notification
- */
-export const sendLocalNotification = (title: string, body: string, icon?: string): void => {
-  if (!('Notification' in window)) {
-    console.warn('This browser does not support notifications');
-    return;
-  }
+export const sendLocalNotification = (title: string, body: string, icon?: string) => {
+    if (!('Notification' in window)) return;
 
-  if (Notification.permission !== 'granted') {
-    console.warn('Notification permission not granted');
-    return;
-  }
-
-  try {
-    new Notification(title, {
-      body,
-      icon: icon || '/icon-192.png',
-      badge: '/icon-192.png',
-      tag: 'expense-tracker-alert',
-      requireInteraction: false,
-    });
-  } catch (error) {
-    console.error('Failed to send notification:', error);
-  }
-};
-
-/**
- * Check if notifications are supported and enabled
- */
-export const canSendNotifications = (): boolean => {
-  return 'Notification' in window && Notification.permission === 'granted';
+    if (Notification.permission === 'granted') {
+        try {
+            new Notification(title, {
+                body,
+                icon: icon || '/pwa-192x192.png',
+                badge: '/pwa-192x192.png',
+                vibrate: [200, 100, 200]
+            } as any);
+        } catch (e) {
+            console.error("Notification failed", e);
+        }
+    }
 };

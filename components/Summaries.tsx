@@ -2,8 +2,9 @@
 import React, { useState, useMemo } from 'react';
 import { AppState, Expense } from '../types';
 import { roastSpending } from '../services/geminiService';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { MerchantDashboard } from './MerchantDashboard';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { SplitBillModal } from './SplitBillModal';
 
 interface SummariesProps {
   state: AppState;
@@ -14,22 +15,25 @@ interface SummariesProps {
 export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, editExpense }) => {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [filterType, setFilterType] = useState<'today' | 'week' | 'month' | 'custom-month' | 'all'>('month');
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth()); // 0=Jan, 11=Dec
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [showMerchants, setShowMerchants] = useState(false);
 
-  // Month picker state
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth()); // 0=Jan, 11=Dec
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [showMonthPicker, setShowMonthPicker] = useState(false);
-
+  
   // Roast State
   const [roast, setRoast] = useState<string | null>(null);
   const [isRoasting, setIsRoasting] = useState(false);
-
+  
   // Accordion state
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+
+  // Split Bill State
+  const [showSplitModal, setShowSplitModal] = useState(false);
+  const [expenseToSplit, setExpenseToSplit] = useState<Expense | undefined>(undefined);
 
   const handleRoast = async () => {
     if (state.expenses.length < 5) {
@@ -139,7 +143,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
     const days = [];
     // Padding for previous month
     for (let i = 0; i < firstDay; i++) {
-      days.push({ day: null, dateStr: null });
+      days.push({ day: null, dateStr: null, total: 0 }); // Fix implicit any or missing props if mapped
     }
     // Days of current month
     for (let i = 1; i <= daysInMonth; i++) {
@@ -154,63 +158,42 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
   }, [calendarDate, state.expenses]);
 
   return (
-    <div className="pb-24 space-y-4 sm:space-y-6">
+    <div className="pb-24 space-y-6 text-sm animate-fade-in">
 
-      {/* Search Bar & Toggle */}
-      <div className="bg-surface rounded-xl p-2 shadow-sm border border-gray-100 dark:border-gray-800 flex gap-2">
-        <div className="flex-1 flex items-center bg-gray-50 dark:bg-gray-900/50 rounded-lg px-3">
-          <span className="text-gray-400 mr-2">🔍</span>
+      {/* Control Bar */}
+      <div className="flex gap-2">
+        <div className="flex-1 bg-white dark:bg-[#1a1a1a] rounded-2xl p-1.5 flex items-center shadow-sm border border-gray-100 dark:border-white/5">
+          <div className="w-8 h-8 flex items-center justify-center text-gray-400">🔍</div>
           <input
-            className="flex-1 bg-transparent py-2.5 text-sm focus:outline-none placeholder:text-text-light"
-            placeholder="Search expenses..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
+            placeholder="Search transactions..."
+            className="bg-transparent flex-1 text-sm font-medium placeholder:text-gray-400 focus:outline-none"
           />
         </div>
         <button
           onClick={() => setShowMerchants(!showMerchants)}
-          className={`w-12 flex items-center justify-center rounded-lg transition-colors shadow-sm ${showMerchants ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-800 text-primary'}`}
+          className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all ${showMerchants ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'bg-white dark:bg-[#1a1a1a] text-gray-400 border border-gray-100 dark:border-white/5'}`}
         >
-          <span className="text-xl">🏪</span>
+          🏷️
         </button>
         <button
           onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}
-          className={`w-12 flex items-center justify-center rounded-lg transition-colors shadow-sm ${viewMode === 'calendar' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-800 text-primary'}`}
+          className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all ${viewMode === 'calendar' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' : 'bg-white dark:bg-[#1a1a1a] text-gray-400 border border-gray-100 dark:border-white/5'}`}
         >
-          {viewMode === 'list' ? <span className="text-xl">📅</span> : <span className="text-xl">☰</span>}
+          {viewMode === 'list' ? '📅' : '☰'}
         </button>
       </div>
 
-      {/* Filter Row — Time Period Pills + Month Picker */}
-      <div className="space-y-2">
-
-        {/* Primary filter pills */}
-        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-          {(['today', 'week', 'month', 'all'] as const).map(f => (
-            <button
-              key={f}
-              onClick={() => { setFilterType(f); setShowMonthPicker(false); }}
-              className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all whitespace-nowrap border ${
-                filterType === f
-                  ? 'bg-black text-white dark:bg-white dark:text-black border-transparent shadow-md'
-                  : 'bg-surface text-text-light border-gray-100 dark:border-gray-800'
-              }`}
-            >
-              {f === 'all' ? 'All Time' : f === 'month' ? 'This Month' : f === 'week' ? 'This Week' : 'Today'}
-            </button>
-          ))}
-
-          {/* Month Picker trigger pill */}
+      {/* Filter Tabs */}
+      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+        {(['today', 'week', 'month', 'all'] as const).map(f => (
           <button
-            onClick={() => {
-              setFilterType('custom-month');
-              setShowMonthPicker(prev => !prev);
-            }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap border flex items-center gap-1.5 ${
-              filterType === 'custom-month'
-                ? 'bg-primary text-white border-transparent shadow-md'
-                : 'bg-surface text-text-light border-gray-100 dark:border-gray-800'
-            }`}
+            key={f}
+            onClick={() => { setFilterType(f); setShowMonthPicker(false); }}
+            className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${filterType === f
+              ? 'bg-black dark:bg-white text-white dark:text-black border-transparent'
+              : 'bg-transparent border-gray-200 dark:border-white/10 text-gray-400'}`}
           >
             <span>📅</span>
             <span>
@@ -220,197 +203,114 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
               }
             </span>
           </button>
-        </div>
-
-        {/* Month Picker Panel — shown when showMonthPicker is true */}
-        {showMonthPicker && (
-          <div className="bg-surface border border-gray-100 dark:border-gray-800 rounded-2xl p-4 shadow-lg animate-slide-up">
-
-            {/* Year Navigation */}
-            <div className="flex items-center justify-between mb-4">
-              <button
-                onClick={() => setSelectedYear(y => y - 1)}
-                className="w-8 h-8 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800 text-text font-bold active:scale-90 transition-all"
-              >
-                ‹
-              </button>
-              <span className="text-sm font-black text-text">{selectedYear}</span>
-              <button
-                onClick={() => setSelectedYear(y => Math.min(y + 1, new Date().getFullYear()))}
-                className={`w-8 h-8 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800 font-bold active:scale-90 transition-all ${
-                  selectedYear >= new Date().getFullYear() ? 'opacity-30 cursor-not-allowed' : 'text-text'
-                }`}
-                disabled={selectedYear >= new Date().getFullYear()}
-              >
-                ›
-              </button>
-            </div>
-
-            {/* Month Grid — 4 columns x 3 rows */}
-            <div className="grid grid-cols-4 gap-2">
-              {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((monthLabel, idx) => {
-                const isFuture = selectedYear === new Date().getFullYear() && idx > new Date().getMonth();
-                const isSelected = selectedMonth === idx;
-                const isCurrentMonth = idx === new Date().getMonth() && selectedYear === new Date().getFullYear();
-
-                return (
-                  <button
-                    key={monthLabel}
-                    disabled={isFuture}
-                    onClick={() => {
-                      setSelectedMonth(idx);
-                      setFilterType('custom-month');
-                      setShowMonthPicker(false);
-                    }}
-                    className={`py-2.5 rounded-xl text-xs font-bold transition-all active:scale-90 relative ${
-                      isFuture
-                        ? 'opacity-25 cursor-not-allowed bg-gray-50 dark:bg-gray-900/20 text-text-light'
-                        : isSelected
-                          ? 'bg-primary text-white shadow-md shadow-primary/30'
-                          : 'bg-gray-100 dark:bg-gray-800/60 text-text hover:bg-gray-200 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    {monthLabel}
-                    {isCurrentMonth && !isSelected && (
-                      <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-primary/60" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Quick shortcuts row */}
-            <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
-              <button
-                onClick={() => {
-                  const now = new Date();
-                  setSelectedMonth(now.getMonth() === 0 ? 11 : now.getMonth() - 1);
-                  setSelectedYear(now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear());
-                  setFilterType('custom-month');
-                  setShowMonthPicker(false);
-                }}
-                className="flex-1 py-2 rounded-xl text-[11px] font-bold bg-secondary/10 text-secondary border border-secondary/20 active:scale-95 transition-all"
-              >
-                Last Month
-              </button>
-              <button
-                onClick={() => {
-                  const now = new Date();
-                  setSelectedMonth(now.getMonth() <= 1 ? 10 + now.getMonth() : now.getMonth() - 2);
-                  setSelectedYear(now.getMonth() <= 1 ? now.getFullYear() - 1 : now.getFullYear());
-                  setFilterType('custom-month');
-                  setShowMonthPicker(false);
-                }}
-                className="flex-1 py-2 rounded-xl text-[11px] font-bold bg-gray-100 dark:bg-gray-800 text-text-light active:scale-95 transition-all"
-              >
-                2 Months Ago
-              </button>
-              <button
-                onClick={() => {
-                  const now = new Date();
-                  setSelectedMonth(now.getMonth());
-                  setSelectedYear(now.getFullYear());
-                  setFilterType('month');
-                  setShowMonthPicker(false);
-                }}
-                className="flex-1 py-2 rounded-xl text-[11px] font-bold bg-gray-100 dark:bg-gray-800 text-text-light active:scale-95 transition-all"
-              >
-                This Month
-              </button>
-            </div>
-
-          </div>
-        )}
+        ))}
+        <button
+          onClick={() => { setFilterType('custom-month'); setShowMonthPicker(!showMonthPicker); }}
+          className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all border flex items-center gap-2 ${filterType === 'custom-month'
+            ? 'bg-primary text-white border-transparent'
+            : 'bg-transparent border-gray-200 dark:border-white/10 text-gray-400'}`}
+        >
+          <span>📅</span>
+          <span>{filterType === 'custom-month' ? new Date(selectedYear, selectedMonth).toLocaleDateString(undefined, { month: 'short', year: '2-digit' }) : 'Custom'}</span>
+        </button>
       </div>
 
-      {/* Merchant Dashboard - shown when enabled */}
-      {showMerchants && viewMode === 'list' && (
-        <MerchantDashboard expenses={filteredExpenses} />
+      {/* Month Picker */}
+      {showMonthPicker && (
+        <div className="bg-white dark:bg-[#1a1a1a] rounded-[24px] p-4 shadow-2xl border border-gray-100 dark:border-white/5 animate-slide-up">
+          <div className="flex justify-between items-center mb-4">
+            <button onClick={() => setSelectedYear(y => y - 1)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-white/10">‹</button>
+            <span className="font-bold text-lg">{selectedYear}</span>
+            <button onClick={() => setSelectedYear(y => Math.min(y + 1, new Date().getFullYear()))} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-white/10">›</button>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => (
+              <button
+                key={m}
+                disabled={selectedYear === new Date().getFullYear() && i > new Date().getMonth()}
+                onClick={() => { setSelectedMonth(i); setFilterType('custom-month'); setShowMonthPicker(false); }}
+                className={`py-2 rounded-xl text-xs font-bold transition-all ${selectedMonth === i
+                  ? 'bg-primary text-white shadow-lg shadow-primary/30'
+                  : 'bg-gray-50 dark:bg-white/5 text-gray-500 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed'}`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
+
+      {showMerchants && <MerchantDashboard expenses={filteredExpenses} />}
 
       {viewMode === 'list' ? (
         <>
+          {/* Total Card */}
+          <div className="bg-gradient-to-br from-[#0f0f0f] to-[#1a1a1a] p-6 rounded-[28px] text-white shadow-xl border border-white/5 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-6 opacity-10 text-6xl">💸</div>
+            <div className="relative z-10">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Total Spent</p>
+              <h2 className="text-4xl font-mono font-medium tracking-tighter mb-4">₹{stats.total.toLocaleString()}</h2>
 
-
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
-            <div className="bg-gradient-to-br from-primary to-pink-600 rounded-xl p-4 text-white shadow-lg relative overflow-hidden group">
-              <div className="relative z-10">
-                <div className="text-xs opacity-80 uppercase font-bold">
-                  {filterType === 'custom-month'
-                    ? new Date(selectedYear, selectedMonth).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
-                    : filterType === 'month' ? 'This Month'
-                    : filterType === 'week' ? 'This Week'
-                    : filterType === 'today' ? 'Today'
-                    : 'All Time'}
+              <div className="space-y-3">
+                {/* Person 1 Bar */}
+                <div>
+                  <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider mb-1">
+                    <span className="text-blue-400">{state.settings.person1Name}</span>
+                    <span>₹{stats.p1Real.toFixed(0)}</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${stats.total ? (stats.p1Real / stats.total) * 100 : 0}%` }} />
+                  </div>
                 </div>
-                <div className={`text-2xl font-bold mask-value`}>₹{stats.total.toFixed(0)}</div>
-                <div className="text-[10px] mt-1 opacity-80">{filteredExpenses.length} transactions</div>
-              </div>
-            </div>
-            <div className="bg-surface rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-center">
-              <div className="flex justify-between items-center text-xs mb-1">
-                <span className="font-bold text-text-light">{state.settings.person1Name}</span>
-                <span className="font-bold text-text mask-value">₹{stats.p1Real.toFixed(0)}</span>
-              </div>
-              <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5 mb-2 overflow-hidden">
-                <div className="bg-secondary h-full rounded-full" style={{ width: `${stats.total > 0 ? (stats.p1Real / stats.total) * 100 : 0}%` }}></div>
-              </div>
-              <div className="flex justify-between items-center text-xs mb-1">
-                <span className="font-bold text-text-light">{state.settings.person2Name}</span>
-                <span className="font-bold text-text mask-value">₹{stats.p2Real.toFixed(0)}</span>
-              </div>
-              <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
-                <div className="bg-accent h-full rounded-full" style={{ width: `${stats.total > 0 ? (stats.p2Real / stats.total) * 100 : 0}%` }}></div>
+                {/* Person 2 Bar */}
+                <div>
+                  <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider mb-1">
+                    <span className="text-purple-400">{state.settings.person2Name}</span>
+                    <span>₹{stats.p2Real.toFixed(0)}</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-purple-500 rounded-full" style={{ width: `${stats.total ? (stats.p2Real / stats.total) * 100 : 0}%` }} />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
+          {/* AI Roast Button */}
           <button
             onClick={handleRoast}
             disabled={isRoasting}
-            className="w-full bg-surface dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-xl flex items-center justify-center gap-3 shadow-sm hover:shadow-md transition-all active:scale-95 group"
+            className="w-full py-4 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-[24px] font-black uppercase text-xs tracking-widest shadow-lg shadow-orange-500/20 active:scale-95 transition-transform flex items-center justify-center gap-2"
           >
-            <span className="text-2xl group-hover:animate-bounce">🔥</span>
-            <span className="font-black text-text dark:text-gray-100 tracking-wide uppercase text-sm">
-              {isRoasting ? 'Preparing Roast...' : 'Roast My Spending'}
-            </span>
+            {isRoasting ? <span className="animate-spin">🔥</span> : <span>🔥 Roast My Spending</span>}
           </button>
 
+          {/* Roast Display */}
           {roast && (
-            <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-2xl p-6 shadow-lg border-2 border-orange-200 dark:border-orange-800 animate-slide-up">
-              <div className="flex items-start gap-3">
-                <span className="text-3xl">🔥</span>
-                <div className="flex-1">
-                  <h3 className="text-sm font-black text-orange-800 dark:text-orange-300 uppercase tracking-widest mb-2">AI Roast</h3>
-                  <p className="text-base text-gray-800 dark:text-gray-200 leading-relaxed font-medium">
-                    {roast}
-                  </p>
-                  <button 
-                    onClick={() => setRoast(null)}
-                    className="mt-4 text-xs text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-200 font-bold uppercase tracking-wide"
-                  >
-                    Dismiss 🙈
-                  </button>
-                </div>
-              </div>
+            <div className="bg-[#1a1a1a] rounded-[24px] p-6 border border-orange-500/20 shadow-xl animate-fade-in relative overflow-hidden">
+              <div className="absolute -right-4 -top-4 text-6xl opacity-10">☠️</div>
+              <h3 className="text-orange-500 font-black uppercase text-xs tracking-widest mb-2">AI Roast</h3>
+              <p className="text-gray-300 text-sm leading-relaxed font-mono">{roast}</p>
+              <button onClick={() => setRoast(null)} className="mt-4 text-[10px] font-bold text-gray-500 hover:text-white uppercase transition-colors">Dismiss</button>
             </div>
           )}
 
-          <div className="bg-surface rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
-            <h3 className="text-xs font-black text-text-light uppercase tracking-widest mb-4">Spending breakdown</h3>
+          {/* Chart */}
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-[24px] p-6 shadow-sm border border-gray-100 dark:border-white/5">
+            <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-6">Spending Breakdown</h3>
             <div className="h-48 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888822" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" opacity={0.1} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#888', fontWeight: 700 }} />
                   <Tooltip
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                    formatter={(val: number) => [`₹${val}`, 'Spent']}
+                    cursor={{ fill: 'transparent' }}
+                    contentStyle={{ borderRadius: '12px', background: '#000', border: 'none', color: '#fff' }}
+                    itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
                   />
-                  <Bar dataKey="value" radius={[6, 6, 0, 0]} onClick={(data) => data && toggleCategory(data.name)} cursor="pointer">
+                  <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                     {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={index === 0 ? 'var(--primary)' : 'var(--secondary)'} opacity={0.8} />
+                      <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#3b82f6' : '#8b5cf6'} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -418,54 +318,45 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
             </div>
           </div>
 
+          {/* Categories */}
           <div className="space-y-3">
-            {stats.categories.map((cat) => (
-              <div key={cat.name} id={`cat-${cat.name}`} className="bg-surface rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-all">
-                <button
-                  onClick={() => toggleCategory(cat.name)}
-                  className="w-full flex justify-between items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
+            {stats.categories.map(cat => (
+              <div key={cat.name} className="bg-white dark:bg-[#1a1a1a] rounded-[20px] shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden">
+                <button onClick={() => toggleCategory(cat.name)} className="w-full flex items-center justify-between p-4">
+                  <div className="flex items-center gap-4">
                     <span className="text-2xl">{state.settings.categoryIcons?.[cat.name] || '📦'}</span>
                     <div className="text-left">
-                      <div className="font-bold text-text">{cat.name}</div>
-                      <div className="text-[10px] text-text-light uppercase font-black">{cat.expenses.length} txns</div>
+                      <div className="font-bold text-sm">{cat.name}</div>
+                      <div className="text-[10px] text-gray-400 font-bold uppercase">{cat.expenses.length} txns</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <div className="font-black text-primary mask-value">₹{cat.total.toLocaleString()}</div>
-                      <div className="text-[10px] text-text-light uppercase font-black">{((cat.total / stats.total) * 100).toFixed(0)}%</div>
+                      <div className="font-mono font-medium">₹{cat.total.toLocaleString()}</div>
+                      <div className="text-[9px] font-bold text-gray-400">{((cat.total / stats.total) * 100).toFixed(0)}%</div>
                     </div>
-                    <span className={`text-text-light transition-transform duration-300 ${expandedCategories.includes(cat.name) ? 'rotate-180' : ''}`}>▼</span>
+                    <span className={`text-xs text-gray-400 transition-transform ${expandedCategories.includes(cat.name) ? 'rotate-180' : ''}`}>▼</span>
                   </div>
                 </button>
 
                 {expandedCategories.includes(cat.name) && (
-                  <div className="border-t border-gray-100 dark:border-gray-800 divide-y divide-gray-50 dark:divide-gray-900/50 animate-slide-up bg-gray-50/50 dark:bg-black/10">
+                  <div className="bg-gray-50 dark:bg-white/[0.02] border-t border-gray-100 dark:border-white/5">
                     {cat.expenses.map(exp => (
-                      <div key={exp.id} className="p-3 flex justify-between items-start group">
-                        <div className="flex gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${exp.person === 'Person1' ? 'bg-blue-100 text-blue-600' :
-                            exp.person === 'Person2' ? 'bg-orange-100 text-orange-600' :
-                              'bg-purple-100 text-purple-600'
-                            }`}>
-                            {exp.person === 'Both' ? '👫' : (exp.person === 'Person1' ? state.settings.person1Name[0] : state.settings.person2Name[0])}
+                      <div key={exp.id} className="p-4 flex justify-between items-center hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold ${exp.person === 'Person1' ? 'bg-blue-500/10 text-blue-500' : 'bg-purple-500/10 text-purple-500'}`}>
+                            {exp.person === 'Person1' ? state.settings.person1Name[0] : (exp.person === 'Person2' ? state.settings.person2Name[0] : 'S')}
                           </div>
-                          <div>
-                            <div className="text-sm font-bold text-text italic leading-tight">{exp.note || 'No note'}</div>
-                            <div className="flex gap-2 mt-1 text-[10px] text-text-light uppercase font-black">
-                              <span>{new Date(exp.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>
-                              <span>•</span>
-                              <span>{exp.paymentMode}</span>
-                            </div>
+                          <div onClick={() => editExpense(exp)}>
+                            <div className="text-xs font-bold text-text mb-0.5">{exp.note || 'No description'}</div>
+                            <div className="text-[10px] text-gray-400">{new Date(exp.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>
                           </div>
                         </div>
-                        <div className="flex flex-col items-end">
-                          <div className="font-bold text-sm mask-value">₹{exp.amount}</div>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-1">
-                            <button onClick={() => editExpense(exp)} className="p-1 hover:bg-white dark:hover:bg-gray-800 rounded">✏️</button>
-                            <button onClick={() => deleteExpense(exp.id)} className="p-1 hover:bg-white dark:hover:bg-gray-800 rounded">🗑️</button>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-xs font-mono font-bold">₹{exp.amount}</span>
+                          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => editExpense(exp)} className="text-[10px] text-blue-500 font-bold">EDIT</button>
+                            <button onClick={() => { setExpenseToSplit(exp); setShowSplitModal(true); }} className="text-[10px] text-purple-500 font-bold">SPLIT</button>
                           </div>
                         </div>
                       </div>
@@ -476,79 +367,71 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
             ))}
           </div>
 
-          <div className="bg-surface rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-xs font-black text-text-light uppercase tracking-widest">Recent Activity</h3>
-            </div>
-            <div className="space-y-3">
+          {/* Recent Section */}
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-[24px] p-6 shadow-sm border border-gray-100 dark:border-white/5">
+            <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-6">History</h3>
+            <div className="space-y-4">
               {filteredExpenses.slice(0, 10).map(exp => (
-                <div key={exp.id} className="flex justify-between items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg transition-colors group">
+                <div key={exp.id} className="flex justify-between items-center group">
                   <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${exp.person === 'Person1' ? 'bg-blue-100 text-blue-600' :
-                      exp.person === 'Person2' ? 'bg-orange-100 text-orange-600' : 'bg-purple-100 text-purple-600'
-                      }`}>
-                      {exp.person === 'Both' ? '👫' : (exp.person === 'Person1' ? state.settings.person1Name[0] : state.settings.person2Name[0])}
+                    <div className={`w-10 h-10 rounded-[14px] flex items-center justify-center text-lg bg-gray-50 dark:bg-white/5`}>
+                      {state.settings.categoryIcons?.[exp.category] || '📦'}
                     </div>
-                    <div onClick={() => editExpense(exp)} className="cursor-pointer">
-                      <div className="text-sm font-bold text-text hover:underline">{exp.category}</div>
-                      <div className="text-[10px] text-text-light">{new Date(exp.date).toLocaleDateString()} • {exp.note || 'No note'}</div>
+                    <div>
+                      <div className="text-sm font-bold text-text">{exp.category}</div>
+                      <div className="text-[10px] text-gray-400 font-medium">{exp.note || 'Uncategorized'} • {new Date(exp.date).toLocaleDateString()}</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="font-bold text-sm mask-value">₹{exp.amount}</div>
-                    <button onClick={() => editExpense(exp)} className="text-gray-400 hover:text-primary p-1">✏️</button>
+                  <div className="text-right">
+                    <div className="text-sm font-mono font-bold">₹{exp.amount}</div>
+                    <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => deleteExpense(exp.id)} className="text-[10px] text-red-500 font-bold">DEL</button>
+                    </div>
                   </div>
                 </div>
               ))}
-              {filteredExpenses.length > 10 && (
-                <p className="text-center text-[10px] text-text-light pt-2">Showing last 10 transactions</p>
-              )}
+              {filteredExpenses.length === 0 && <p className="text-center text-gray-400 text-xs py-4">No transactions found.</p>}
             </div>
           </div>
         </>
       ) : (
         <div className="animate-fade-in space-y-4">
-          {/* Month Navigation */}
-          <div className="bg-surface rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 flex justify-between items-center">
-            <button onClick={() => setCalendarDate(new Date(calendarDate.setMonth(calendarDate.getMonth() - 1)))} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl">◀</button>
-            <div className="font-black text-sm uppercase tracking-widest text-primary">
-              {calendarDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-            </div>
-            <button onClick={() => setCalendarDate(new Date(calendarDate.setMonth(calendarDate.getMonth() + 1)))} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl">▶</button>
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-[24px] p-4 flex justify-between items-center shadow-sm border border-gray-100 dark:border-white/5">
+            <button onClick={() => setCalendarDate(new Date(calendarDate.setMonth(calendarDate.getMonth() - 1)))} className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-50 dark:bg-white/5 hover:bg-gray-100">◀</button>
+            <span className="font-bold text-lg">{calendarDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</span>
+            <button onClick={() => setCalendarDate(new Date(calendarDate.setMonth(calendarDate.getMonth() + 1)))} className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-50 dark:bg-white/5 hover:bg-gray-100">▶</button>
           </div>
 
-          {/* Calendar Grid */}
-          <div className="bg-surface rounded-2xl p-2 shadow-sm border border-gray-100 dark:border-gray-800">
-            <div className="grid grid-cols-7 mb-2">
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => (
-                <div key={d} className="text-center text-[10px] font-black text-text-light">{d}</div>
-              ))}
-            </div>
-            <div className="grid grid-cols-7 gap-1">
-              {calendarDays.map((d, i) => (
-                <div key={i} className={`aspect-square rounded-lg flex flex-col items-center justify-center relative ${d.day ? 'bg-gray-50 dark:bg-gray-900/50' : ''}`}>
-                  {d.day && (
-                    <>
-                      <span className="text-[10px] font-bold z-10">{d.day}</span>
-                      {d.total > 0 && (
-                        <div
-                          className={`absolute inset-0 rounded-lg transition-all ${d.total > 1000 ? 'bg-primary/20' : 'bg-secondary/10'}`}
-                          style={{ opacity: Math.min(d.total / 5000, 1) }}
-                        />
-                      )}
-                      {d.total > 0 && <div className="text-[7px] font-black text-primary mt-0.5 z-10 mask-value">₹{d.total.toFixed(0)}</div>}
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-surface rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
-            <p className="text-[10px] text-text-light text-center">Tap on a day in the future update to view daily breakdown.</p>
+          <div className="grid grid-cols-7 gap-1">
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => <div key={d} className="text-center text-[10px] font-black text-gray-400 py-2">{d}</div>)}
+            {calendarDays.map((d, i) => (
+              <div key={i} className={`aspect-square rounded-xl flex flex-col items-center justify-center relative ${d.day ? 'bg-white dark:bg-[#1a1a1a] border border-gray-50 dark:border-white/5' : ''}`}>
+                {d.day && (
+                  <>
+                    <span className="text-[10px] font-bold z-10">{d.day}</span>
+                    {d.total > 0 && (
+                      <div
+                        className={`absolute inset-0 rounded-xl ${d.total > 2000 ? 'bg-red-500/20' : 'bg-emerald-500/20'}`}
+                        style={{ opacity: Math.min(d.total / 5000 + 0.2, 1) }}
+                      />
+                    )}
+                    {d.total > 0 && <span className="text-[8px] font-black z-10 mt-1">₹{(d.total / 1000).toFixed(1)}k</span>}
+                  </>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
+
+      {showSplitModal && (
+        <SplitBillModal
+          expenses={filteredExpenses}
+          onClose={() => setShowSplitModal(false)}
+          preSelectedExpense={expenseToSplit}
+        />
+      )}
+
     </div>
   );
 };

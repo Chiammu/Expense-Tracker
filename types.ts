@@ -57,6 +57,10 @@ export interface ChatMessage {
   sender: 'Person1' | 'Person2';
   text: string;
   timestamp: string;
+  type: 'text' | 'expense_ref' | 'reaction';
+  expenseId?: number;
+  reaction?: string;
+  replyTo?: string;
 }
 
 export interface AssetSplit {
@@ -110,11 +114,12 @@ export interface AppSettings {
   syncId: string | null;
   lastFixedPaymentCheck: string | null;
   emailReportsEnabled: boolean;
+  notificationsEnabled: boolean; // For browser push notifications
   reportEmail: string;
   lastReportSentMonth: string | null;
   privacyMode: boolean; // For blurring sensitive data in public
   webAuthnCredentialId: string | null; // For biometric unlock
-  notificationsEnabled: boolean; // For smart budget alerts
+  lastReadChatTime: string | null;
   updatedAt: number;
 }
 
@@ -122,6 +127,21 @@ export interface AuditLog {
   event: string;
   details: any;
   timestamp: string;
+}
+
+export interface Challenge {
+  id: string;
+  title: string;
+  description: string;
+  type: 'no_spend' | 'limit_category' | 'save_amount' | 'streak';
+  targetValue: number;          // amount limit OR days OR streak count
+  category?: string;            // for limit_category type
+  startDate: string;
+  endDate: string;
+  status: 'active' | 'completed' | 'failed';
+  progress: number;             // 0-100 percentage
+  reward: string;               // emoji + text reward badge
+  updatedAt: number;
 }
 
 export interface AppState {
@@ -138,10 +158,10 @@ export interface AppState {
   investments: Investments;
   loans: Loan[];
   creditCards: CreditCard[];
-  updatedAt: number;
+  challenges: Challenge[];
 }
 
-export type Section = 'add-expense' | 'import' | 'summaries' | 'investments' | 'overview' | 'settings' | 'chat';
+export type Section = 'add-expense' | 'summaries' | 'investments' | 'overview' | 'settings' | 'chat' | 'challenges' | 'import' | 'split';
 
 export const DEFAULT_CATEGORIES = [
   "Groceries", "Rent", "Bills", "EMIs", "Shopping", "Travel", "Food",
@@ -172,11 +192,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   syncId: null,
   lastFixedPaymentCheck: new Date().toISOString(),
   emailReportsEnabled: false,
+  notificationsEnabled: false,
   reportEmail: '',
   lastReportSentMonth: null,
   privacyMode: false,
   webAuthnCredentialId: null,
-  notificationsEnabled: false,
+  lastReadChatTime: null,
   updatedAt: Date.now(),
 };
 
@@ -205,5 +226,5 @@ export const INITIAL_STATE: AppState = {
   investments: INITIAL_INVESTMENTS,
   loans: [],
   creditCards: [],
-  updatedAt: Date.now(),
+  challenges: [],
 };

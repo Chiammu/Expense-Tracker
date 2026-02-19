@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -6,10 +6,9 @@ interface ConfirmModalProps {
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  confirmVariant?: 'danger' | 'primary' | 'warning';
+  isDestructive?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
-  icon?: string;
 }
 
 /**
@@ -21,97 +20,93 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   message,
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
-  confirmVariant = 'danger',
+  isDestructive = false,
   onConfirm,
   onCancel,
-  icon = '⚠️',
 }) => {
   if (!isOpen) return null;
 
-  const variantStyles = {
-    danger: 'bg-red-600 hover:bg-red-700 text-white shadow-red-500/30',
-    primary: 'bg-primary hover:bg-pink-700 text-white shadow-primary/30',
-    warning: 'bg-orange-600 hover:bg-orange-700 text-white shadow-orange-500/30',
-  };
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in"
-      onClick={onCancel}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="confirm-modal-title"
-    >
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
+      {/* Backdrop */}
       <div
-        className="bg-white dark:bg-gray-900 w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-gray-100 dark:border-gray-800 animate-scale-in"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex flex-col items-center text-center">
-          <div className="text-5xl mb-4">{icon}</div>
-          <h3 id="confirm-modal-title" className="text-xl font-bold mb-2 text-text">
-            {title}
-          </h3>
-          <p className="text-sm text-text-light mb-6">{message}</p>
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        onClick={onCancel}
+      />
 
-          <div className="flex gap-3 w-full">
-            <button
-              onClick={onCancel}
-              className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-text rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-              autoFocus
-            >
-              {cancelLabel}
-            </button>
-            <button
-              onClick={() => {
-                onConfirm();
-                onCancel();
-              }}
-              className={`flex-1 py-3 rounded-xl font-bold transition-colors shadow-lg ${variantStyles[confirmVariant]}`}
-            >
-              {confirmLabel}
-            </button>
+      {/* Modal - Bottom Sheet on Mobile, Dialog on Desktop */}
+      <div className="relative w-full sm:w-[400px] bg-white dark:bg-[#1a1a1a] rounded-t-[32px] sm:rounded-[28px] p-6 pb-10 sm:pb-6 shadow-[0_-8px_40px_rgba(0,0,0,0.2)] dark:shadow-[0_-8px_40px_rgba(0,0,0,0.5)] border-t border-white/20 dark:border-white/5 animate-slide-up sm:animate-scale-in m-2">
+        <div className="w-12 h-1 bg-gray-200 dark:bg-white/10 rounded-full mx-auto mb-6 sm:hidden" />
+
+        <div className="text-center mb-8">
+          <div className={`w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center ${isDestructive ? 'bg-red-50 dark:bg-red-900/20 text-red-500' : 'bg-primary/10 text-primary'}`}>
+            <span className="text-2xl">{isDestructive ? '🗑️' : '⚠️'}</span>
           </div>
+          <h3 className="text-xl font-black text-text mb-2 tracking-tight">{title}</h3>
+          <p className="text-sm text-text-light font-medium leading-relaxed">{message}</p>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-3.5 rounded-[16px] bg-gray-100 dark:bg-white/5 text-text font-bold text-sm hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
+          >
+            {cancelLabel}
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`flex-1 py-3.5 rounded-[16px] text-white font-bold text-sm shadow-lg active:scale-95 transition-all ${isDestructive
+                ? 'bg-red-500 hover:bg-red-600 shadow-red-500/30'
+                : 'bg-primary hover:bg-primary-dark shadow-primary/30'
+              }`}
+          >
+            {confirmLabel}
+          </button>
         </div>
       </div>
     </div>
   );
 };
 
-/**
- * Hook for managing confirm modal state
- */
 export function useConfirmModal() {
-  const [isOpen, setIsOpen] = React.useState(false);
-  const [config, setConfig] = React.useState<Omit<ConfirmModalProps, 'isOpen' | 'onCancel' | 'onConfirm'>>({
+  const [isOpen, setIsOpen] = useState(false);
+  const [config, setConfig] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    confirmLabel?: string;
+    isDestructive?: boolean;
+  }>({
     title: '',
     message: '',
+    onConfirm: () => { },
   });
-  const resolveRef = React.useRef<((value: boolean) => void) | null>(null);
 
-  const confirm = (modalConfig: Omit<ConfirmModalProps, 'isOpen' | 'onCancel' | 'onConfirm'>): Promise<boolean> => {
-    setConfig(modalConfig);
+  const confirm = useCallback((
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    confirmLabel = 'Confirm',
+    isDestructive = false
+  ) => {
+    setConfig({ title, message, onConfirm, confirmLabel, isDestructive });
     setIsOpen(true);
-    return new Promise((resolve) => {
-      resolveRef.current = resolve;
-    });
-  };
+  }, []);
 
-  const handleConfirm = () => {
-    resolveRef.current?.(true);
-    setIsOpen(false);
-  };
-
-  const handleCancel = () => {
-    resolveRef.current?.(false);
-    setIsOpen(false);
-  };
+  const close = useCallback(() => setIsOpen(false), []);
 
   const ConfirmModalComponent = () => (
     <ConfirmModal
-      {...config}
       isOpen={isOpen}
-      onConfirm={handleConfirm}
-      onCancel={handleCancel}
+      title={config.title}
+      message={config.message}
+      onConfirm={() => {
+        config.onConfirm();
+        close();
+      }}
+      onCancel={close}
+      confirmLabel={config.confirmLabel}
+      isDestructive={config.isDestructive}
     />
   );
 

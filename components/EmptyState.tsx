@@ -19,16 +19,18 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   onAction,
 }) => {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-      <div className="text-6xl mb-4 animate-scale-in">{icon}</div>
-      <h3 className="text-xl font-bold text-text mb-2">{title}</h3>
-      <p className="text-sm text-text-light max-w-sm mb-6">{description}</p>
+    <div className="flex flex-col items-center justify-center py-20 px-6 text-center animate-fade-in text-balance">
+      <div className="w-24 h-24 bg-gradient-to-tr from-gray-50 to-gray-100 dark:from-white/[0.03] dark:to-white/[0.08] rounded-[32px] flex items-center justify-center mb-6 shadow-[0_8px_30px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] border border-white dark:border-white/[0.05]">
+        <span className="text-5xl filter grayscale-[0.2]">{icon}</span>
+      </div>
+      <h3 className="text-xl font-black text-text mb-2 tracking-tight">{title}</h3>
+      <p className="text-[15px] font-medium text-text-light max-w-[280px] leading-relaxed mb-8">{description}</p>
       {actionLabel && onAction && (
         <button
           onClick={onAction}
-          className="px-6 py-3 bg-primary text-white rounded-xl font-bold shadow-lg hover:scale-105 transition-transform active:scale-95"
+          className="bg-primary hover:bg-primary-dark text-white px-8 py-3.5 rounded-[18px] font-bold text-sm shadow-[0_8px_24px_rgba(233,30,99,0.3)] hover:shadow-[0_12px_30px_rgba(233,30,99,0.4)] transition-all active:scale-95 flex items-center gap-2"
         >
-          {actionLabel}
+          <span>✨</span> {actionLabel}
         </button>
       )}
     </div>
@@ -38,31 +40,39 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 /**
  * Specific empty states for different sections
  */
-export const NoExpensesState: React.FC<{ onAddExpense: () => void }> = ({ onAddExpense }) => (
+export const NoExpensesState = ({ onAction }: { onAction: () => void }) => (
   <EmptyState
     icon="💸"
     title="No Expenses Yet"
-    description="Start tracking your spending by adding your first expense. You can use voice input, scan receipts, or type manually!"
+    description="Start tracking your spending to see AI-powered insights here."
     actionLabel="Add First Expense"
-    onAction={onAddExpense}
+    onAction={onAction}
   />
 );
 
-export const NoCreditCardsState: React.FC<{ onAddCard: () => void }> = ({ onAddCard }) => (
+export const NoCreditCardsState = ({ onAction }: { onAction: () => void }) => (
   <EmptyState
     icon="💳"
-    title="No Credit Cards"
-    description="Add your credit cards to track balances and billing cycles automatically."
+    title="No Cards Added"
+    description="Add your credit cards to track utilization and billing cycles."
     actionLabel="Add Credit Card"
-    onAction={onAddCard}
+    onAction={onAction}
   />
 );
 
-export const NoInvestmentsState: React.FC = () => (
+export const NoInvestmentsState = () => (
   <EmptyState
     icon="📈"
-    title="Track Your Wealth"
-    description="Add your investments, assets, and liabilities to get a complete financial picture."
+    title="Portfolio Empty"
+    description="Track your investments to get a complete view of your net worth."
+  />
+);
+
+export const NoPatternsState = () => (
+  <EmptyState
+    icon="🔍"
+    title="Not Enough Data"
+    description="Keep tracking expenses. AI patterns will appear here after a few days."
   />
 );
 

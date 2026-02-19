@@ -1,216 +1,147 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { AppState } from '../types';
-import { generateCashFlowForecast, getDangerZones, DayForecast } from '../utils/cashflow';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { generateCashFlowForecast, DayForecast } from '../utils/cashflow';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 interface CashFlowCalendarProps {
-  state: AppState;
+    state: AppState;
 }
 
 export const CashFlowCalendar: React.FC<CashFlowCalendarProps> = ({ state }) => {
-  const [selectedDay, setSelectedDay] = useState<DayForecast | null>(null);
+    const forecast = useMemo(() => generateCashFlowForecast(state), [state]);
 
-  const forecast = useMemo(() => generateCashFlowForecast(state), [state]);
-  const dangerZones = useMemo(() => getDangerZones(forecast), [forecast]);
-  const totalMonthlyIncome = (state.incomePerson1 || 0) + (state.incomePerson2 || 0);
+    const dangerDays = forecast.filter(d => d.type === 'danger');
 
-  const chartData = forecast.map(f => ({
-    date: f.dayOfMonth,
-    balance: f.projectedBalance,
-    type: f.type
-  }));
-
-  const getDayColor = (day: DayForecast) => {
-    if (day.type === 'danger' || day.projectedBalance < 0) return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400';
-    if (day.type === 'bill_day') return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400';
-    if (day.type === 'income_day') return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
-    if (day.projectedBalance < totalMonthlyIncome * 0.2) return 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400';
-    return 'bg-gray-50 dark:bg-gray-900/50';
-  };
-
-  const calendarDays = () => {
-    const today = new Date();
-    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).getDay();
-    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-
-    const days = [];
-    for (let i = 0; i < firstDay; i++) {
-      days.push({ type: 'empty' });
-    }
-
-    for (let i = 1; i <= daysInMonth; i++) {
-      const dayForecast = forecast.find(f => f.dayOfMonth === i);
-      days.push({
-        type: 'day',
-        day: i,
-        forecast: dayForecast
-      });
-    }
-
-    return days;
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="bg-surface rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100 dark:border-gray-800">
-        <h3 className="text-sm font-black text-primary uppercase tracking-widest mb-4 flex items-center gap-2">
-          <span>📊</span> 30-Day Cash Flow Forecast
-        </h3>
-
-        <div className="h-48 w-full mb-6">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888822" />
-              <XAxis
-                dataKey="date"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 9, fontWeight: 'bold' }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 9 }}
-                tickFormatter={(val) => `₹${(val / 1000).toFixed(0)}k`}
-              />
-              <Tooltip
-                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                formatter={(val: number) => [`₹${val.toFixed(0)}`, 'Balance']}
-                labelFormatter={(label) => `Day ${label}`}
-              />
-              <Area
-                type="monotone"
-                dataKey="balance"
-                stroke="var(--primary)"
-                fill="var(--primary)"
-                fillOpacity={0.3}
-                strokeWidth={2}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-surface rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
-          <div className="grid grid-cols-7 mb-2">
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => (
-              <div key={d} className="text-center text-[9px] font-black text-text-light uppercase tracking-wider">
-                {d}
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 gap-1">
-            {calendarDays().map((item: any, idx) => {
-              if (item.type === 'empty') {
-                return <div key={idx} className="aspect-square"></div>;
-              }
-              const dayForecast = item.forecast as DayForecast;
-              const isToday = dayForecast?.date === new Date().toISOString().split('T')[0];
-              const hasBill = dayForecast?.events.some(e => e.type === 'bill');
-
-              return (
-                <button
-                  key={idx}
-                  onClick={() => dayForecast && setSelectedDay(dayForecast)}
-                  className={`aspect-square rounded-lg flex flex-col items-center justify-center relative transition-all hover:scale-105 hover:shadow-md ${getDayColor(dayForecast)}`}
-                >
-                  <span className="text-[10px] font-bold relative z-10">{item.day}</span>
-                  {dayForecast && (
-                    <div className="text-[7px] font-black mt-0.5 z-10 mask-value">
-                      ₹{(dayForecast.projectedBalance / 1000).toFixed(0)}k
-                    </div>
-                  )}
-                  {hasBill && (
-                    <span className="absolute top-0.5 right-0.5 text-[7px]">📅</span>
-                  )}
-                  {isToday && (
-                    <div className="absolute inset-0 rounded-lg ring-2 ring-primary ring-inset"></div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {dangerZones.length > 0 && (
-          <div className="mt-4 bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
-            <h4 className="text-xs font-black text-red-700 dark:text-red-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-              <span>⚠️</span> Danger Zones
-            </h4>
-            <div className="space-y-2">
-              {dangerZones.slice(0, 5).map((zone, idx) => (
-                <div key={idx} className="flex justify-between items-center text-xs">
-                  <span className="font-bold text-red-700 dark:text-red-400">
-                    Day {zone.dayOfMonth}
-                  </span>
-                  <span className="font-black text-red-600 dark:text-red-300 mask-value">
-                    -₹{Math.abs(zone.projectedBalance).toFixed(0)}
-                  </span>
+    // Custom Tooltip for Chart
+    const CustomTooltip = ({ active, payload, label }: any) => {
+        if (active && payload && payload.length) {
+            return (
+                <div className="bg-surface p-3 border border-gray-100 dark:border-gray-800 rounded-xl shadow-xl text-xs">
+                    <p className="font-bold mb-1">{new Date(label).toDateString()}</p>
+                    <p className="text-primary font-black">
+                        Balance: ₹{payload[0].value.toFixed(0)}
+                    </p>
                 </div>
-              ))}
-              {dangerZones.length > 5 && (
-                <div className="text-[10px] text-red-600 dark:text-red-400 font-bold text-center">
-                  +{dangerZones.length - 5} more days with negative balance
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+            );
+        }
+        return null;
+    };
 
-      {selectedDay && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedDay(null)}>
-          <div className="bg-surface rounded-2xl p-6 max-w-md w-full shadow-2xl border border-gray-100 dark:border-gray-800 animate-slide-up" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="text-lg font-bold text-text">
-                  {new Date(selectedDay.date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+    return (
+        <div className="space-y-6 animate-fade-in">
+            <div className="bg-surface rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">
+                <h3 className="text-xs font-black text-primary uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <span>📅</span> 30-Day Cash Flow Forecast
                 </h3>
-                <p className="text-sm text-text-light">Day {selectedDay.dayOfMonth}</p>
-              </div>
-              <button
-                onClick={() => setSelectedDay(null)}
-                className="text-text-light hover:text-text text-2xl"
-              >
-                ×
-              </button>
-            </div>
 
-            <div className={`mb-4 p-4 rounded-xl ${selectedDay.projectedBalance < 0 ? 'bg-red-100 dark:bg-red-900/30' : 'bg-green-100 dark:bg-green-900/30'}`}>
-              <div className="text-xs font-black uppercase tracking-widest mb-1 text-text-light">
-                Projected Balance
-              </div>
-              <div className={`text-2xl font-black mask-value ${selectedDay.projectedBalance < 0 ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400'}`}>
-                ₹{selectedDay.projectedBalance.toFixed(0)}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <h4 className="text-xs font-black text-text-light uppercase tracking-widest">
-                Events
-              </h4>
-              {selectedDay.events.map((event, idx) => (
-                <div key={idx} className={`flex justify-between items-center p-3 rounded-lg ${
-                  event.type === 'income' ? 'bg-green-50 dark:bg-green-900/20' :
-                  event.type === 'bill' ? 'bg-yellow-50 dark:bg-yellow-900/20' :
-                  'bg-gray-50 dark:bg-gray-900/50'
-                }`}>
-                  <div>
-                    <div className="text-sm font-bold text-text">{event.label}</div>
-                    <div className="text-[10px] uppercase font-black text-text-light">
-                      {event.type}
-                    </div>
-                  </div>
-                  <div className={`font-bold mask-value ${
-                    event.amount > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {event.amount > 0 ? '+' : ''}₹{event.amount.toFixed(0)}
-                  </div>
+                {/* Chart Section */}
+                <div className="h-48 w-full mb-6">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={forecast}>
+                            <defs>
+                                <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <XAxis
+                                dataKey="date"
+                                tick={{ fontSize: 8 }}
+                                tickFormatter={(val) => new Date(val).getDate().toString()}
+                                minTickGap={10}
+                                axisLine={false}
+                                tickLine={false}
+                            />
+                            <YAxis hide domain={['auto', 'auto']} />
+                            <Tooltip content={<CustomTooltip />} />
+                            <ReferenceLine y={0} stroke="red" strokeDasharray="3 3" />
+                            <Area
+                                type="monotone"
+                                dataKey="projectedBalance"
+                                stroke="var(--primary)"
+                                fillOpacity={1}
+                                fill="url(#colorBalance)"
+                                strokeWidth={2}
+                            />
+                        </AreaChart>
+                    </ResponsiveContainer>
                 </div>
-              ))}
+
+                {/* Calendar Grid */}
+                <div className="grid grid-cols-7 gap-1 mb-4">
+                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => (
+                        <div key={d} className="text-center text-[9px] font-black text-text-light opacity-50">{d}</div>
+                    ))}
+                    {forecast.map((day) => {
+                        const isToday = new Date().toISOString().split('T')[0] === day.date;
+                        let bgClass = "bg-gray-50 dark:bg-gray-900/50";
+                        let textClass = "text-text-light";
+
+                        if (day.type === 'danger') {
+                            bgClass = "bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50";
+                            textClass = "text-red-500";
+                        } else if (day.type === 'bill_day') {
+                            bgClass = "bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-900/50";
+                            textClass = "text-yellow-600";
+                        } else if (day.projectedBalance > 0) {
+                            bgClass = "bg-green-50 dark:bg-green-900/20";
+                            textClass = "text-green-600";
+                        }
+
+                        return (
+                            <div
+                                key={day.date}
+                                className={`aspect-square rounded-lg flex flex-col items-center justify-center relative group cursor-pointer transition-all hover:scale-105 ${bgClass} ${isToday ? 'ring-2 ring-primary ring-offset-1' : ''}`}
+                                title={`Date: ${day.date}\nBalance: ₹${day.projectedBalance.toFixed(0)}\nEvents: ${day.events.map(e => e.label).join(', ')}`}
+                            >
+                                <span className="text-[9px] font-bold opacity-70 mb-0.5">{day.dayOfMonth}</span>
+                                <span className={`text-[8px] font-black ${textClass} mask-value`}>
+                                    {Math.abs(day.projectedBalance) >= 1000
+                                        ? (day.projectedBalance / 1000).toFixed(1) + 'k'
+                                        : day.projectedBalance.toFixed(0)}
+                                </span>
+
+                                {day.events.length > 0 && (
+                                    <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-primary/80 animate-pulse"></div>
+                                )}
+
+                                {/* Hover Popover */}
+                                {day.events.length > 0 && (
+                                    <div className="hidden group-hover:block absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-32 bg-black/90 text-white p-2 rounded-lg z-20 pointer-events-none">
+                                        <p className="text-[9px] font-bold border-b border-white/20 pb-1 mb-1 text-center">{day.date}</p>
+                                        {day.events.map((e, idx) => (
+                                            <div key={idx} className="flex justify-between text-[9px] mb-0.5">
+                                                <span>{e.label}</span>
+                                                <span className="font-bold text-red-300">-₹{e.amount}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Danger Zones */}
+                {dangerDays.length > 0 && (
+                    <div className="mt-4 bg-red-50 dark:bg-red-900/10 rounded-xl p-3 border border-red-100 dark:border-red-900/30">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="text-lg">⚠️</span>
+                            <h4 className="text-xs font-black text-red-600 dark:text-red-400 uppercase tracking-wide">Cash Flow Warning</h4>
+                        </div>
+                        <p className="text-[10px] text-red-700 dark:text-red-300 mb-2">
+                            Projected balance hits negative on <strong>{dangerDays.length} days</strong>.
+                        </p>
+                        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                            {dangerDays.slice(0, 5).map(d => (
+                                <div key={d.date} className="bg-white dark:bg-black/20 px-2 py-1 rounded text-[9px] font-bold text-red-500 whitespace-nowrap border border-red-100 dark:border-red-900/50">
+                                    {d.date} (₹{d.projectedBalance.toFixed(0)})
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
-          </div>
         </div>
-      )}
-    </div>
-  );
+    );
 };

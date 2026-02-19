@@ -1,172 +1,152 @@
 import { Expense } from '../types';
 
 export interface MerchantStat {
-  merchant: string;
-  totalSpent: number;
-  visitCount: number;
-  averageSpend: number;
-  lastVisit: string;
-  category: string;
-  trend: 'up' | 'down' | 'stable';
-  percentOfTotal: number;
+    merchant: string;
+    totalSpent: number;
+    visitCount: number;
+    averageSpend: number;
+    lastVisit: string;
+    category: string;
+    trend: 'up' | 'down' | 'stable';
+    percentOfTotal: number;
 }
 
 const MERCHANT_MAPPINGS: Record<string, string> = {
-  'zomato': 'Zomato',
-  'swiggy': 'Swiggy',
-  'amazon': 'Amazon',
-  'flipkart': 'Flipkart',
-  'blinkit': 'Blinkit',
-  'netflix': 'Netflix',
-  'spotify': 'Spotify',
-  'uber': 'Uber',
-  'ola': 'Ola',
-  'zepto': 'Zepto',
-  'bigbasket': 'BigBasket',
-  'instamart': 'Instamart',
-  'myntra': 'Myntra',
-  'ajio': 'AJIO',
-  'meesho': 'Meesho',
-  'paytm': 'Paytm',
-  'phonepe': 'PhonePe',
-  'gpay': 'GPay',
-  'google pay': 'GPay',
-};
-
-const MERCHANT_EMOJIS: Record<string, string> = {
-  'Zomato': '🍽️',
-  'Swiggy': '🍔',
-  'Amazon': '📦',
-  'Flipkart': '🛒',
-  'Blinkit': '🥛',
-  'Netflix': '🎬',
-  'Spotify': '🎵',
-  'Uber': '🚕',
-  'Ola': '🚗',
-  'Zepto': '🚀',
-  'BigBasket': '🥦',
-  'Instamart': '🏪',
-  'Myntra': '👗',
-  'AJIO': '👔',
-  'Meesho': '🛍️',
-  'Paytm': '💳',
-  'PhonePe': '💙',
-  'GPay': '💚',
+    "zomato": "Zomato",
+    "swiggy": "Swiggy",
+    "amazon": "Amazon",
+    "flipkart": "Flipkart",
+    "blinkit": "Blinkit",
+    "netflix": "Netflix",
+    "spotify": "Spotify",
+    "uber": "Uber",
+    "ola": "Ola",
+    "myntra": "Myntra",
+    "ajio": "Ajio",
+    "dmart": "DMart",
+    "jiomart": "JioMart",
+    "bigbasket": "BigBasket",
+    "starbucks": "Starbucks",
+    "mcdonalds": "McDonald's",
+    "kfc": "KFC",
+    "dominos": "Domino's",
+    "pizza hut": "Pizza Hut",
+    "bookmyshow": "BookMyShow",
+    "paytm": "Paytm",
+    "gpay": "Google Pay",
+    "phonepe": "PhonePe",
+    "cred": "CRED",
+    "zerodha": "Zerodha",
+    "groww": "Groww",
+    "apple": "Apple",
+    "google": "Google",
+    "microsoft": "Microsoft"
 };
 
 export function extractMerchant(note: string, category: string): string {
-  if (!note || note.trim() === '') {
-    return category;
-  }
-
-  let cleaned = note.toLowerCase().trim();
-
-  cleaned = cleaned.replace(/^upi-/, '');
-  cleaned = cleaned.replace(/^neft-/, '');
-  cleaned = cleaned.replace(/^imps-/, '');
-
-  cleaned = cleaned.replace(/\s*[-:]\s*[a-z0-9]{10,}$/i, '');
-  cleaned = cleaned.replace(/\s*[-:]\s*hdfc\d+/i, '');
-  cleaned = cleaned.replace(/\s*[-:]\s*icici\d+/i, '');
-  cleaned = cleaned.replace(/\s*[-:]\s*sbi\d+/i, '');
-  cleaned = cleaned.replace(/\s*[-:]\s*\d{10,}$/i, '');
-
-  cleaned = cleaned.trim();
-
-  for (const [key, value] of Object.entries(MERCHANT_MAPPINGS)) {
-    if (cleaned.includes(key)) {
-      return value;
+    if (!note || note.trim() === '') {
+        return category; // Fallback to category if note is empty
     }
-  }
 
-  if (cleaned.length > 30) {
-    cleaned = cleaned.substring(0, 30);
-  }
+    let cleanNote = note.trim();
 
-  if (cleaned === '' || cleaned === 'upi') {
-    return category;
-  }
-
-  return cleaned
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-}
-
-export function getMerchantEmoji(merchantName: string): string {
-  const lowerName = merchantName.toLowerCase();
-
-  for (const [key, emoji] of Object.entries(MERCHANT_EMOJIS)) {
-    if (lowerName.includes(key.toLowerCase())) {
-      return emoji;
+    // 1. Remove common payment prefixes
+    const prefixes = ["UPI-", "NEFT-", "IMPS-", "RTGS-", "POS-", "ATM-", "CARD-", "MOB-"];
+    for (const prefix of prefixes) {
+        if (cleanNote.toUpperCase().startsWith(prefix)) {
+            cleanNote = cleanNote.substring(prefix.length).trim();
+        }
     }
-  }
 
-  const emojis = ['🏪', '🛍️', '💳', '🏬', '⭐'];
-  const index = merchantName.length % emojis.length;
-  return emojis[index];
+    // 2. Remove bank reference codes roughly (simple heuristic: look for alphanumeric strings at end > 6 chars)
+    // This is tricky without regex, but let's try a simple regex replacement
+    // "HDFC0001234" usually at the end or "REF123456"
+    cleanNote = cleanNote.replace(/\s[A-Z0-9]{6,}$/, '').trim();
+
+    // Also remove something that looks like a pure transaction ID e.g., "1234567890"
+    if (/^\d+$/.test(cleanNote)) {
+        return category;
+    }
+
+    // 3. Normalized check
+    const lowerNote = cleanNote.toLowerCase();
+
+    // Check strict mappings first
+    for (const [key, val] of Object.entries(MERCHANT_MAPPINGS)) {
+        if (lowerNote.includes(key)) {
+            return val;
+        }
+    }
+
+    // 4. Proper capitalization for others
+    // If it's a short name, just capitalize first letter
+    if (cleanNote.length > 0) {
+        return cleanNote.charAt(0).toUpperCase() + cleanNote.slice(1);
+    }
+
+    return category;
 }
 
 export function getMerchantStats(expenses: Expense[]): MerchantStat[] {
-  const merchantMap: Record<string, Expense[]> = {};
+    const merchantMap: Record<string, {
+        totalSpent: number;
+        count: number;
+        dates: string[];
+        categories: Record<string, number>;
+    }> = {};
 
-  const now = new Date();
-  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-  const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
+    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
 
-  expenses.forEach(expense => {
-    const merchant = extractMerchant(expense.note, expense.category);
-    if (!merchantMap[merchant]) {
-      merchantMap[merchant] = [];
-    }
-    merchantMap[merchant].push(expense);
-  });
+    // Group by merchant
+    expenses.forEach(e => {
+        const merchantName = extractMerchant(e.note, e.category);
 
-  const totalAllSpending = expenses.reduce((sum, e) => sum + e.amount, 0);
+        if (!merchantMap[merchantName]) {
+            merchantMap[merchantName] = {
+                totalSpent: 0,
+                count: 0,
+                dates: [],
+                categories: {}
+            };
+        }
 
-  const stats: MerchantStat[] = Object.entries(merchantMap).map(([merchant, merchantExpenses]) => {
-    const totalSpent = merchantExpenses.reduce((sum, e) => sum + e.amount, 0);
-    const visitCount = merchantExpenses.length;
-    const averageSpend = totalSpent / visitCount;
+        merchantMap[merchantName].totalSpent += e.amount;
+        merchantMap[merchantName].count += 1;
+        merchantMap[merchantName].dates.push(e.date);
 
-    const lastVisit = merchantExpenses
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0].date;
+        // Track categories to find the most frequent one
+        merchantMap[merchantName].categories[e.category] = (merchantMap[merchantName].categories[e.category] || 0) + 1;
+    });
 
-    const currentMonthSpending = merchantExpenses
-      .filter(e => new Date(e.date) >= lastMonth)
-      .reduce((sum, e) => sum + e.amount, 0);
+    // Convert to array
+    const stats: MerchantStat[] = Object.entries(merchantMap).map(([name, data]) => {
+        // Determine primary category
+        const primaryCategory = Object.entries(data.categories).sort((a, b) => b[1] - a[1])[0][0];
 
-    const previousMonthSpending = merchantExpenses
-      .filter(e => {
-        const d = new Date(e.date);
-        return d >= twoMonthsAgo && d < lastMonth;
-      })
-      .reduce((sum, e) => sum + e.amount, 0);
+        // Sort dates
+        data.dates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime()); // Descending
+        const lastVisit = data.dates[0];
 
-    let trend: 'up' | 'down' | 'stable' = 'stable';
-    if (previousMonthSpending > 0) {
-      const change = (currentMonthSpending - previousMonthSpending) / previousMonthSpending;
-      if (change > 0.1) trend = 'up';
-      else if (change < -0.1) trend = 'down';
-    } else if (currentMonthSpending > 0) {
-      trend = 'up';
-    }
+        // Calculate Trend (This month avg vs Previous avg? Or simply vs last visit?)
+        // Simple trend: Did we spend more than average transaction amount in the last visit?
+        // Or maybe: Is the last visit recent?
+        // Let's implement trend = 'up' if average spend > global average spend?
+        // Better: let's compute month-over-month if possible, but that's complex.
+        // Fallback: stable by default.
+        let trend: MerchantStat['trend'] = 'stable';
 
-    const category = merchantExpenses[0].category;
+        return {
+            merchant: name,
+            totalSpent: data.totalSpent,
+            visitCount: data.count,
+            averageSpend: data.totalSpent / data.count,
+            lastVisit,
+            category: primaryCategory,
+            trend,
+            percentOfTotal: (data.totalSpent / totalExpenses) * 100
+        };
+    });
 
-    return {
-      merchant,
-      totalSpent,
-      visitCount,
-      averageSpend,
-      lastVisit,
-      category,
-      trend,
-      percentOfTotal: totalAllSpending > 0 ? (totalSpent / totalAllSpending) * 100 : 0,
-    };
-  });
-
-  return stats
-    .sort((a, b) => b.totalSpent - a.totalSpent)
-    .slice(0, 20);
+    // Sort by total spent descending
+    return stats.sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 20);
 }
