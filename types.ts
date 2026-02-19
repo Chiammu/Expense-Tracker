@@ -114,6 +114,7 @@ export interface AppSettings {
   lastReportSentMonth: string | null;
   privacyMode: boolean; // For blurring sensitive data in public
   webAuthnCredentialId: string | null; // For biometric unlock
+  notificationsEnabled: boolean; // For smart budget alerts
   updatedAt: number;
 }
 
@@ -175,6 +176,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   lastReportSentMonth: null,
   privacyMode: false,
   webAuthnCredentialId: null,
+  notificationsEnabled: false,
   updatedAt: Date.now(),
 };
 
