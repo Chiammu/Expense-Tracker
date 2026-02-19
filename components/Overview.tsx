@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { AppState, Expense, OtherIncome } from '../types';
 import { generateFinancialInsights, predictNextMonthSpending, getDeepFinancialStrategy } from '../services/geminiService';
 import { ErrorBoundary } from './ErrorBoundary';
+import { CashFlowCalendar } from './CashFlowCalendar';
 
 interface OverviewProps {
   state: AppState;
@@ -154,6 +155,11 @@ export const Overview: React.FC<OverviewProps> = ({ state, updateBudget, updateI
           Disclaimer: Insights are for informational purposes only.
         </div>
       </div>
+
+      {/* 30-Day Cash Flow Calendar */}
+      <ErrorBoundary fallbackTitle="Cash Flow Error">
+        <CashFlowCalendar state={state} />
+      </ErrorBoundary>
     </div>
   );
 };
