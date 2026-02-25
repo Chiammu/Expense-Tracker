@@ -1,8 +1,5 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-export const config = {
-    runtime: 'edge',
-};
 
 export default async function handler(req: Request) {
     if (req.method !== 'POST') {
@@ -20,11 +17,11 @@ export default async function handler(req: Request) {
             });
         }
 
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = new GoogleGenerativeAI(apiKey);
         const targetModel = model || 'gemini-1.5-flash';
 
         if (task === 'chat') {
-            const genModel = (ai as any).getGenerativeModel({
+            const genModel = ai.getGenerativeModel({
                 model: targetModel,
                 systemInstruction: systemInstruction,
                 tools: tools,
@@ -47,7 +44,7 @@ export default async function handler(req: Request) {
             });
 
         } else if (task === 'generate') {
-            const genModel = (ai as any).getGenerativeModel({
+            const genModel = ai.getGenerativeModel({
                 model: targetModel,
                 systemInstruction: systemInstruction,
                 tools: tools,
