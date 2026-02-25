@@ -25,3 +25,8 @@ dist-ssr
 
 # Security
 fixed_backup.json
+.env
+.env.*
+
+# Unrelated projects
+Tinku Voice/

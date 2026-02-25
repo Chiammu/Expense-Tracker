@@ -268,6 +268,157 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
           </form>
         </div>
       </div>
+
+
+      {/* Manual Entry Form */}
+      < div className="bg-surface dark:bg-[#1a1a1a] rounded-[32px] p-6 shadow-xl border border-gray-100 dark:border-white/5 animate-fade-in relative overflow-hidden group" >
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+
+        <div className="relative z-10 space-y-6">
+          {/* Amount Display */}
+          <div className="flex flex-col items-center justify-center py-4">
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Amount</span>
+            <div className="relative">
+              <span className="absolute -left-6 top-1/2 -translate-y-1/2 text-3xl font-bold text-gray-300">₹</span>
+              <input
+                type="number"
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                placeholder="0"
+                className="w-48 text-center text-5xl font-black bg-transparent border-none outline-none text-gray-900 dark:text-white placeholder:text-gray-200 dark:placeholder:text-white/10"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* Category */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Category</label>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className="w-full bg-gray-50 dark:bg-black/20 border-r-[8px] border-r-transparent border-transparent focus:border-primary rounded-2xl px-4 py-3 text-sm font-bold text-gray-900 dark:text-white outline-none transition-all appearance-none cursor-pointer hover:bg-gray-100 dark:hover:bg-black/30"
+              >
+                <option value="">Select Category</option>
+                {state.settings.customCategories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {state.settings.categoryIcons[cat] || '📦'} {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Date</label>
+              <input
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                className="w-full bg-gray-50 dark:bg-black/20 border-transparent focus:border-primary rounded-2xl px-4 py-3 text-sm font-bold text-gray-900 dark:text-white outline-none transition-all text-center"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* Payment Mode */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Paid Via</label>
+              <select
+                value={formData.paymentMode}
+                onChange={(e) => setFormData({ ...formData, paymentMode: e.target.value })}
+                className="w-full bg-gray-50 dark:bg-black/20 border-r-[8px] border-r-transparent border-transparent focus:border-primary rounded-2xl px-4 py-3 text-sm font-bold text-gray-900 dark:text-white outline-none transition-all appearance-none cursor-pointer hover:bg-gray-100 dark:hover:bg-black/30"
+              >
+                <option value="">Mode</option>
+                {PAYMENT_MODES.map((mode) => (
+                  <option key={mode} value={mode}>{mode}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Credit Card (Conditional) */}
+            {formData.paymentMode === 'Card' ? (
+              <div className="space-y-2 animate-fade-in">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Select Card</label>
+                <select
+                  value={formData.cardId}
+                  onChange={(e) => setFormData({ ...formData, cardId: e.target.value })}
+                  className="w-full bg-gray-50 dark:bg-black/20 border-r-[8px] border-r-transparent border-transparent focus:border-purple-500 rounded-2xl px-4 py-3 text-sm font-bold text-gray-900 dark:text-white outline-none transition-all appearance-none cursor-pointer"
+                >
+                  <option value="">Which Card?</option>
+                  {state.creditCards.map((card) => (
+                    <option key={card.id} value={card.id}>{card.name}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              /* Person Split (only if not card? or always needed? Usually needed) */
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Spender</label>
+                <div className="flex bg-gray-50 dark:bg-black/20 rounded-2xl p-1 relative">
+                  <div
+                    className={`absolute top-1 bottom-1 w-[48%] bg-white dark:bg-white/10 shadow-sm rounded-xl transition-all duration-300 ease-out`}
+                    style={{ left: formData.person === state.settings.person2Name ? '50%' : '1%' }}
+                  ></div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, person: state.settings.person1Name })}
+                    className={`flex-1 py-2 text-xs font-bold relative z-10 transition-colors ${formData.person === state.settings.person1Name ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}
+                  >
+                    {state.settings.person1Name}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, person: state.settings.person2Name })}
+                    className={`flex-1 py-2 text-xs font-bold relative z-10 transition-colors ${formData.person === state.settings.person2Name ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}
+                  >
+                    {state.settings.person2Name}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Note */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Note / Description</label>
+            <textarea
+              value={formData.note}
+              onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+              placeholder="What was this for?"
+              rows={2}
+              className="w-full bg-gray-50 dark:bg-black/20 border border-transparent focus:border-primary rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 dark:text-white outline-none transition-all resize-none placeholder:text-gray-400"
+            />
+          </div>
+
+          {/* Submit Actions */}
+          <div className="pt-4 flex gap-3">
+            {expenseToEdit && (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="flex-1 py-4 bg-gray-100 dark:bg-white/5 text-gray-500 font-bold rounded-2xl hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
+              >
+                Cancel
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleSubmit} // Main submit trigger (AI bar form also submits, but this is the manual button)
+              disabled={!formData.amount || !formData.note}
+              className={`flex-[2] py-4 rounded-2xl font-black text-sm uppercase tracking-wider shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${!formData.amount || !formData.note
+                ? 'bg-gray-200 dark:bg-white/5 text-gray-400 cursor-not-allowed'
+                : expenseToEdit
+                  ? 'bg-orange-500 text-white shadow-orange-500/30'
+                  : 'bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02]'
+                }`}
+            >
+              {expenseToEdit ? 'Update Expense' : 'Save Expense'}
+            </button>
+          </div>
+
+        </div>
+      </div>
     </div>
   );
 };

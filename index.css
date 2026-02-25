@@ -6,11 +6,13 @@
   --primary: #e91e63;
   --secondary: #2196f3;
   --accent: #ff6f00;
+  /* Softened white for less harsh contrast */
   --surface: #ffffff;
-  --background: #f8f9fa;
-  --text: #212121;
-  --text-light: #757575;
-  --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  /* Slightly darker/warmer background to differentiate from surface */
+  --background: #f2f4f7;
+  --text: #111827;
+  --text-light: #6b7280;
+  --font-family: 'Inter', 'Segoe UI', sans-serif;
 }
 
 .dark {
@@ -33,14 +35,17 @@
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--text-light);
   border-radius: 10px;
   opacity: 0.3;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--primary);
 }
@@ -52,11 +57,9 @@ body {
   transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s;
   -webkit-tap-highlight-color: transparent;
   /* Modern Gradient Background for Light Theme */
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(233, 30, 99, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(33, 150, 243, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(255, 111, 0, 0.05) 0px, transparent 50%),
-    radial-gradient(at 0% 100%, rgba(255, 255, 255, 0) 0px, transparent 50%);
+  background-image:
+    radial-gradient(circle at 15% 50%, rgba(233, 30, 99, 0.03) 0%, transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(33, 150, 243, 0.03) 0%, transparent 25%);
   background-attachment: fixed;
 }
 
@@ -64,7 +67,9 @@ body {
   background-image: none;
 }
 
-input:focus, select:focus, textarea:focus {
+input:focus,
+select:focus,
+textarea:focus {
   outline: none;
 }
 

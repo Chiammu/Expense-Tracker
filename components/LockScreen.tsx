@@ -90,10 +90,10 @@ export const LockScreen: React.FC<LockScreenProps> = ({ pin, webAuthnId, onUnloc
           <div className={`flex gap-6 mt-4 transition-transform duration-200 ${error ? 'translate-x-[-10px] animate-shake' : ''}`}>
             {[0, 1, 2, 3].map(i => (
               <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all duration-300 ${i < input.length
-                  ? error
-                    ? 'bg-rose-500 border-rose-500 scale-110'
-                    : 'bg-white border-white scale-100 shadow-[0_0_15px_rgba(255,255,255,0.5)]'
-                  : 'border-white/20 bg-transparent'
+                ? error
+                  ? 'bg-rose-500 border-rose-500 scale-110'
+                  : 'bg-white border-white scale-100 shadow-[0_0_15px_rgba(255,255,255,0.5)]'
+                : 'border-white/20 bg-transparent'
                 }`} />
             ))}
           </div>
@@ -162,9 +162,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({ pin, webAuthnId, onUnloc
         )}
       </div>
 
-      <div className="absolute bottom-6 text-[10px] text-white/20 font-mono tracking-widest">
-        SECURE ENCLAVE
-      </div>
+
     </div>
   );
 };

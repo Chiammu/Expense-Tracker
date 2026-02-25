@@ -6,8 +6,7 @@ import { authService } from '../services/auth';
 import { generateMonthlyDigest } from '../services/geminiService';
 import { webAuthnService } from '../services/webAuthn';
 import { ScannerModal } from './ScannerModal';
-// @ts-ignore
-import QRCode from 'qrcode';
+import { QRCodeCanvas } from 'qrcode.react';
 
 interface SettingsProps {
   state: AppState;
@@ -31,7 +30,6 @@ const haptic = (pattern: number | number[] = 10) => {
 
 export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updateState, resetData, deleteAccount, showToast, userEmail }) => {
   const [pinInput, setPinInput] = useState('');
-  const [qrUrl, setQrUrl] = useState('');
   const [generatingReport, setGeneratingReport] = useState(false);
   const [biometricSupported, setBiometricSupported] = useState(false);
   const [registering, setRegistering] = useState(false);
@@ -136,11 +134,6 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
   };
 
   useEffect(() => {
-    const idToShare = state.settings.syncId || 'NOT_PAIRED';
-    QRCode.toDataURL(idToShare)
-      .then((url: string) => setQrUrl(url))
-      .catch((err: any) => console.error("QR Gen Error:", err));
-
     webAuthnService.isSupported().then(setBiometricSupported);
 
     const handleBeforeInstallPrompt = (e: any) => {
@@ -305,9 +298,9 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
 
         <div className="space-y-6">
           <div className="flex items-center gap-6 bg-gray-50 dark:bg-black/20 p-4 rounded-3xl">
-            {qrUrl ? (
+            {state.settings.syncId ? (
               <div className="p-2 bg-white rounded-xl shadow-sm border border-gray-100">
-                <img src={qrUrl} alt="Sync QR" className="w-24 h-24 rounded-lg" />
+                <QRCodeCanvas value={state.settings.syncId} size={96} />
               </div>
             ) : (
               <div className="w-24 h-24 bg-gray-200 dark:bg-white/10 rounded-xl flex items-center justify-center text-gray-400 text-xs font-bold">No ID</div>
@@ -570,10 +563,7 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
         )
       }
 
-      <div className="text-center pb-8 opacity-40">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Obsidian Finance</p>
-        <p className="text-[10px] font-medium text-gray-400 mt-1">v2.0.0 • Secure Enclave</p>
-      </div>
+
     </div >
   );
 };
