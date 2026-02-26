@@ -23,7 +23,6 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { loadFromStorage, saveToStorage, fetchCloudState, forceCloudSync, mergeAppState, logAuditEvent, setupRealtimeSubscription } from './services/storage';
 import { checkBudgetAlerts, sendLocalNotification, requestNotificationPermission, Alert } from './services/alertService';
 import { DebugView } from './components/DebugView';
-import { Chat } from './components/Chat';
 import { INITIAL_STATE } from './types';
 
 function App() {
@@ -42,18 +41,6 @@ function App() {
   const [alerts, setAlerts] = React.useState<Alert[]>([]);
   const [dismissedAlerts, setDismissedAlerts] = React.useState<string[]>([]);
   const [celebrationReward, setCelebrationReward] = React.useState<string | null>(null);
-  const [lastReadChatTime, setLastReadChatTime] = React.useState(localStorage.getItem('last_read_chat_timestamp') || '0');
-
-  const updateLastReadChat = () => {
-    const now = new Date().toISOString();
-    localStorage.setItem('last_read_chat_timestamp', now);
-    setLastReadChatTime(now);
-  };
-
-  const chatUnreadCount = React.useMemo(() => {
-    if (location.pathname === '/chat') return 0;
-    return store.chatMessages.filter(m => m.timestamp > lastReadChatTime).length;
-  }, [store.chatMessages, lastReadChatTime, location.pathname]);
 
   // Check Alerts
   useEffect(() => {
@@ -272,8 +259,14 @@ function App() {
       {showRecurringModal && (
         <RecurringModal
           payments={duePayments}
-          onConfirm={() => setShowRecurringModal(false)}
-          onCancel={() => setShowRecurringModal(false)}
+          onConfirm={() => {
+            store.setState({ settings: { ...store.settings, lastFixedPaymentCheck: new Date().toISOString() } });
+            setShowRecurringModal(false);
+          }}
+          onCancel={() => {
+            store.setState({ settings: { ...store.settings, lastFixedPaymentCheck: new Date().toISOString() } });
+            setShowRecurringModal(false);
+          }}
         />
       )}
 
@@ -375,15 +368,6 @@ function App() {
                     userEmail={session?.user?.email}
                   />
                 } />
-                <Route path="/chat" element={
-                  <Chat
-                    state={store}
-                    updateState={store.setState}
-                    showToast={showToast}
-                    session={session}
-                    onRead={updateLastReadChat}
-                  />
-                } />
               </Routes>
             </ErrorBoundary>
           </main>
@@ -391,7 +375,6 @@ function App() {
           <BottomNav
             activeSection={store.activeSection}
             setSection={(s) => navigate(`/${s}`)}
-            chatUnreadCount={chatUnreadCount}
           />
         </div>
       </div>

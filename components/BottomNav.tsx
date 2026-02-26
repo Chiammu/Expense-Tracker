@@ -5,7 +5,6 @@ import { Section } from '../types';
 interface BottomNavProps {
   activeSection: Section;
   setSection: (s: Section) => void;
-  chatUnreadCount?: number;
 }
 
 const NAV_ICONS = {
@@ -43,11 +42,10 @@ const NAV_ICONS = {
   ),
 };
 
-export const BottomNav: React.FC<BottomNavProps> = ({ activeSection, setSection, chatUnreadCount = 0 }) => {
+export const BottomNav: React.FC<BottomNavProps> = ({ activeSection, setSection }) => {
   const navItems: { id: Section; label: string }[] = [
     { id: 'add-expense', label: 'Add' },
     { id: 'summaries', label: 'Stats' },
-    { id: 'chat', label: 'Chat' },
     { id: 'investments', label: 'Wealth' },
     { id: 'overview', label: 'Plan' },
     { id: 'settings', label: 'Settings' },
@@ -67,9 +65,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeSection, setSection,
                 : 'w-[44px] sm:w-14 py-2.5 px-1 hover:bg-gray-100 dark:hover:bg-white/[0.04]'
                 }`}
             >
-              {item.id === 'chat' && chatUnreadCount > 0 && (
-                <div className="absolute top-2 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-[#1a1a1a] z-10 animate-pulse" />
-              )}
               <div className={`transition-all duration-200 ${isActive ? 'scale-110' : 'text-text-light'}`}>
                 {NAV_ICONS[item.id as keyof typeof NAV_ICONS]?.(isActive)}
               </div>
