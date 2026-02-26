@@ -55,7 +55,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeSection, setSection,
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pb-4 px-4 pointer-events-none">
-      <div className="pointer-events-auto flex items-center gap-1 bg-white/90 dark:bg-[#1a1a1a]/95 backdrop-blur-2xl rounded-[28px] p-2 shadow-[0_8px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.6)] border border-gray-200/60 dark:border-white/[0.08]">
+      <div className="pointer-events-auto flex items-center gap-0.5 sm:gap-1 bg-white/90 dark:bg-[#1a1a1a]/95 backdrop-blur-2xl rounded-[28px] p-1.5 sm:p-2 shadow-[0_8px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.6)] border border-gray-200/60 dark:border-white/[0.08]">
         {navItems.map(item => {
           const isActive = activeSection === item.id;
           return (
@@ -63,8 +63,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeSection, setSection,
               key={item.id}
               onClick={() => setSection(item.id)}
               className={`relative flex flex-col items-center justify-center gap-1 rounded-[20px] transition-all duration-200 active:scale-90 ${isActive
-                ? 'bg-primary/10 dark:bg-primary/15 w-20 py-2.5 px-3'
-                : 'w-14 py-2.5 px-3 hover:bg-gray-100 dark:hover:bg-white/[0.04]'
+                ? 'bg-primary/10 dark:bg-primary/15 w-14 sm:w-20 py-2.5 px-1 sm:px-3'
+                : 'w-[44px] sm:w-14 py-2.5 px-1 hover:bg-gray-100 dark:hover:bg-white/[0.04]'
                 }`}
             >
               {item.id === 'chat' && chatUnreadCount > 0 && (

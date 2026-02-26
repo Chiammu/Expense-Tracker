@@ -285,7 +285,7 @@ function App() {
         />
       )}
 
-      <div className={`min-h-screen bg-background text-text ${store.settings.privacyMode ? 'privacy-active' : ''}`}>
+      <div className={`relative w-full overflow-x-hidden min-h-screen bg-background text-text ${store.settings.privacyMode ? 'privacy-active' : ''}`}>
         <div className="max-w-3xl mx-auto px-2 pt-4">
           <Header settings={store.settings} onTogglePrivacy={handleTogglePrivacy} />
 
