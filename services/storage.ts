@@ -144,7 +144,7 @@ const mergeState = (parsed: any): AppState => {
  * Robust conflict resolution using Last-Write-Wins (LWW).
  */
 export const mergeAppState = (local: AppState, remote: AppState): AppState => {
-  const lwwMergeArray = <T extends { id: number | string; updatedAt?: number }>(localArr: T[], remoteArr: T[]): T[] => {
+  const lwwMergeArray = <T extends { id: number | string; updatedAt: number }>(localArr: T[], remoteArr: T[]): T[] => {
     const map = new Map<number | string, T>();
     localArr.forEach(item => map.set(item.id, item));
     remoteArr.forEach(remoteItem => {
@@ -156,15 +156,38 @@ export const mergeAppState = (local: AppState, remote: AppState): AppState => {
     return Array.from(map.values());
   };
 
-  const lwwMergeObject = <T extends { updatedAt?: number }>(localObj: T, remoteObj: T): T => {
+  const lwwMergeObject = <T extends { updatedAt: number }>(localObj: T, remoteObj: T): T => {
     if ((remoteObj.updatedAt || 0) > (localObj.updatedAt || 0)) {
       return remoteObj;
     }
     return localObj;
   };
 
+  const preferRemote = <T>(localValue: T, remoteValue: T): T => {
+    return typeof remoteValue === 'undefined' ? localValue : remoteValue;
+  };
+
+  const mergeChatMessages = (localMessages: AppState['chatMessages'], remoteMessages: AppState['chatMessages']) => {
+    const map = new Map<string, AppState['chatMessages'][number]>();
+    localMessages.forEach(message => map.set(message.id, message));
+    remoteMessages.forEach(remoteMessage => {
+      const localMessage = map.get(remoteMessage.id);
+      if (!localMessage || new Date(remoteMessage.timestamp).getTime() >= new Date(localMessage.timestamp).getTime()) {
+        map.set(remoteMessage.id, remoteMessage);
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  };
+
   return {
     ...remote,
+    // Primitive values without per-field timestamps use remote-wins to keep all clients convergent.
+    monthlyBudget: preferRemote(local.monthlyBudget, remote.monthlyBudget),
+    incomePerson1: preferRemote(local.incomePerson1, remote.incomePerson1),
+    incomePerson2: preferRemote(local.incomePerson2, remote.incomePerson2),
+    // categoryBudgets is a top-level object without updatedAt metadata, so we use remote-wins as explicit policy.
+    categoryBudgets: preferRemote(local.categoryBudgets, remote.categoryBudgets),
     settings: lwwMergeObject(local.settings, remote.settings),
     expenses: lwwMergeArray(local.expenses, remote.expenses),
     fixedPayments: lwwMergeArray(local.fixedPayments, remote.fixedPayments),
@@ -173,7 +196,13 @@ export const mergeAppState = (local: AppState, remote: AppState): AppState => {
     loans: lwwMergeArray(local.loans, remote.loans),
     creditCards: lwwMergeArray(local.creditCards, remote.creditCards),
     investments: lwwMergeObject(local.investments, remote.investments),
+    challenges: lwwMergeArray(local.challenges, remote.challenges),
+    chatMessages: mergeChatMessages(local.chatMessages, remote.chatMessages),
   };
+};
+
+export const hasStateChanged = (previous: AppState, next: AppState): boolean => {
+  return JSON.stringify(previous) !== JSON.stringify(next);
 };
 
 export const fetchCloudState = async (userId: string): Promise<AppState | null> => {
