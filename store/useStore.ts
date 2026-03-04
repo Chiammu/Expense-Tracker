@@ -73,6 +73,11 @@ export const useAppStore = create<AppStore>()(
             updatedAt: Date.now()
         })),
 
-        reset: () => set({ ...INITIAL_STATE, isGuest: false })
+        reset: () => set({
+            ...INITIAL_STATE,
+            isGuest: false,
+            activeSection: 'add-expense',
+            expenseToEdit: null
+        })
     })
 );
