@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { webAuthnService } from '../services/webAuthn';
+import { verifyPIN } from '../utils/security';
 
 interface LockScreenProps {
-  pin: string | null;
+  pinHash: string | null;
   webAuthnId: string | null;
   onUnlock: () => void;
 }
 
-export const LockScreen: React.FC<LockScreenProps> = ({ pin, webAuthnId, onUnlock }) => {
+export const LockScreen: React.FC<LockScreenProps> = ({ pinHash, webAuthnId, onUnlock }) => {
   const [input, setInput] = useState('');
   const [error, setError] = useState(false);
   const [animate, setAnimate] = useState(false);
@@ -37,8 +38,8 @@ export const LockScreen: React.FC<LockScreenProps> = ({ pin, webAuthnId, onUnloc
     }
   };
 
-  const handleNumber = (num: string) => {
-    if (!pin) return;
+  const handleNumber = async (num: string) => {
+    if (!pinHash) return;
     if (input.length < 4) {
       const newVal = input + num;
       setInput(newVal);
@@ -48,7 +49,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({ pin, webAuthnId, onUnloc
 
       // Check optimization: if length is 4, check immediately
       if (newVal.length === 4) {
-        if (newVal === pin) {
+        if (await verifyPIN(newVal, pinHash)) {
           setTimeout(onUnlock, 100);
         } else {
           if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
@@ -86,7 +87,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({ pin, webAuthnId, onUnloc
         </div>
 
         {/* PIN Dots */}
-        {pin && (
+        {pinHash && (
           <div className={`flex gap-6 mt-4 transition-transform duration-200 ${error ? 'translate-x-[-10px] animate-shake' : ''}`}>
             {[0, 1, 2, 3].map(i => (
               <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all duration-300 ${i < input.length
@@ -102,7 +103,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({ pin, webAuthnId, onUnloc
 
       {/* Numpad Section */}
       <div className="w-full max-w-[320px] pb-12 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-        {pin ? (
+        {pinHash ? (
           <div className="grid grid-cols-3 gap-x-6 gap-y-6">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => (
               <button

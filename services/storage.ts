@@ -1,6 +1,7 @@
 
-import { AppState, INITIAL_STATE, INITIAL_INVESTMENTS, Expense } from '../types';
+import { AppState, INITIAL_STATE, INITIAL_INVESTMENTS, Expense, LegacyAppSettings } from '../types';
 import { supabase } from './supabaseClient';
+import { hashPIN } from '../utils/security';
 // @ts-ignore
 import jsPDF from 'jspdf';
 // @ts-ignore
@@ -10,6 +11,51 @@ const STORAGE_KEY = 'coupleExpenseTrackerV4_React';
 
 // Debounce timer for cloud saves
 let saveTimeout: any = null;
+
+
+const migrateSettings = async (settings: LegacyAppSettings = {}): Promise<AppState['settings']> => {
+  const legacyPin = typeof settings.pin === 'string' ? settings.pin : null;
+  const pinHash = settings.pinHash || (legacyPin ? await hashPIN(legacyPin) : null);
+  const { pin: _legacyPin, ...rest } = settings as LegacyAppSettings & { pin?: string | null };
+
+  return {
+    ...INITIAL_STATE.settings,
+    ...rest,
+    pinHash,
+  };
+};
+
+const sanitizeStateForPersistence = (state: AppState): AppState => {
+  const settingsWithLegacyPin = state.settings as AppState['settings'] & { pin?: string | null };
+  const { pin: _legacyPin, ...safeSettings } = settingsWithLegacyPin;
+
+  return {
+    ...state,
+    settings: {
+      ...safeSettings,
+      pinHash: safeSettings.pinHash || null,
+    },
+  };
+};
+
+export const mergeImportedState = async (parsed: any): Promise<AppState> => {
+  const settings = await migrateSettings((parsed?.settings || {}) as LegacyAppSettings);
+
+  return {
+    ...INITIAL_STATE,
+    ...parsed,
+    settings,
+    savingsGoals: parsed?.savingsGoals || [],
+    categoryBudgets: parsed?.categoryBudgets || {},
+    chatMessages: parsed?.chatMessages || [],
+    investments: {
+      ...INITIAL_INVESTMENTS,
+      ...(parsed?.investments || {})
+    },
+    loans: parsed?.loans || [],
+  };
+};
+
 
 /**
  * Logs a sensitive event to the Supabase history table.
@@ -51,7 +97,7 @@ export const triggerCloudSave = async (state: AppState) => {
       const { error } = await supabase
         .from('app_state')
         .update({
-          data: state,
+          data: sanitizeStateForPersistence(state),
           updated_at: new Date().toISOString()
         })
         .eq('id', existingRows[0].id);
@@ -63,7 +109,7 @@ export const triggerCloudSave = async (state: AppState) => {
         .from('app_state')
         .insert({
           user_id: session.user.id,
-          data: state,
+          data: sanitizeStateForPersistence(state),
           updated_at: new Date().toISOString()
         });
 
@@ -103,10 +149,10 @@ export const setupRealtimeSubscription = (userId: string, onUpdate: (newState: A
         table: 'app_state',
         filter: `user_id=eq.${userId}`
       },
-      (payload) => {
+      async (payload) => {
         console.log("Realtime update received:", payload);
         if (payload.new && payload.new.data) {
-          const remoteState = mergeState(payload.new.data);
+          const remoteState = await mergeState(payload.new.data);
           onUpdate(remoteState);
         }
       }
@@ -121,24 +167,7 @@ export const loadFromStorage = (): AppState => {
   return INITIAL_STATE;
 };
 
-const mergeState = (parsed: any): AppState => {
-  return {
-    ...INITIAL_STATE,
-    ...parsed,
-    settings: {
-      ...INITIAL_STATE.settings,
-      ...(parsed.settings || {}),
-    },
-    savingsGoals: parsed.savingsGoals || [],
-    categoryBudgets: parsed.categoryBudgets || {},
-    chatMessages: parsed.chatMessages || [],
-    investments: {
-      ...INITIAL_INVESTMENTS,
-      ...(parsed.investments || {})
-    },
-    loans: parsed.loans || [],
-  };
-};
+const mergeState = async (parsed: any): Promise<AppState> => mergeImportedState(parsed);
 
 /**
  * Robust conflict resolution using Last-Write-Wins (LWW).
@@ -185,7 +214,7 @@ export const fetchCloudState = async (userId: string): Promise<AppState | null> 
     .single();
 
   if (error || !data) return null;
-  return mergeState(data.data);
+  return await mergeState(data.data);
 };
 
 export const deleteCloudData = async (): Promise<boolean> => {
@@ -265,7 +294,7 @@ export const uploadFile = async (file: File, userId: string): Promise<string | n
 
 export const exportData = (state: AppState) => {
   try {
-    const data = JSON.stringify(state, null, 2);
+    const data = JSON.stringify(sanitizeStateForPersistence(state), null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -284,7 +313,7 @@ export const exportData = (state: AppState) => {
 };
 
 export const shareBackup = async (state: AppState): Promise<boolean> => {
-  const data = JSON.stringify(state, null, 2);
+  const data = JSON.stringify(sanitizeStateForPersistence(state), null, 2);
   const fileName = `couple-expense-backup-${new Date().toISOString().split('T')[0]}.json`;
   const file = new File([data], fileName, { type: 'application/json' });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
