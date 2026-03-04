@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { AppState, AppSettings, INITIAL_STATE } from '../types';
-import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent, exportData, deleteCloudData, triggerCloudSave } from '../services/storage';
+import { AppState, AppSettings } from '../types';
+import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent, exportData, deleteCloudData, triggerCloudSave, normalizeAppState } from '../services/storage';
 import { requestNotificationPermission, sendLocalNotification } from '../services/alertService';
 import { authService } from '../services/auth';
 import { generateMonthlyDigest } from '../services/geminiService';
 import { webAuthnService } from '../services/webAuthn';
 import { ScannerModal } from './ScannerModal';
 import { QRCodeCanvas } from 'qrcode.react';
+import { generateId } from '../utils/id';
 
 interface SettingsProps {
   state: AppState;
@@ -103,19 +104,8 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
           throw new Error(`Invalid data structure. Found: [${foundKeys}]. Expected 'expenses' array.`);
         }
 
-        // Robust merge: Ensure all current schema fields exist even if backup is old
-        const newState: AppState = {
-          ...INITIAL_STATE,
-          ...parsed,
-          settings: {
-            ...INITIAL_STATE.settings,
-            ...(parsed.settings || {})
-          },
-          investments: {
-            ...INITIAL_STATE.investments,
-            ...(parsed.investments || {})
-          }
-        };
+        // Robust merge + ID migration: normalize legacy numeric IDs to string IDs.
+        const newState: AppState = normalizeAppState(parsed);
 
         if (confirm(`Found ${newState.expenses.length} expenses. Restore now?`)) {
           updateState(newState);
@@ -178,7 +168,7 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
   };
 
   const generateSyncId = () => {
-    const newId = crypto.randomUUID();
+    const newId = generateId();
     updateSettings({ syncId: newId });
     logAuditEvent('COUPLE_SYNC_ID_GENERATED');
     showToast("New Sync ID Generated");

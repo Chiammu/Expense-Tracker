@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AppState, Loan, Investments as InvestType, CreditCard } from '../types';
 import { getLatestMetalRates } from '../services/geminiService';
 import { logAuditEvent } from '../services/storage';
+import { generateId } from '../utils/id';
 
 interface InvestmentsProps {
   state: AppState;
@@ -67,7 +68,7 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
     });
   };
 
-  const deleteLoan = (id: number) => {
+  const deleteLoan = (id: string) => {
     const loan = state.loans.find(l => l.id === id);
     if (confirm(`Delete loan "${loan?.name}"?`)) {
       updateState({ loans: state.loans.filter(l => l.id !== id) });
@@ -76,7 +77,7 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
     }
   };
 
-  const deleteCard = (id: number) => {
+  const deleteCard = (id: string) => {
     const card = state.creditCards.find(c => c.id === id);
     if (confirm(`Remove card "${card?.name}"?`)) {
       updateState({ creditCards: state.creditCards.filter(c => c.id !== id) });
@@ -88,7 +89,7 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
   const addLoan = () => {
     if (!newLoan.name || !newLoan.pending) return;
     const loan: Loan = {
-      id: Date.now(),
+      id: generateId(),
       name: newLoan.name,
       totalAmount: parseFloat(newLoan.pending),
       pendingAmount: parseFloat(newLoan.pending),
@@ -105,7 +106,7 @@ export const Investments: React.FC<InvestmentsProps> = ({ state, updateState, sh
   const addCard = () => {
     if (!newCard.name || !newCard.limit) return;
     const card: CreditCard = {
-      id: Date.now(),
+      id: generateId(),
       name: newCard.name,
       limit: parseFloat(newCard.limit),
       billingDay: parseInt(newCard.billingDay) || 1,

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AppState, Challenge } from '../types';
 import { CHALLENGE_TEMPLATES } from '../utils/challenges';
+import { generateId } from '../utils/id';
 
 
 
@@ -40,7 +41,7 @@ export const Challenges: React.FC<ChallengesProps> = ({ state, updateState, show
         endDate.setDate(startDate.getDate() + durationDays);
 
         const newChallenge: Challenge = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             title: template.title || 'New Challenge',
             description: template.description || '',
             type: template.type || 'save_amount',
@@ -73,7 +74,7 @@ export const Challenges: React.FC<ChallengesProps> = ({ state, updateState, show
         endDate.setDate(startDate.getDate() + durationDays);
 
         const newChallenge: Challenge = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             title: customTitle,
             description: `Custom ${customType} challenge`,
             type: customType,
