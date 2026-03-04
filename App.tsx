@@ -23,12 +23,31 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { loadFromStorage, saveToStorage, fetchCloudState, forceCloudSync, mergeAppState, logAuditEvent, setupRealtimeSubscription } from './services/storage';
 import { checkBudgetAlerts, sendLocalNotification, requestNotificationPermission, Alert } from './services/alertService';
 import { DebugView } from './components/DebugView';
-import { INITIAL_STATE } from './types';
+import { AppState, INITIAL_STATE } from './types';
+
+const selectPersistedStateSnapshot = (state: AppState) => JSON.stringify({
+  expenses: state.expenses,
+  settings: state.settings,
+  monthlyBudget: state.monthlyBudget,
+  otherIncome: state.otherIncome,
+  fixedPayments: state.fixedPayments,
+  incomePerson1: state.incomePerson1,
+  incomePerson2: state.incomePerson2,
+  savingsGoals: state.savingsGoals,
+  categoryBudgets: state.categoryBudgets,
+  chatMessages: state.chatMessages,
+  investments: state.investments,
+  loans: state.loans,
+  creditCards: state.creditCards,
+  challenges: state.challenges,
+});
 
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const store = useAppStore();
+  const persistedStateSnapshot = useAppStore(selectPersistedStateSnapshot);
+  const lastSavedSnapshotRef = React.useRef<string | null>(null);
 
   // Local state for UI that doesn't need to be global/persisted
   const [session, setSession] = React.useState<any>(null);
@@ -181,11 +200,12 @@ function App() {
 
   // Save on Change
   useEffect(() => {
-    if (loaded && !store.isGuest && session) {
-      // Trigger debounced cloud save
-      saveToStorage(store, 'remote');
-    }
-  }, [store.expenses, store.settings, store.investments, store.challenges, loaded]);
+    if (!loaded || store.isGuest || !session) return;
+    if (persistedStateSnapshot === lastSavedSnapshotRef.current) return;
+
+    lastSavedSnapshotRef.current = persistedStateSnapshot;
+    saveToStorage(JSON.parse(persistedStateSnapshot) as AppState, 'remote');
+  }, [loaded, store.isGuest, session, persistedStateSnapshot]);
 
   // Challenge Evaluation Loop
   useEffect(() => {
