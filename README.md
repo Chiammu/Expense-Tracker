@@ -1,20 +1,45 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Couple Expense Tracker
 
-# Run and deploy your AI Studio app
+A shared personal-finance app for couples to track expenses, budgets, recurring payments, and investments in one place.
 
-This contains everything you need to run your app locally.
+## Shipped Features
 
-View your app in AI Studio: https://ai.studio/apps/drive/1ARBOZHB0r-Fy1vX-6fdZkmDcO_dfEFw7
+- Expense capture with category/person/payment tracking
+- Search and filterable summaries with category analytics
+- Merchant analytics dashboard inside Summaries
+- Split-bill generator and shareable split links
+- Cash-flow calendar forecast in Overview
+- Investment and asset tracking
+- Savings goals, budgets, and smart alerts
+- Challenge tracking and reward celebrations
+- PIN/WebAuthn lock screen support (existing app behavior)
+- Optional AI features (roast/insights/parsing) when API keys are configured
+
+## Scope Notes
+
+The following experimental modules are **not shipped in the current UI** and were removed to reduce dead code:
+
+- In-app Chat screen
+- Spend Score panel
+- Unused security utility helper module (`utils/security.ts`) that was not wired into runtime flows
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js 18+
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+   ```bash
+   npm install
+   ```
+2. (Optional) Configure AI key in `.env`:
+   ```bash
+   GEMINI_API_KEY=your_key_here
+   ```
+3. Start dev server:
+   ```bash
+   npm run dev
+   ```
+4. Build for production:
+   ```bash
+   npm run build
+   ```

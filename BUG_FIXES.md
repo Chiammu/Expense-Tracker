@@ -1,5 +1,7 @@
 # Bug Fixes - AI Features & Roast Not Working
 
+> **Status note:** This document references planned security integration via `utils/security.ts`; that utility file was removed from the active codebase.
+
 ## Issue Summary
 The user reported that:
 1. "Roast My Spending" button was not showing any results

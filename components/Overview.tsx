@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AppState, Expense, OtherIncome } from '../types';
 import { ErrorBoundary } from './ErrorBoundary';
-import { SpendScore } from './SpendScore';
 import { CashFlowCalendar } from './CashFlowCalendar';
 import { useAppStore } from '../store/useStore';
 import {

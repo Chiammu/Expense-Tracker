@@ -1,5 +1,7 @@
 # Expert App Review Summary
 
+> **Status note:** This review includes historical recommendations that referenced `utils/security.ts`. That file has since been removed from the current codebase.
+
 ## 🎯 Executive Overview
 
 I've completed a comprehensive review of your **Couple Expense Tracker** app and identified both strengths and areas for improvement. The app has a solid foundation with impressive features, but requires some critical fixes and enhancements for production readiness.

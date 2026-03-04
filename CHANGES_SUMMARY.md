@@ -1,5 +1,7 @@
 # Changes Summary - Expert App Review
 
+> **Status note:** Mentions of `utils/security.ts` in this summary are historical; that module is no longer present in the current code.
+
 ## Overview
 This document summarizes all changes made during the expert app review of the Couple Expense Tracker.
 
