@@ -1,6 +1,7 @@
 
-import { AppState, INITIAL_STATE, INITIAL_INVESTMENTS, Expense } from '../types';
+import { AppState, INITIAL_STATE, INITIAL_INVESTMENTS, Expense, LegacyAppSettings } from '../types';
 import { supabase } from './supabaseClient';
+import { hashPIN } from '../utils/security';
 // @ts-ignore
 import jsPDF from 'jspdf';
 // @ts-ignore
@@ -109,7 +110,7 @@ export const triggerCloudSave = async (state: AppState) => {
       const { error } = await supabase
         .from('app_state')
         .update({
-          data: state,
+          data: sanitizeStateForPersistence(state),
           updated_at: new Date().toISOString()
         })
         .eq('id', existingRows[0].id);
@@ -121,7 +122,7 @@ export const triggerCloudSave = async (state: AppState) => {
         .from('app_state')
         .insert({
           user_id: session.user.id,
-          data: state,
+          data: sanitizeStateForPersistence(state),
           updated_at: new Date().toISOString()
         });
 
@@ -161,10 +162,10 @@ export const setupRealtimeSubscription = (userId: string, onUpdate: (newState: A
         table: 'app_state',
         filter: `user_id=eq.${userId}`
       },
-      (payload) => {
+      async (payload) => {
         console.log("Realtime update received:", payload);
         if (payload.new && payload.new.data) {
-          const remoteState = mergeState(payload.new.data);
+          const remoteState = await mergeState(payload.new.data);
           onUpdate(remoteState);
         }
       }
@@ -226,7 +227,7 @@ export const fetchCloudState = async (userId: string): Promise<AppState | null> 
     .single();
 
   if (error || !data) return null;
-  return mergeState(data.data);
+  return await mergeState(data.data);
 };
 
 export const deleteCloudData = async (): Promise<boolean> => {
@@ -306,7 +307,7 @@ export const uploadFile = async (file: File, userId: string): Promise<string | n
 
 export const exportData = (state: AppState) => {
   try {
-    const data = JSON.stringify(state, null, 2);
+    const data = JSON.stringify(sanitizeStateForPersistence(state), null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -325,7 +326,7 @@ export const exportData = (state: AppState) => {
 };
 
 export const shareBackup = async (state: AppState): Promise<boolean> => {
-  const data = JSON.stringify(state, null, 2);
+  const data = JSON.stringify(sanitizeStateForPersistence(state), null, 2);
   const fileName = `couple-expense-backup-${new Date().toISOString().split('T')[0]}.json`;
   const file = new File([data], fileName, { type: 'application/json' });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {

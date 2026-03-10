@@ -419,10 +419,10 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
           <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-black/20 rounded-2xl border border-gray-100 dark:border-white/5">
             <div className="flex flex-col gap-0.5">
               <span className="text-sm font-bold text-gray-900 dark:text-white">App PIN</span>
-              <span className="text-[10px] text-gray-400 font-medium">{state.settings.pin ? 'Active' : 'Not configured'}</span>
+              <span className="text-[10px] text-gray-400 font-medium">{state.settings.pinHash ? 'Active' : 'Not configured'}</span>
             </div>
-            {state.settings.pin ? (
-              <button onClick={() => { haptic(5); updateSettings({ pin: null }); }} className="text-xs bg-red-50 text-red-500 px-4 py-2 rounded-xl font-bold border border-red-100 hover:bg-red-100 transition-colors">Remove</button>
+            {state.settings.pinHash ? (
+              <button onClick={() => { haptic(5); updateSettings({ pinHash: null }); }} className="text-xs bg-red-50 text-red-500 px-4 py-2 rounded-xl font-bold border border-red-100 hover:bg-red-100 transition-colors">Remove</button>
             ) : (
               <div className="flex items-center gap-2">
                 <input
@@ -433,7 +433,7 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
                   value={pinInput}
                   onChange={e => setPinInput(e.target.value)}
                 />
-                <button onClick={() => { if (pinInput.length === 4) { haptic(10); updateSettings({ pin: pinInput }); setPinInput(''); showToast("PIN Set"); } }} className="text-xs bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold shadow-md shadow-indigo-500/20">Set</button>
+                <button onClick={async () => { if (pinInput.length === 4) { const pinHash = await hashPIN(pinInput); haptic(10); updateSettings({ pinHash }); setPinInput(''); showToast("PIN Set"); } }} className="text-xs bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold shadow-md shadow-indigo-500/20">Set</button>
               </div>
             )}
           </div>
