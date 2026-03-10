@@ -101,7 +101,7 @@ export interface AppSettings {
   person2Name: string;
   customCategories: string[];
   categoryIcons: Record<string, string>;
-  pin: string | null;
+  pinHash: string | null;
   syncId: string | null;
   lastFixedPaymentCheck: string | null;
   emailReportsEnabled: boolean;
@@ -112,6 +112,10 @@ export interface AppSettings {
   webAuthnCredentialId: string | null; // For biometric unlock
   lastReadChatTime: string | null;
   updatedAt: number;
+}
+
+export interface LegacyAppSettings extends Partial<AppSettings> {
+  pin?: string | null;
 }
 
 export interface AuditLog {
@@ -179,7 +183,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   person2Name: 'Person 2',
   customCategories: DEFAULT_CATEGORIES,
   categoryIcons: DEFAULT_ICONS,
-  pin: null,
+  pinHash: null,
   syncId: null,
   lastFixedPaymentCheck: new Date().toISOString(),
   emailReportsEnabled: false,

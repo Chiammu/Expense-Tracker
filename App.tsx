@@ -141,7 +141,7 @@ function App() {
       store.setState(currentState);
       setLoaded(true);
 
-      if (currentState.settings.pin || currentState.settings.webAuthnCredentialId) {
+      if (currentState.settings.pinHash || currentState.settings.webAuthnCredentialId) {
         setIsLocked(true);
       }
 
@@ -250,7 +250,7 @@ function App() {
 
       {isLocked && (
         <LockScreen
-          pin={store.settings.pin}
+          pinHash={store.settings.pinHash}
           webAuthnId={store.settings.webAuthnCredentialId}
           onUnlock={() => setIsLocked(false)}
         />
