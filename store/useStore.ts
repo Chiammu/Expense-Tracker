@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import { AppState, INITIAL_STATE, Expense, Section, FixedPayment } from '../types';
 import { loadFromStorage, saveToStorage, forceCloudSync } from '../services/storage';
+import { generateId } from '../utils/id';
 
 interface AppStore extends AppState {
     isGuest: boolean;
@@ -13,7 +14,7 @@ interface AppStore extends AppState {
     setState: (state: Partial<AppState>) => void;
     addExpense: (expense: Omit<Expense, 'id' | 'updatedAt'>) => void;
     updateExpense: (expense: Expense) => void;
-    deleteExpense: (id: number) => void;
+    deleteExpense: (id: string) => void;
     reset: () => void;
 }
 
@@ -35,7 +36,7 @@ export const useAppStore = create<AppStore>()(
         setState: (newState) => set((state) => ({ ...state, ...newState })),
 
         addExpense: (expense) => set((state) => {
-            const newExpense = { ...expense, id: Date.now(), updatedAt: Date.now() };
+            const newExpense = { ...expense, id: generateId(), updatedAt: Date.now() };
             let updatedCards = state.creditCards;
 
             if (newExpense.paymentMode === 'Card' && newExpense.cardId) {

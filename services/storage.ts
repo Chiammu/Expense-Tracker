@@ -1,6 +1,7 @@
 
-import { AppState, INITIAL_STATE, INITIAL_INVESTMENTS, Expense } from '../types';
+import { AppState, INITIAL_STATE, INITIAL_INVESTMENTS, Expense, LegacyAppSettings } from '../types';
 import { supabase } from './supabaseClient';
+import { hashPIN } from '../utils/security';
 // @ts-ignore
 import jsPDF from 'jspdf';
 // @ts-ignore
@@ -10,6 +11,64 @@ const STORAGE_KEY = 'coupleExpenseTrackerV4_React';
 
 // Debounce timer for cloud saves
 let saveTimeout: any = null;
+
+const normalizeId = (id: unknown): string => {
+  if (typeof id === 'string') return id;
+  if (typeof id === 'number') return id.toString();
+  return '';
+};
+
+export const normalizeAppState = (state: Partial<AppState> | null | undefined): AppState => {
+  const parsed = state || {};
+  const normalized = {
+    ...INITIAL_STATE,
+    ...parsed,
+    settings: {
+      ...INITIAL_STATE.settings,
+      ...((parsed as any).settings || {}),
+    },
+    savingsGoals: ((parsed as any).savingsGoals || []).map((goal: any) => ({
+      ...goal,
+      id: normalizeId(goal.id),
+    })),
+    categoryBudgets: (parsed as any).categoryBudgets || {},
+    chatMessages: ((parsed as any).chatMessages || []).map((message: any) => ({
+      ...message,
+      expenseId: message.expenseId === undefined || message.expenseId === null ? undefined : normalizeId(message.expenseId),
+    })),
+    investments: {
+      ...INITIAL_INVESTMENTS,
+      ...((parsed as any).investments || {})
+    },
+    loans: ((parsed as any).loans || []).map((loan: any) => ({
+      ...loan,
+      id: normalizeId(loan.id),
+    })),
+    expenses: ((parsed as any).expenses || []).map((expense: any) => ({
+      ...expense,
+      id: normalizeId(expense.id),
+      cardId: expense.cardId === undefined || expense.cardId === null ? undefined : normalizeId(expense.cardId),
+    })),
+    fixedPayments: ((parsed as any).fixedPayments || []).map((payment: any) => ({
+      ...payment,
+      id: normalizeId(payment.id),
+    })),
+    otherIncome: ((parsed as any).otherIncome || []).map((income: any) => ({
+      ...income,
+      id: normalizeId(income.id),
+    })),
+    creditCards: ((parsed as any).creditCards || []).map((card: any) => ({
+      ...card,
+      id: normalizeId(card.id),
+    })),
+    challenges: ((parsed as any).challenges || []).map((challenge: any) => ({
+      ...challenge,
+      id: normalizeId(challenge.id),
+    })),
+  };
+
+  return normalized;
+};
 
 /**
  * Logs a sensitive event to the Supabase history table.
@@ -51,7 +110,7 @@ export const triggerCloudSave = async (state: AppState) => {
       const { error } = await supabase
         .from('app_state')
         .update({
-          data: state,
+          data: sanitizeStateForPersistence(state),
           updated_at: new Date().toISOString()
         })
         .eq('id', existingRows[0].id);
@@ -63,7 +122,7 @@ export const triggerCloudSave = async (state: AppState) => {
         .from('app_state')
         .insert({
           user_id: session.user.id,
-          data: state,
+          data: sanitizeStateForPersistence(state),
           updated_at: new Date().toISOString()
         });
 
@@ -103,10 +162,10 @@ export const setupRealtimeSubscription = (userId: string, onUpdate: (newState: A
         table: 'app_state',
         filter: `user_id=eq.${userId}`
       },
-      (payload) => {
+      async (payload) => {
         console.log("Realtime update received:", payload);
         if (payload.new && payload.new.data) {
-          const remoteState = mergeState(payload.new.data);
+          const remoteState = await mergeState(payload.new.data);
           onUpdate(remoteState);
         }
       }
@@ -121,24 +180,7 @@ export const loadFromStorage = (): AppState => {
   return INITIAL_STATE;
 };
 
-const mergeState = (parsed: any): AppState => {
-  return {
-    ...INITIAL_STATE,
-    ...parsed,
-    settings: {
-      ...INITIAL_STATE.settings,
-      ...(parsed.settings || {}),
-    },
-    savingsGoals: parsed.savingsGoals || [],
-    categoryBudgets: parsed.categoryBudgets || {},
-    chatMessages: parsed.chatMessages || [],
-    investments: {
-      ...INITIAL_INVESTMENTS,
-      ...(parsed.investments || {})
-    },
-    loans: parsed.loans || [],
-  };
-};
+const mergeState = (parsed: any): AppState => normalizeAppState(parsed);
 
 /**
  * Robust conflict resolution using Last-Write-Wins (LWW).
@@ -214,7 +256,7 @@ export const fetchCloudState = async (userId: string): Promise<AppState | null> 
     .single();
 
   if (error || !data) return null;
-  return mergeState(data.data);
+  return await mergeState(data.data);
 };
 
 export const deleteCloudData = async (): Promise<boolean> => {
@@ -294,7 +336,7 @@ export const uploadFile = async (file: File, userId: string): Promise<string | n
 
 export const exportData = (state: AppState) => {
   try {
-    const data = JSON.stringify(state, null, 2);
+    const data = JSON.stringify(sanitizeStateForPersistence(state), null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -313,7 +355,7 @@ export const exportData = (state: AppState) => {
 };
 
 export const shareBackup = async (state: AppState): Promise<boolean> => {
-  const data = JSON.stringify(state, null, 2);
+  const data = JSON.stringify(sanitizeStateForPersistence(state), null, 2);
   const fileName = `couple-expense-backup-${new Date().toISOString().split('T')[0]}.json`;
   const file = new File([data], fileName, { type: 'application/json' });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {

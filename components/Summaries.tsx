@@ -8,7 +8,7 @@ import { SplitBillModal } from './SplitBillModal';
 
 interface SummariesProps {
   state: AppState;
-  deleteExpense: (id: number) => void;
+  deleteExpense: (id: string) => void;
   editExpense: (expense: Expense) => void;
 }
 

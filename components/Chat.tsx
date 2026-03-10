@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, ChatMessage, Section } from '../types';
 import { format } from 'date-fns';
+import { generateId } from '../utils/id';
 
 interface ChatProps {
     state: AppState;
@@ -32,7 +33,7 @@ export const Chat: React.FC<ChatProps> = ({ state, updateState, showToast, sessi
         if (!inputText.trim() || !identity) return;
 
         const newMessage: ChatMessage = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             sender: identity,
             text: inputText.trim(),
             timestamp: new Date().toISOString(),

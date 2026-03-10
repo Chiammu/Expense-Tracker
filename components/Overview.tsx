@@ -10,6 +10,7 @@ import {
   generateFinancialInsights as getSpendingInsights
 } from '../services/geminiService';
 import { formatCurrency } from '../utils/currencyFormatter';
+import { generateId } from '../utils/id';
 
 export const Overview: React.FC = () => {
   const state = useAppStore(); // Use global store
@@ -108,7 +109,7 @@ export const Overview: React.FC = () => {
               const amount = parseFloat((form.elements.namedItem('amount') as HTMLInputElement).value);
               if (desc && amount) {
                 state.setState({
-                  otherIncome: [...state.otherIncome, { id: Date.now(), desc, amount, updatedAt: Date.now() }]
+                  otherIncome: [...state.otherIncome, { id: generateId(), desc, amount, updatedAt: Date.now() }]
                 });
                 form.reset();
               }

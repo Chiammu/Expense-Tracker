@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { AppState, AppSettings, INITIAL_STATE } from '../types';
-import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent, exportData, deleteCloudData, triggerCloudSave } from '../services/storage';
+import { AppState, AppSettings } from '../types';
+import { shareBackup, exportToCSV, exportToPDF, exportMonthlyReportPDF, logAuditEvent, exportData, deleteCloudData, triggerCloudSave, normalizeAppState } from '../services/storage';
 import { requestNotificationPermission, sendLocalNotification } from '../services/alertService';
 import { authService } from '../services/auth';
 import { generateMonthlyDigest } from '../services/geminiService';
 import { webAuthnService } from '../services/webAuthn';
 import { ScannerModal } from './ScannerModal';
 import { QRCodeCanvas } from 'qrcode.react';
+import { generateId } from '../utils/id';
 
 interface SettingsProps {
   state: AppState;
@@ -103,19 +104,8 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
           throw new Error(`Invalid data structure. Found: [${foundKeys}]. Expected 'expenses' array.`);
         }
 
-        // Robust merge: Ensure all current schema fields exist even if backup is old
-        const newState: AppState = {
-          ...INITIAL_STATE,
-          ...parsed,
-          settings: {
-            ...INITIAL_STATE.settings,
-            ...(parsed.settings || {})
-          },
-          investments: {
-            ...INITIAL_STATE.investments,
-            ...(parsed.investments || {})
-          }
-        };
+        // Robust merge + ID migration: normalize legacy numeric IDs to string IDs.
+        const newState: AppState = normalizeAppState(parsed);
 
         if (confirm(`Found ${newState.expenses.length} expenses. Restore now?`)) {
           updateState(newState);
@@ -178,7 +168,7 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
   };
 
   const generateSyncId = () => {
-    const newId = crypto.randomUUID();
+    const newId = generateId();
     updateSettings({ syncId: newId });
     logAuditEvent('COUPLE_SYNC_ID_GENERATED');
     showToast("New Sync ID Generated");
@@ -429,10 +419,10 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
           <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-black/20 rounded-2xl border border-gray-100 dark:border-white/5">
             <div className="flex flex-col gap-0.5">
               <span className="text-sm font-bold text-gray-900 dark:text-white">App PIN</span>
-              <span className="text-[10px] text-gray-400 font-medium">{state.settings.pin ? 'Active' : 'Not configured'}</span>
+              <span className="text-[10px] text-gray-400 font-medium">{state.settings.pinHash ? 'Active' : 'Not configured'}</span>
             </div>
-            {state.settings.pin ? (
-              <button onClick={() => { haptic(5); updateSettings({ pin: null }); }} className="text-xs bg-red-50 text-red-500 px-4 py-2 rounded-xl font-bold border border-red-100 hover:bg-red-100 transition-colors">Remove</button>
+            {state.settings.pinHash ? (
+              <button onClick={() => { haptic(5); updateSettings({ pinHash: null }); }} className="text-xs bg-red-50 text-red-500 px-4 py-2 rounded-xl font-bold border border-red-100 hover:bg-red-100 transition-colors">Remove</button>
             ) : (
               <div className="flex items-center gap-2">
                 <input
@@ -443,7 +433,7 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
                   value={pinInput}
                   onChange={e => setPinInput(e.target.value)}
                 />
-                <button onClick={() => { if (pinInput.length === 4) { haptic(10); updateSettings({ pin: pinInput }); setPinInput(''); showToast("PIN Set"); } }} className="text-xs bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold shadow-md shadow-indigo-500/20">Set</button>
+                <button onClick={async () => { if (pinInput.length === 4) { const pinHash = await hashPIN(pinInput); haptic(10); updateSettings({ pinHash }); setPinInput(''); showToast("PIN Set"); } }} className="text-xs bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold shadow-md shadow-indigo-500/20">Set</button>
               </div>
             )}
           </div>
