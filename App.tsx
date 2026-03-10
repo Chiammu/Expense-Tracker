@@ -23,6 +23,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { loadFromStorage, saveToStorage, fetchCloudState, forceCloudSync, mergeAppState, logAuditEvent, setupRealtimeSubscription } from './services/storage';
 import { checkBudgetAlerts, sendLocalNotification, requestNotificationPermission, Alert } from './services/alertService';
 import { DebugView } from './components/DebugView';
+import { BankImport } from './components/BankImport';
 import { INITIAL_STATE } from './types';
 
 function App() {
@@ -351,6 +352,14 @@ function App() {
                     state={store}
                     updateState={store.setState}
                     showToast={showToast}
+                  />
+                } />
+                <Route path="/import" element={
+                  <BankImport
+                    state={store}
+                    addExpense={store.addExpense}
+                    showToast={showToast}
+                    onClose={() => navigate('/add-expense')}
                   />
                 } />
                 <Route path="/settings" element={

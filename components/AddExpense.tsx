@@ -269,6 +269,18 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
         </div>
       </div>
 
+      {/* Bank Import Button */}
+      <button
+        onClick={() => switchTab('import')}
+        className="w-full mb-6 flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-800/30 hover:shadow-md transition-all active:scale-[0.99] group"
+      >
+        <span className="text-lg">🏦</span>
+        <span className="text-sm font-bold text-blue-700 dark:text-blue-300 group-hover:text-blue-800 dark:group-hover:text-blue-200">
+          Import from Bank Statement
+        </span>
+        <span className="text-xs text-blue-400 dark:text-blue-500 ml-auto">CSV · PDF</span>
+      </button>
+
 
       {/* Manual Entry Form */}
       < div className="bg-surface dark:bg-[#1a1a1a] rounded-[32px] p-6 shadow-xl border border-gray-100 dark:border-white/5 animate-fade-in relative overflow-hidden group" >
