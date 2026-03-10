@@ -12,50 +12,63 @@ const STORAGE_KEY = 'coupleExpenseTrackerV4_React';
 // Debounce timer for cloud saves
 let saveTimeout: any = null;
 
-
-const migrateSettings = async (settings: LegacyAppSettings = {}): Promise<AppState['settings']> => {
-  const legacyPin = typeof settings.pin === 'string' ? settings.pin : null;
-  const pinHash = settings.pinHash || (legacyPin ? await hashPIN(legacyPin) : null);
-  const { pin: _legacyPin, ...rest } = settings as LegacyAppSettings & { pin?: string | null };
-
-  return {
-    ...INITIAL_STATE.settings,
-    ...rest,
-    pinHash,
-  };
+const normalizeId = (id: unknown): string => {
+  if (typeof id === 'string') return id;
+  if (typeof id === 'number') return id.toString();
+  return '';
 };
 
-const sanitizeStateForPersistence = (state: AppState): AppState => {
-  const settingsWithLegacyPin = state.settings as AppState['settings'] & { pin?: string | null };
-  const { pin: _legacyPin, ...safeSettings } = settingsWithLegacyPin;
-
-  return {
-    ...state,
-    settings: {
-      ...safeSettings,
-      pinHash: safeSettings.pinHash || null,
-    },
-  };
-};
-
-export const mergeImportedState = async (parsed: any): Promise<AppState> => {
-  const settings = await migrateSettings((parsed?.settings || {}) as LegacyAppSettings);
-
-  return {
+export const normalizeAppState = (state: Partial<AppState> | null | undefined): AppState => {
+  const parsed = state || {};
+  const normalized = {
     ...INITIAL_STATE,
     ...parsed,
-    settings,
-    savingsGoals: parsed?.savingsGoals || [],
-    categoryBudgets: parsed?.categoryBudgets || {},
-    chatMessages: parsed?.chatMessages || [],
+    settings: {
+      ...INITIAL_STATE.settings,
+      ...((parsed as any).settings || {}),
+    },
+    savingsGoals: ((parsed as any).savingsGoals || []).map((goal: any) => ({
+      ...goal,
+      id: normalizeId(goal.id),
+    })),
+    categoryBudgets: (parsed as any).categoryBudgets || {},
+    chatMessages: ((parsed as any).chatMessages || []).map((message: any) => ({
+      ...message,
+      expenseId: message.expenseId === undefined || message.expenseId === null ? undefined : normalizeId(message.expenseId),
+    })),
     investments: {
       ...INITIAL_INVESTMENTS,
-      ...(parsed?.investments || {})
+      ...((parsed as any).investments || {})
     },
-    loans: parsed?.loans || [],
+    loans: ((parsed as any).loans || []).map((loan: any) => ({
+      ...loan,
+      id: normalizeId(loan.id),
+    })),
+    expenses: ((parsed as any).expenses || []).map((expense: any) => ({
+      ...expense,
+      id: normalizeId(expense.id),
+      cardId: expense.cardId === undefined || expense.cardId === null ? undefined : normalizeId(expense.cardId),
+    })),
+    fixedPayments: ((parsed as any).fixedPayments || []).map((payment: any) => ({
+      ...payment,
+      id: normalizeId(payment.id),
+    })),
+    otherIncome: ((parsed as any).otherIncome || []).map((income: any) => ({
+      ...income,
+      id: normalizeId(income.id),
+    })),
+    creditCards: ((parsed as any).creditCards || []).map((card: any) => ({
+      ...card,
+      id: normalizeId(card.id),
+    })),
+    challenges: ((parsed as any).challenges || []).map((challenge: any) => ({
+      ...challenge,
+      id: normalizeId(challenge.id),
+    })),
   };
-};
 
+  return normalized;
+};
 
 /**
  * Logs a sensitive event to the Supabase history table.
@@ -167,14 +180,14 @@ export const loadFromStorage = (): AppState => {
   return INITIAL_STATE;
 };
 
-const mergeState = async (parsed: any): Promise<AppState> => mergeImportedState(parsed);
+const mergeState = (parsed: any): AppState => normalizeAppState(parsed);
 
 /**
  * Robust conflict resolution using Last-Write-Wins (LWW).
  */
 export const mergeAppState = (local: AppState, remote: AppState): AppState => {
-  const lwwMergeArray = <T extends { id: number | string; updatedAt?: number }>(localArr: T[], remoteArr: T[]): T[] => {
-    const map = new Map<number | string, T>();
+  const lwwMergeArray = <T extends { id: string; updatedAt?: number }>(localArr: T[], remoteArr: T[]): T[] => {
+    const map = new Map<string, T>();
     localArr.forEach(item => map.set(item.id, item));
     remoteArr.forEach(remoteItem => {
       const localItem = map.get(remoteItem.id);

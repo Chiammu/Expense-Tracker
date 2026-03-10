@@ -3,14 +3,14 @@ import { FixedPayment } from '../types';
 
 interface RecurringModalProps {
   payments: FixedPayment[];
-  onConfirm: (selectedIds: number[]) => void;
+  onConfirm: (selectedIds: string[]) => void;
   onCancel: () => void;
 }
 
 export const RecurringModal: React.FC<RecurringModalProps> = ({ payments, onConfirm, onCancel }) => {
-  const [selected, setSelected] = useState<number[]>(payments.map(p => p.id));
+  const [selected, setSelected] = useState<string[]>(payments.map(p => p.id));
 
-  const toggle = (id: number) => {
+  const toggle = (id: string) => {
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
