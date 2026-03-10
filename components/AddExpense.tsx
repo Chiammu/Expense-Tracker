@@ -195,15 +195,16 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
     const expenseData = {
       ...formData,
       amount: parseFloat(formData.amount),
-      cardId: formData.cardId ? parseInt(formData.cardId) : undefined,
-      id: expenseToEdit?.id || Date.now(),
+      cardId: formData.cardId || undefined,
+      id: expenseToEdit?.id,
       updatedAt: Date.now()
     };
 
     if (expenseToEdit && updateExpense) {
       updateExpense(expenseData as Expense);
     } else {
-      addExpense(expenseData as any);
+      const { id, ...newExpense } = expenseData;
+      addExpense(newExpense as Omit<Expense, 'id' | 'updatedAt'>);
     }
 
     haptic([50, 50]);

@@ -12,7 +12,7 @@ interface SplitBillModalProps {
 }
 
 export const SplitBillModal: React.FC<SplitBillModalProps> = ({ expenses, onClose, defaultTitle = "Shared Bill", preSelectedExpense }) => {
-    const [selectedExpenseIds, setSelectedExpenseIds] = useState<number[]>(preSelectedExpense ? [preSelectedExpense.id] : []);
+    const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>(preSelectedExpense ? [preSelectedExpense.id] : []);
     const [personCount, setPersonCount] = useState(2);
     const [title, setTitle] = useState(defaultTitle);
     const [generatedLink, setGeneratedLink] = useState<string | null>(null);
@@ -23,7 +23,7 @@ export const SplitBillModal: React.FC<SplitBillModalProps> = ({ expenses, onClos
     const totalAmount = selectedExpenses.reduce((sum, e) => sum + e.amount, 0);
     const perPerson = totalAmount / personCount;
 
-    const toggleExpense = (id: number) => {
+    const toggleExpense = (id: string) => {
         setSelectedExpenseIds(prev =>
             prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
         );

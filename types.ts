@@ -1,18 +1,18 @@
 
 export interface Expense {
-  id: number;
+  id: string;
   person: string;
   date: string;
   amount: number;
   category: string;
   paymentMode: string;
   note: string;
-  cardId?: number;
+  cardId?: string;
   updatedAt: number; // For Last-Write-Wins conflict resolution
 }
 
 export interface CreditCard {
-  id: number;
+  id: string;
   name: string;
   limit: number;
   billingDay: number;
@@ -21,7 +21,7 @@ export interface CreditCard {
 }
 
 export interface FixedPayment {
-  id: number;
+  id: string;
   name: string;
   amount: number;
   day: number;
@@ -29,14 +29,14 @@ export interface FixedPayment {
 }
 
 export interface OtherIncome {
-  id: number;
+  id: string;
   desc: string;
   amount: number;
   updatedAt: number;
 }
 
 export interface SavingsGoal {
-  id: number;
+  id: string;
   name: string;
   targetAmount: number;
   currentAmount: number;
@@ -49,7 +49,7 @@ export interface ChatMessage {
   text: string;
   timestamp: string;
   type: 'text' | 'expense_ref' | 'reaction';
-  expenseId?: number;
+  expenseId?: string;
   reaction?: string;
   replyTo?: string;
 }
@@ -78,7 +78,7 @@ export interface Investments {
 }
 
 export interface Loan {
-  id: number;
+  id: string;
   name: string;
   totalAmount: number;
   pendingAmount: number;
@@ -101,7 +101,7 @@ export interface AppSettings {
   person2Name: string;
   customCategories: string[];
   categoryIcons: Record<string, string>;
-  pin: string | null;
+  pinHash: string | null;
   syncId: string | null;
   lastFixedPaymentCheck: string | null;
   emailReportsEnabled: boolean;
@@ -112,6 +112,10 @@ export interface AppSettings {
   webAuthnCredentialId: string | null; // For biometric unlock
   lastReadChatTime: string | null;
   updatedAt: number;
+}
+
+export interface LegacyAppSettings extends Partial<AppSettings> {
+  pin?: string | null;
 }
 
 export interface AuditLog {
@@ -179,7 +183,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   person2Name: 'Person 2',
   customCategories: DEFAULT_CATEGORIES,
   categoryIcons: DEFAULT_ICONS,
-  pin: null,
+  pinHash: null,
   syncId: null,
   lastFixedPaymentCheck: new Date().toISOString(),
   emailReportsEnabled: false,
