@@ -18,6 +18,13 @@ const normalizeId = (id: unknown): string => {
   return '';
 };
 
+export const sanitizeStateForPersistence = (state: AppState): any => {
+  // Deep clone and ensure everything is serializable
+  // We can also strip out large chunks if needed, but for now we sync everything
+  const sanitized = JSON.parse(JSON.stringify(state));
+  return sanitized;
+};
+
 export const normalizeAppState = (state: Partial<AppState> | null | undefined): AppState => {
   const parsed = state || {};
   const normalized = {
@@ -65,6 +72,14 @@ export const normalizeAppState = (state: Partial<AppState> | null | undefined): 
       ...challenge,
       id: normalizeId(challenge.id),
     })),
+    cashWallet: {
+      balance: ((parsed as any).cashWallet?.balance) || 0,
+      transactions: ((parsed as any).cashWallet?.transactions || []).map((tx: any) => ({
+        ...tx,
+        id: normalizeId(tx.id),
+      })),
+      updatedAt: ((parsed as any).cashWallet?.updatedAt) || Date.now(),
+    },
   };
 
   return normalized;
@@ -240,6 +255,11 @@ export const mergeAppState = (local: AppState, remote: AppState): AppState => {
     investments: lwwMergeObject(local.investments, remote.investments),
     challenges: lwwMergeArray(local.challenges, remote.challenges),
     chatMessages: mergeChatMessages(local.chatMessages, remote.chatMessages),
+    cashWallet: {
+      balance: preferRemote(local.cashWallet.balance, remote.cashWallet.balance),
+      transactions: lwwMergeArray(local.cashWallet.transactions, remote.cashWallet.transactions),
+      updatedAt: preferRemote(local.cashWallet.updatedAt, remote.cashWallet.updatedAt),
+    },
   };
 };
 

@@ -1,5 +1,6 @@
-
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { overlayVariant, modalVariant } from '../utils/motion';
 import { Expense } from '../types';
 import { supabase } from '../services/supabaseClient';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -70,8 +71,8 @@ export const SplitBillModal: React.FC<SplitBillModalProps> = ({ expenses, onClos
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-            <div className="bg-surface dark:bg-gray-900 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100 dark:border-gray-800 flex flex-col">
+        <motion.div variants={overlayVariant} initial="initial" animate="animate" exit="exit" className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+            <motion.div variants={modalVariant} className="bg-surface dark:bg-gray-900 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100 dark:border-gray-800 flex flex-col">
 
                 {/* Header */}
                 <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center sticky top-0 bg-surface dark:bg-gray-900 z-10">
@@ -199,7 +200,7 @@ export const SplitBillModal: React.FC<SplitBillModalProps> = ({ expenses, onClos
                         </div>
                     )}
                 </div>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
     );
 };

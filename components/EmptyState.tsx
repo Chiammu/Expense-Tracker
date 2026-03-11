@@ -1,4 +1,6 @@
 import React from 'react';
+import { motion } from 'framer-motion';
+import { fadeUpVariant } from '../utils/motion';
 
 interface EmptyStateProps {
   icon?: string;
@@ -19,7 +21,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   onAction,
 }) => {
   return (
-    <div className="flex flex-col items-center justify-center py-20 px-6 text-center animate-fade-in text-balance">
+    <motion.div variants={fadeUpVariant} initial="initial" animate="animate" exit="exit" className="flex flex-col items-center justify-center py-20 px-6 text-center text-balance">
       <div className="w-24 h-24 bg-gradient-to-tr from-gray-50 to-gray-100 dark:from-white/[0.03] dark:to-white/[0.08] rounded-[32px] flex items-center justify-center mb-6 shadow-[0_8px_30px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] border border-white dark:border-white/[0.05]">
         <span className="text-5xl filter grayscale-[0.2]">{icon}</span>
       </div>
@@ -33,7 +35,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           <span>✨</span> {actionLabel}
         </button>
       )}
-    </div>
+    </motion.div>
   );
 };
 

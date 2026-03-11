@@ -1,8 +1,5 @@
+import { describe, it, expect } from 'vitest';
 import { parseBankCSV } from '../parseBankCSV';
-
-declare var describe: any;
-declare var it: any;
-declare var expect: any;
 
 describe('parseBankCSV', () => {
   it('should parse SBI format (Date, Narration, Debit, Credit, Balance)', () => {

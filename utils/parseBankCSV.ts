@@ -7,6 +7,14 @@ export interface ParsedTransaction {
   type: 'debit' | 'credit';
 }
 
+export interface CSVColumnMapping {
+  dateCol: number;
+  descCol: number;
+  debitCol?: number;
+  creditCol?: number;
+  amountCol?: number;
+}
+
 function normalizeDate(dateStr: string): string | null {
   if (!dateStr) return null;
   const str = dateStr.trim();
@@ -49,7 +57,14 @@ function normalizeDate(dateStr: string): string | null {
   return null;
 }
 
-export function parseBankCSV(csvString: string): ParsedTransaction[] {
+function cleanDescription(desc: string): string {
+  return desc
+    .replace(/\(Value Date:.*?\)/i, '') // Remove "(Value Date: 09-02-2026)" noise
+    .replace(/\s+/g, ' ')               // Collapse multiple spaces
+    .trim();
+}
+
+export function parseBankCSV(csvString: string, mapping?: CSVColumnMapping): ParsedTransaction[] {
   const parsed = Papa.parse(csvString, {
     header: false,
     skipEmptyLines: true,
@@ -66,32 +81,40 @@ export function parseBankCSV(csvString: string): ParsedTransaction[] {
   let amountCol = -1;
   let drCrCol = -1;
 
-  // Detect header row by finding 'date' and ('description' or 'narration' or 'particulars')
-  for (let i = 0; i < Math.min(rows.length, 30); i++) {
-    const row = rows[i].map(c => typeof c === 'string' ? c.toLowerCase().trim() : '');
-    
-    dateCol = row.findIndex(c => c.includes('date'));
-    descCol = row.findIndex(c => c.includes('description') || c.includes('narration') || c.includes('particulars'));
-    debitCol = row.findIndex(c => c === 'debit' || c === 'withdrawal' || c.includes('withdrawal amount'));
-    creditCol = row.findIndex(c => c === 'credit' || c === 'deposit' || c.includes('deposit amount'));
-    
-    amountCol = row.findIndex(c => c === 'amount' || c.includes('amount(inr)') || c.includes('amount (inr)'));
-    drCrCol = row.findIndex(c => c.includes('dr/cr') || c === 'cr/dr' || c === 'type' || c === 'dr');
+  if (mapping) {
+    // Manual override
+    dateCol = mapping.dateCol;
+    descCol = mapping.descCol;
+    debitCol = mapping.debitCol ?? -1;
+    creditCol = mapping.creditCol ?? -1;
+    amountCol = mapping.amountCol ?? -1;
+    headerRowIndex = 0; // Assume data starts immediately or skip logic will handle headers
+  } else {
+    // Detect header row by finding 'date' and ('description' or 'narration' or 'particulars')
+    for (let i = 0; i < Math.min(rows.length, 30); i++) {
+      const row = rows[i].map(c => typeof c === 'string' ? c.toLowerCase().trim() : '');
+      
+      dateCol = row.findIndex(c => c.includes('date'));
+      descCol = row.findIndex(c => c.includes('description') || c.includes('narration') || c.includes('particulars') || c.includes('remarks'));
+      debitCol = row.findIndex(c => c === 'debit' || c === 'withdrawal' || c.includes('withdrawal amount') || c === 'dr');
+      creditCol = row.findIndex(c => c === 'credit' || c === 'deposit' || c.includes('deposit amount') || c === 'cr');
+      
+      amountCol = row.findIndex(c => c === 'amount' || c.includes('amount(inr)') || c.includes('amount (inr)') || c.includes('transaction amount'));
+      drCrCol = row.findIndex(c => c.includes('dr/cr') || c === 'cr/dr' || c === 'type');
 
-    // Axis Bank specific override
-    if (drCrCol === -1) {
-       debitCol = Math.max(debitCol, row.findIndex(c => c === 'dr'));
-       creditCol = Math.max(creditCol, row.findIndex(c => c === 'cr'));
+      if (dateCol !== -1 && descCol !== -1) {
+        headerRowIndex = i;
+        break;
+      }
     }
 
-    if (dateCol !== -1 && descCol !== -1) {
-      headerRowIndex = i;
-      break;
+    if (headerRowIndex === -1 && rows.length > 0) {
+      throw new Error('NO_HEADERS_FOUND');
     }
   }
 
   // If we couldn't confidently find a header, try to blindly parse row by row if possible
-  const startIndex = headerRowIndex !== -1 ? headerRowIndex + 1 : 0;
+  const startIndex = headerRowIndex !== -1 && !mapping ? headerRowIndex + 1 : 0;
 
   for (let i = startIndex; i < rows.length; i++) {
     const row = rows[i];
@@ -148,7 +171,7 @@ export function parseBankCSV(csvString: string): ParsedTransaction[] {
     transactions.push({
       date: normalizedDate,
       amount: finalAmount,
-      description: desc.trim(),
+      description: cleanDescription(desc),
       type
     });
   }

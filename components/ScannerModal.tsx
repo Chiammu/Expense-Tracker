@@ -1,5 +1,6 @@
-
 import React, { useRef, useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { overlayVariant, modalVariant } from '../utils/motion';
 // @ts-ignore
 import jsQR from 'jsqr';
 
@@ -62,8 +63,8 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onScan, onClose }) =
   }, [onScan]);
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-sm relative aspect-square bg-gray-900 rounded-2xl overflow-hidden border-2 border-primary shadow-2xl">
+    <motion.div variants={overlayVariant} initial="initial" animate="animate" exit="exit" className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-4">
+      <motion.div variants={modalVariant} className="w-full max-w-sm relative aspect-square bg-gray-900 rounded-2xl overflow-hidden border-2 border-primary shadow-2xl">
         <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" playsInline />
         <canvas ref={canvasRef} className="hidden" />
         
@@ -71,7 +72,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onScan, onClose }) =
         <div className="absolute inset-0 border-2 border-white/20 flex items-center justify-center pointer-events-none">
            <div className="w-48 h-48 border-2 border-primary rounded-xl animate-pulse"></div>
         </div>
-      </div>
+      </motion.div>
       
       {error && <p className="text-red-500 text-sm mt-4 text-center">{error}</p>}
       
@@ -82,6 +83,6 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onScan, onClose }) =
       <button onClick={onClose} className="px-8 py-3 bg-white/10 hover:bg-white/20 text-white rounded-full font-bold transition-all">
         Cancel
       </button>
-    </div>
+    </motion.div>
   );
 };
