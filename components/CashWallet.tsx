@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { CashWallet, CashTransaction } from '../types';
 import { generateId } from '../utils/id';
+import { CustomDatePicker } from './CustomDatePicker';
+import { CustomSelect } from './CustomSelect';
 
 interface CashWalletProps {
   wallet: CashWallet;
@@ -23,6 +25,14 @@ export const CashWalletComponent: React.FC<CashWalletProps> = ({
   const [formNote, setFormNote] = useState('');
   const [formDate, setFormDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [formPerson, setFormPerson] = useState(person1Name);
+
+  const personOptions = useMemo(
+    () => ([
+      { label: person1Name, value: person1Name },
+      { label: person2Name, value: person2Name },
+    ]),
+    [person1Name, person2Name]
+  );
 
   const handleOpenForm = (type: 'topup' | 'expense' | 'withdraw') => {
     setActiveForm(type);
@@ -131,13 +141,10 @@ export const CashWalletComponent: React.FC<CashWalletProps> = ({
               />
             </div>
             <div>
-              <label className="block text-[10px] uppercase text-gray-500 mb-1">Date</label>
-              <input
-                type="date"
-                required
+              <CustomDatePicker
+                label="Date"
                 value={formDate}
-                onChange={e => setFormDate(e.target.value)}
-                className="w-full p-2 bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-gray-700 rounded-lg text-sm appearance-none"
+                onChange={setFormDate}
               />
             </div>
             <div className="col-span-2">
@@ -152,15 +159,12 @@ export const CashWalletComponent: React.FC<CashWalletProps> = ({
               />
             </div>
             <div className="col-span-2">
-              <label className="block text-[10px] uppercase text-gray-500 mb-1">Person</label>
-              <select
+              <CustomSelect
+                label="Person"
                 value={formPerson}
-                onChange={e => setFormPerson(e.target.value)}
-                className="w-full p-2 bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
-              >
-                <option value={person1Name}>{person1Name}</option>
-                <option value={person2Name}>{person2Name}</option>
-              </select>
+                onChange={setFormPerson}
+                options={personOptions}
+              />
             </div>
           </div>
           <button type="submit" className="w-full mt-2 py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl font-bold text-sm">

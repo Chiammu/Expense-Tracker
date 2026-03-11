@@ -1,8 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Expense, CreditCard, DEFAULT_CATEGORIES } from '../types';
 import { parseBankCSV, ParsedTransaction as CSVTransaction } from '../utils/parseBankCSV';
 import { parseBankPDF, ParsedTransaction as PDFTransaction } from '../utils/parseBankPDF';
 import { detectCategory, cleanMerchantName, smartCategorize } from '../utils/categoryDetect';
+import { CustomSelect } from './CustomSelect';
+import { CustomDatePicker } from './CustomDatePicker';
 
 export interface BankImportProps {
   existingExpenses: Expense[];
@@ -50,6 +52,18 @@ const BankImportUI: React.FC<BankImportProps> = ({
   const [showColumnMapper, setShowColumnMapper] = useState(false);
   const [rawCsvText, setRawCsvText] = useState('');
   const [csvColMap, setCsvColMap] = useState({ date: 0, desc: 1, amount: 2, credit: -1 });
+
+  const categoryOptions = useMemo(
+    () => DEFAULT_CATEGORIES.map(cat => ({ label: cat, value: cat })),
+    []
+  );
+  const personOptions = useMemo(
+    () => ([
+      { label: person1Name, value: person1Name },
+      { label: person2Name, value: person2Name }
+    ]),
+    [person1Name, person2Name]
+  );
 
   const filteredRows = previewRows.filter(row => {
     if (startDate && row.date < startDate) return false;
@@ -535,27 +549,17 @@ const BankImportUI: React.FC<BankImportProps> = ({
           {/* Action Bar (Filters & Bulk Actions) */}
           <div className="flex flex-wrap items-end gap-4 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">From Date</label>
-              <input 
-                id="startDateFilter"
-                type="date"
-                title="Start Date"
-                aria-label="Filter from this date" 
+              <CustomDatePicker
+                label="From Date"
                 value={startDate}
-                onChange={e => setStartDate(e.target.value)}
-                className="p-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-[#2a2a2a] text-sm text-gray-800 dark:text-gray-200"
+                onChange={setStartDate}
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">To Date</label>
-              <input 
-                id="endDateFilter"
-                type="date" 
-                title="End Date"
-                aria-label="Filter to this date"
+              <CustomDatePicker
+                label="To Date"
                 value={endDate}
-                onChange={e => setEndDate(e.target.value)}
-                className="p-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-[#2a2a2a] text-sm text-gray-800 dark:text-gray-200"
+                onChange={setEndDate}
               />
             </div>
             {(startDate || endDate) && (
@@ -571,23 +575,20 @@ const BankImportUI: React.FC<BankImportProps> = ({
             <div className="w-px h-8 bg-gray-300 dark:bg-gray-600 self-center mx-2 hidden sm:block"></div>
 
             <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
-              <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Bulk Edit Category</label>
-              <div className="flex gap-2">
-                <select 
-                  value={bulkCategory}
-                  onChange={e => setBulkCategory(e.target.value)}
-                  className="p-1.5 flex-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-[#2a2a2a] text-sm text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  title="Select category for selected rows"
-                >
-                  <option value="">-- Select Category --</option>
-                  {DEFAULT_CATEGORIES.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <CustomSelect
+                    label="Bulk Edit Category"
+                    value={bulkCategory}
+                    onChange={setBulkCategory}
+                    options={categoryOptions}
+                    placeholder="Select Category"
+                  />
+                </div>
                 <button
                   onClick={handleBulkCategoryApply}
                   disabled={!bulkCategory || filteredRows.filter(r => r.include).length === 0}
-                  className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium rounded text-sm transition-colors disabled:opacity-50"
+                  className="px-3 py-2.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium rounded text-sm transition-colors disabled:opacity-50"
                   title="Apply to checked rows"
                 >
                   Apply
@@ -636,13 +637,10 @@ const BankImportUI: React.FC<BankImportProps> = ({
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4"
                       />
                     </td>
-                    <td className="px-4 py-2">
-                      <input 
-                        type="date"
-                        title="Transaction date"
+                    <td className="px-4 py-2 min-w-[180px]">
+                      <CustomDatePicker
                         value={row.date}
-                        onChange={(e) => handleRowChange(row.id, 'date', e.target.value)}
-                        className="bg-transparent border border-gray-300 dark:border-gray-600 rounded px-2 py-1 focus:ring-blue-500 focus:border-blue-500 dark:text-gray-100"
+                        onChange={(val) => handleRowChange(row.id, 'date', val)}
                       />
                     </td>
                     <td className="px-4 py-2">
@@ -656,28 +654,19 @@ const BankImportUI: React.FC<BankImportProps> = ({
                     <td className="px-4 py-2 text-right font-bold text-gray-800 dark:text-gray-200">
                       ₹{row.amount.toLocaleString('en-IN')}
                     </td>
-                    <td className="px-4 py-2">
-                      <select 
-                        title="Select category"
+                    <td className="px-4 py-2 min-w-[180px]">
+                      <CustomSelect
                         value={row.category}
-                        onChange={(e) => handleRowChange(row.id, 'category', e.target.value)}
-                        className="bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 min-w-[120px] focus:ring-blue-500 focus:border-blue-500 dark:text-gray-100"
-                      >
-                        {DEFAULT_CATEGORIES.map(cat => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                      </select>
+                        onChange={(val) => handleRowChange(row.id, 'category', val)}
+                        options={categoryOptions}
+                      />
                     </td>
-                    <td className="px-4 py-2">
-                      <select 
-                        title="Select person"
+                    <td className="px-4 py-2 min-w-[180px]">
+                      <CustomSelect
                         value={row.person}
-                        onChange={(e) => handleRowChange(row.id, 'person', e.target.value)}
-                        className="bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 focus:ring-blue-500 focus:border-blue-500 dark:text-gray-100"
-                      >
-                        <option value={person1Name}>{person1Name}</option>
-                        <option value={person2Name}>{person2Name}</option>
-                      </select>
+                        onChange={(val) => handleRowChange(row.id, 'person', val)}
+                        options={personOptions}
+                      />
                     </td>
                   </tr>
                 ))}

@@ -4,6 +4,7 @@ import { AppState, Challenge, Section } from '../types';
 import { CHALLENGE_TEMPLATES } from '../utils/challenges';
 import { generateId } from '../utils/id';
 import { fadeVariant, fadeUpVariant, cardVariant, spring } from '../utils/motion';
+import { CustomSelect } from './CustomSelect';
 
 interface PlanProps {
     state: AppState;
@@ -26,6 +27,18 @@ export const Challenges: React.FC<PlanProps> = ({ state, updateState, showToast,
     const [customCategory, setCustomCategory] = useState(state.settings.customCategories[0]);
     const [customTarget, setCustomTarget] = useState('');
     const [customDuration, setCustomDuration] = useState('');
+
+    const challengeTypeOptions = useMemo(() => ([
+        { label: 'No Spend', value: 'no_spend' },
+        { label: 'Limit Category', value: 'limit_category' },
+        { label: 'Save Amount', value: 'save_amount' },
+        { label: 'Streak', value: 'streak' },
+    ]), []);
+
+    const categoryOptions = useMemo(
+        () => state.settings.customCategories.map(c => ({ label: c, value: c })),
+        [state.settings.customCategories]
+    );
     const [customReward, setCustomReward] = useState('🏆 Custom Achievement');
 
     // Goals calculations
@@ -400,25 +413,22 @@ export const Challenges: React.FC<PlanProps> = ({ state, updateState, showToast,
                                               />
 
                                               <div className="flex gap-2">
-                                                  <select
-                                                      className="flex-1 px-4 py-3 rounded-xl bg-gray-50 dark:bg-white/5 border border-transparent focus:border-indigo-500/30 outline-none text-sm appearance-none"
-                                                      value={customType}
-                                                      onChange={e => setCustomType(e.target.value as any)}
-                                                  >
-                                                      <option value="no_spend">No Spend</option>
-                                                      <option value="limit_category">Limit Category</option>
-                                                      <option value="save_amount">Save Amount</option>
-                                                      <option value="streak">Streak</option>
-                                                  </select>
+                                                  <div className="flex-1">
+                                                      <CustomSelect
+                                                          value={customType}
+                                                          onChange={(val) => setCustomType(val as any)}
+                                                          options={challengeTypeOptions}
+                                                      />
+                                                  </div>
 
                                                   {(customType === 'limit_category' || customType === 'no_spend') && (
-                                                      <select
-                                                          className="flex-1 px-4 py-3 rounded-xl bg-gray-50 dark:bg-white/5 border border-transparent focus:border-indigo-500/30 outline-none text-sm appearance-none"
-                                                          value={customCategory}
-                                                          onChange={e => setCustomCategory(e.target.value)}
-                                                      >
-                                                          {state.settings.customCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                                                      </select>
+                                                      <div className="flex-1">
+                                                          <CustomSelect
+                                                              value={customCategory}
+                                                              onChange={setCustomCategory}
+                                                              options={categoryOptions}
+                                                          />
+                                                      </div>
                                                   )}
                                               </div>
 

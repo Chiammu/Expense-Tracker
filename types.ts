@@ -104,7 +104,7 @@ export interface Loan {
 }
 
 export interface AppSettings {
-  theme: 'light' | 'dark';
+  theme: 'light' | 'dark' | 'system';
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
@@ -187,7 +187,7 @@ export const DEFAULT_ICONS: Record<string, string> = {
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  theme: 'light',
+    theme: 'dark',
   primaryColor: '#e91e63',
   secondaryColor: '#2196f3',
   accentColor: '#ff6f00',

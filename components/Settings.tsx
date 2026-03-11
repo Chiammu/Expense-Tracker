@@ -332,18 +332,41 @@ export const Settings: React.FC<SettingsProps> = ({ state, updateSettings, updat
       </AccordionItem>
 
       {/* APPEARANCE ACCORDION */}
-      <AccordionItem 
+        <AccordionItem 
         title="Appearance" 
         icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>}
         isOpen={openSection === 'Appearance'}
         onClick={() => setOpenSection(openSection === 'Appearance' ? null : 'Appearance')}
       >
-        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-black/20 rounded-2xl border border-gray-100 dark:border-white/5">
-           <div className="flex flex-col gap-1">
-             <span className="text-sm font-bold text-gray-900 dark:text-white">Theme Mode</span>
-             <span className="text-[10px] uppercase font-bold text-gray-400">Auto (System)</span>
-           </div>
-           <button disabled className="text-xs bg-gray-200 text-gray-500 dark:bg-gray-800 dark:text-gray-400 px-4 py-2 rounded-xl font-bold cursor-not-allowed">Coming Soon</button>
+        <div className="space-y-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+            Choose how the app looks. <span className="font-semibold">System</span> follows your device preference automatically.
+          </p>
+          <div className="flex gap-3">
+            {(['light', 'dark', 'system'] as const).map((t) => {
+              const labels: Record<string, string> = { light: 'Light', dark: 'Dark', system: 'System' };
+              const isActive = (state.settings.theme || 'dark') === t;
+              return (
+                <button
+                  key={t}
+                  onClick={() => {
+                    updateSettings({ theme: t });
+                    haptic(5);
+                    showToast(`Theme set to ${t}`, 'success');
+                  }}
+                  className="flex-1 py-3 px-2 rounded-2xl text-[11px] font-bold uppercase tracking-wider transition-all border"
+                  style={{
+                    background: isActive ? 'var(--text-primary)' : 'var(--control-bg)',
+                    color: isActive ? 'var(--bg-base)' : 'var(--text-secondary)',
+                    borderColor: isActive ? 'transparent' : 'var(--border-default)',
+                    boxShadow: isActive ? 'var(--shadow-subtle)' : 'none',
+                  }}
+                >
+                  {labels[t]}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </AccordionItem>
 
