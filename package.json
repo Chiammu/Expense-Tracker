@@ -18,9 +18,11 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.26",
-    "jspdf": "^2.5.1",
-    "jspdf-autotable": "^3.8.1",
+    "jspdf": "^4.2.0",
+    "jspdf-autotable": "^5.0.7",
     "jsqr": "^1.4.0",
+    "papaparse": "^5.5.3",
+    "pdfjs-dist": "^5.5.207",
     "qrcode": "^1.5.3",
     "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
@@ -31,10 +33,14 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/papaparse": "^5.5.2",
+    "@types/pdfjs-dist": "^2.10.377",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",
     "typescript": "^5.2.2",
-    "vite": "^5.0.8"
+    "vite": "^5.0.8",
+    "vitest": "^4.0.18"
   }
 }
