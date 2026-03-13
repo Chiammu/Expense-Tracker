@@ -1,0 +1,269 @@
+Account Statement
+10 Dec 2025 - 10 Mar 2026
+Account No.   0145255075
+Mohith Reddy N
+Account Type   Savings
+CRN xxxxxx491
+Branch   Chennai - Mogappair
+Branch Phone Number   9500996791
+1654,5th Cross 4th Main,Judic
+Ial Layout
+Account Status   Active
+Yelahanka
+Nominee Registered   No
+Bengaluru - 560064
+Karnataka - India
+Currency   INDIAN RUPEE
+MICR   600485026   IFSC Code   KKBK0008511
+Savings Account Transactions
+#   Date   Description   Chq/Ref. No.   Withdrawal (Dr.)   Deposit (Cr.)   Balance
+-   -   Opening Balance   -   -   -   46,049.34
+1   10 Dec 2025   PURCHASE OF MUTUALFUND(Value Date: 09- YETAYWVM8N75P17RF 1,000.00   45,049.34
+12-2025) 54P
+2   10 Dec 2025   PURCHASE OF MUTUALFUND(Value Date: 09- VFNY1QC41Q6QG9A10 1,000.00   44,049.34
+12-2025)   5FA
+3   10 Dec 2025   PURCHASE OF MUTUALFUND(Value Date: 09- W7YXS4T61FBAYDR2W 1,000.00   43,049.34
+12-2025) EAP
+4   10 Dec 2025   PURCHASE OF MUTUALFUND(Value Date: 09- 6S4HSMTXJM5S9H2HA 1,000.00   42,049.34
+12-2025) FVR
+5   11 Dec 2025   UPI/Transhelp UPI-534516598154   50.00   41,999.34
+Techn/487724759301/TranshelpTechno
+6   12 Dec 2025   UPI/Mr P Hari Babu/796218615004/Payment UPI-534686199072   500.00   41,499.34
+from Ph
+7   12 Dec 2025   UPI/SAMBATHKUMAR UPI-534686218207   300.00   41,799.34
+G/712324527537/Payment from Ph
+8   15 Dec 2025   UPI/SRINIVASA UPI-534935766846   30,000.00   11,799.34
+REDDY/108564916815/Payment from Ph
+9   15 Dec 2025   Sweep Trf From: 9198599274   15,000.00   26,799.34
+10   15 Dec 2025   FD PREMAT PROCEEDS: 9198599274   9198599274TO   19.00   26,818.34
+11   17 Dec 2025   PCD/7392/KOTAK MAHINDRA LIFE 535114808633   2,00,000.00   -1,73,181.66
+IN/MUMBAI171225/19:52
+12   17 Dec 2025   Sweep Trf From: 9195501953   1,35,000.00   -38,181.66
+13   17 Dec 2025   Sweep Trf From: 9193599978   55,000.00   16,818.34
+14   17 Dec 2025   Sweep Trf From: 9198599274   10,000.00   26,818.34
+15   17 Dec 2025   FD PREMAT PROCEEDS: 9193599978   9193599978TO   704.00   27,522.34
+16   17 Dec 2025   FD PREMAT PROCEEDS: 9195501953   9195501953TO   971.00   28,493.34
+17   17 Dec 2025   FD PREMAT PROCEEDS: 9198599274   9198599274TO   14.00   28,507.34
+18   19 Dec 2025   UPI/DACHURU UPI-535375604169   10,000.00   38,507.34
+MALLIK/756745635107/Payment from Ph
+19   24 Dec 2025   UPI/CRED Club/572422995372/payment on UPI-535824596605   10,098.00   28,409.34
+CRED
+20   26 Dec 2025   UPI/DACHURU UPI-536010799280   10,000.00   38,409.34
+MALLIK/057439184848/Payment from Ph
+21   30 Dec 2025   PCD/7392/FPL Technologies Priva/te 536307767198   110.00   38,299.34
+124301225/12:52
+22   31 Dec 2025   NEFT CITIN25679418518 QUEST GLOBAL ENG NEFTINW-1444154933   43,250.00   81,549.34
+SERVICES P
+Statement Generated on 10 Mar 2026, 10:38   Page 1 of 6
+MOHITH REDDY N
+Account No.   0145255075
+Account Statement   10 Dec 2025 - 10 Mar 2026
+Savings Account Transactions
+#   Date   Description   Chq/Ref. No.   Withdrawal (Dr.)   Deposit (Cr.)   Balance
+23   31 Dec 2025   SWEEP TRANSFER TO [9111526740]   30,000.00   51,549.34
+24   31 Dec 2025   Int.Pd:0145255075:01-10-2025 to 31-12-2025   240.00   51,789.34
+25   02 Jan 2026   UPI/McDonalds UPI-600279323491   62.36   51,726.98
+Hardc/900705409705/Payment for XD9
+26   04 Jan 2026   UPI/N SUSHMA/588033322524/Payment from UPI-600448473301   15,000.00   66,726.98
+Ph
+27   04 Jan 2026   SWEEP TRANSFER TO [9111823642]   15,000.00   51,726.98
+28   05 Jan 2026   PURCHASE OF MUTUALFUND(Value Date: 04- ZXVNY2K5CPKPVW4TN 1,000.00   50,726.98
+01-2026)   YED
+29   09 Jan 2026   8511MIS251104897 CRE001 QUEST GLOBAL TIP-fee26ccf-df65-4a   1,30,379.78   1,81,106.76
+JAPAN CORPOR
+30   09 Jan 2026   8511MIS251104897 CRE001 FCC-GOODS AND TIP-fee26ccf-df65-4a   207.34   1,80,899.42
+SERVICES TA
+31   09 Jan 2026   SWEEP TRANSFER TO [9111159239]   1,30,000.00   50,899.42
+32   11 Jan 2026   UPI/JUPITER UPI COL/210509500116/Sent via UPI-601141533249   6,988.00   43,911.42
+Jupite
+33   12 Jan 2026   PURCHASE OF MUTUALFUND(Value Date: 11- FHK6XHMXJ69KMS949 1,000.00   42,911.42
+01-2026) V4R
+34   12 Jan 2026   PURCHASE OF MUTUALFUND   YCZNXPAYG83N5T2RD 1,000.00   41,911.42
+V7A
+35   12 Jan 2026   PURCHASE OF MUTUALFUND   YXZARM67G8GK67BVC 1,000.00   40,911.42
+RFP
+36   12 Jan 2026   PURCHASE OF MUTUALFUND   54BAMXCZE632XTPVP 1,000.00   39,911.42
+D6G
+37   18 Jan 2026   UPI/SRINIVASA UPI-601839967300   30,000.00   9,911.42
+REDDY/505120225385/Payment from Ph
+38   18 Jan 2026   Sweep Trf From: 9111159239   20,000.00   29,911.42
+39   18 Jan 2026   FD PREMAT PROCEEDS: 9111159239   9111159239TO   14.00   29,925.42
+40   20 Jan 2026   UPI/MANJUNATH BALA/638681625578/UPI   UPI-602001303003   105.00   29,820.42
+41   21 Jan 2026   UPI/PAGADALA MAHESH/602152712030/UPI   UPI-602173472099   340.00   29,480.42
+42   21 Jan 2026   UPI/MANJUNATH UPI-602173752641   120.00   29,600.42
+BALA/653261299180/Payment from Ph
+43   23 Jan 2026   UPI/CRED Club/638913890889/payment on UPI-602325651710   21,809.00   7,791.42
+CRED
+44   23 Jan 2026   UPI/UDAY HUTS FAMIL/602328972995/Pay To UPI-602345131350   1,550.00   6,241.42
+UDAY HUT
+45   23 Jan 2026   Sweep Trf From: 9111159239   20,000.00   26,241.42
+46   23 Jan 2026   FD PREMAT PROCEEDS: 9111159239   9111159239TO   21.00   26,262.42
+47   27 Jan 2026   RTGS RATNR52026012700864443 WISE RTGSINW-0100163956   5,61,259.59   5,87,522.01
+PAYMENTS LIMIT
+48   27 Jan 2026   UPI/REDBUS IN/639322172233/UPI   UPI-602792224848   60.00   5,87,462.01
+49   27 Jan 2026   SWEEP TRANSFER TO [9112198545]   5,35,000.00   52,462.01
+50   28 Jan 2026   UPI/Mr SHANKAR/083593798004/Payment UPI-602853137209   365.00   52,097.01
+from Ph
+51   29 Jan 2026   UPI/M RAVI/639542726805/UPI   UPI-602923137188   120.00   51,977.01
+52   29 Jan 2026   NEFT HSBCN02914048703 AMAZON SELLER NEFTINW-1474665264   1.00   51,978.01
+SERVICES PRIV
+53   30 Jan 2026   NEFT CITIN26614545657 QUEST GLOBAL ENG NEFTINW-1475308151   61,566.00   1,13,544.01
+SERVICES P
+54   30 Jan 2026   UPI/CASHFREE UPI-603081162418   60,000.01   1,73,544.02
+PAYMEN/603023596091/CT2125652140
+55   30 Jan 2026   NACH-ECS-CR-BOM INT DIV 2025-26-520586   NACHDB300126002215 100.00   1,73,644.02
+60
+56   30 Jan 2026   SWEEP TRANSFER TO [9112436074]   1,20,000.00   53,644.02
+57   02 Feb 2026   UPI/Gujjula Lakshm/603335085993/UPI   UPI-603337364980   1,000.00   52,644.02
+58   02 Feb 2026   UPI/Raparla Siva Pr/639932207304/UPI   UPI-603358883102   3,000.00   49,644.02
+59   03 Feb 2026   FD MATURITY PROCEEDS :9192496386/03-02- TO   15,444.00   65,088.02
+26/MOHITH R
+Statement Generated on 10 Mar 2026, 10:38   Page 2 of 6
+MOHITH REDDY N
+Account No.   0145255075
+Account Statement   10 Dec 2025 - 10 Mar 2026
+Savings Account Transactions
+#   Date   Description   Chq/Ref. No.   Withdrawal (Dr.)   Deposit (Cr.)   Balance
+60   03 Feb 2026   UPI/NISARGA ENTERPR/603435800253/UPI   UPI-603442635350   80.00   65,008.02
+61   03 Feb 2026   SWEEP TRANSFER TO [9112716344]   15,000.00   50,008.02
+62   04 Feb 2026   UPI/CRED Club/640100868248/payment on UPI-603576533701   812.46   49,195.56
+CRED
+63   05 Feb 2026   PURCHASE OF MUTUALFUND(Value Date: 04- SBJEM22MSTTJ0XZE2 1,000.00   48,195.56
+02-2026) K7X
+64   09 Feb 2026   UPI/JUPITER UPI COL/211199120406/Sent via UPI-604095492971   3,281.00   44,914.56
+Jupite
+65   10 Feb 2026   PURCHASE OF MUTUALFUND(Value Date: 09- 09CMJKR7GKR0CEDTB 1,000.00   43,914.56
+02-2026)   5TF
+66   10 Feb 2026   PURCHASE OF MUTUALFUND(Value Date: 09- 73EJ61Y72HCYVDTHZ8 1,000.00   42,914.56
+02-2026)   SZ
+67   10 Feb 2026   PURCHASE OF MUTUALFUND(Value Date: 09- ABHAM2QF3PPTXHCYZ 1,000.00   41,914.56
+02-2026)   8H2
+68   10 Feb 2026   PURCHASE OF MUTUALFUND(Value Date: 09- K8MRB42WGG72WA7K 1,000.00   40,914.56
+02-2026)   4GE7
+69   12 Feb 2026   UPI/HASIRU THOTA/604350844736/UPI   UPI-604389086835   73.00   40,841.56
+70   12 Feb 2026   UPI/MAMATHA B V/604325965437/UPI   UPI-604389262543   28.00   40,813.56
+71   16 Feb 2026   UPI/SRINIVASA UPI-604794701938   30,000.00   10,813.56
+REDDY/099955707336/Payment from Ph
+72   16 Feb 2026   Sweep Trf From: 9112716344   15,000.00   25,813.56
+73   16 Feb 2026   FD PREMAT PROCEEDS: 9112716344   9112716344TO   15.00   25,828.56
+74   18 Feb 2026   NEFT CITIN26623048125 QUEST GLOBAL ENG NEFTINW-1496634030   8,899.00   34,727.56
+SERVICES P
+75   21 Feb 2026   UPI/Harish B S/641816385586/UPI   UPI-605234920355   275.00   34,452.56
+76   25 Feb 2026   FD MATURITY PROCEEDS :9193599978/25-02- TO   97,694.00   1,32,146.56
+26/MOHITH R
+77   25 Feb 2026   NACH-ECS-CR-IRCON INTERNATIONAL-379153   NACHDB250226000554 6.00   1,32,152.56
+70
+78   25 Feb 2026   UPI/CRED Club/642211350427/payment on UPI-605650547431   10,127.92   1,22,024.64
+CRED
+79   25 Feb 2026   SWEEP TRANSFER TO [9114065161]   70,000.00   52,024.64
+80   26 Feb 2026   UPI/AJIMEERA LINGE/642338903328/UPI   UPI-605796572662   700.00   51,324.64
+81   28 Feb 2026   UPI/e.arun421985-2@/605928788302/UPI   UPI-605945686904   1,418.00   49,906.64
+82   28 Feb 2026   UPI/GOLD STANDARD T/642581848418/UPI   UPI-605995882170   351.00   49,555.64
+83   01 Mar 2026   UPI/SUSHMA N/153880782114/Payment from UPI-606063540548   15,000.00   64,555.64
+Ph
+84   01 Mar 2026   UPI/NIHARIKA REDDY /606061132703/feb UPI-606063554998   15,000.00   79,555.64
+cheeti
+85   01 Mar 2026   SWEEP TRANSFER TO [9114346851]   25,000.00   54,555.64
+86   02 Mar 2026   NACH-10-CR-IRB INFRASTRUCTURE- NACHDB020326013202 8.40   54,564.04
+0000000000001528098 38
+87   05 Mar 2026   PURCHASE OF MUTUALFUND(Value Date: 04- V82FPFA3T7D71MNHJ 1,000.00   53,564.04
+03-2026)   K3S
+88   09 Mar 2026   UPI/JUPITER UPI COL/840347370686/Sent via UPI-606868353033   16,609.32   36,954.72
+Jupite
+89   10 Mar 2026   PURCHASE OF MUTUALFUND(Value Date: 09- C6FG3KHJPC9WWWKF 1,000.00   35,954.72
+03-2026)   H55S
+90   10 Mar 2026   PURCHASE OF MUTUALFUND(Value Date: 09- FDWF4AZR6MG3HE6F8 1,000.00   34,954.72
+03-2026) RYF
+91   10 Mar 2026   PURCHASE OF MUTUALFUND(Value Date: 09- Q9P2R45SATXFE7G9EX 1,000.00   33,954.72
+03-2026)   JY
+92   10 Mar 2026   PURCHASE OF MUTUALFUND(Value Date: 09- WPPXH4QTE8B4VP7C0 1,000.00   32,954.72
+03-2026)   CRK
+Statement Generated on 10 Mar 2026, 10:38   Page 3 of 6
+MOHITH REDDY N
+Account No.   0145255075
+Account Statement   10 Dec 2025 - 10 Mar 2026
+Account Summary
+Particulars   Opening Balance   Closing Balance
+Savings Account (SA):   46,049.34   32,954.72
+ActivMoney (AM):   3,25,000.00   8,85,000.00
+Total Balance (SA + AM):   3,71,049.34   9,17,954.72
+End of Statement
+Any discrepancy in the statement should be brought to the notice of Kotak Mahindra Bank Ltd. within
+one month from the date of receipt of the statement.
+This is a system generated report and does not require signature and stamp.
+For assistance, reach out to us at:
+Contact Us Branch Address
+1860 266 2666 Kotak Mahindra Bank Ltd, 8-10 Mig Barathi Salai, Mogappair West,Mogappair, Chennai-
+(local call charges apply) 600037, Tamilnadu, India, 9500996791
+Remember!
+Scan for
+more safe
+Never share personal/sensitive information like PIN, CVV, OTP
+banking tips
+or passwords with anyone.
+Kotak Mahindra Bank Ltd. | CIN: L65110MH1985PLC038137
+Registered Office: 27 BKC, C 27, G Block, Bandra Kurla Complex, Bandra (E), Mumbai - 400 051. www.kotak.bank.in
+Statement Generated on 10 Mar 2026, 10:38   Page 4 of 6
+MOHITH REDDY N
+Account No.   0145255075
+Account Statement   10 Dec 2025 - 10 Mar 2026
+Important Information
+RBI mandates Positive Pay for high-value cheques from Jan 1, 2021. Customers must submit cheque details via Net/Mobile Banking or at the branch on
+the day of issuance or before handing it to the beneficiary. For more details, visit www.kotak.bank.in.
+From October 4, 2025, same-day cheque clearing will be implemented across all banks. Cheques will be credited or debited within a few hours of
+issuance.
+Complimentary insurance cover on Kotak Debit Cards (linked to Saving and Current accounts) will be discontinued w.e.f. July 20, 2025. All claims will be
+accepted until July 20, 2025, as per the existing process. Salary account holders may view their insurance covers under Debit Card Services in the Cards
+& FASTag section on the web portal. For any queries related to Debit Card insurance, write to dc.insurance@kotak.com or visit
+https://www.kotak.bank.in/en/personal-banking /cards/debit-cards/debit-card-services/insurnace-on-debit-card.html
+In order to avail TDS exemption (if eligible) on existing/new Fixed Deposits for the Financial Year 2023–24, fresh Form 15G (15H for senior citizens) must
+be submitted by furnishing the details of all Fixed Deposits held, at the earliest. Form 15G/15H can now be submitted conveniently through Net Banking
+as well. From FY 2019–20, the TDS exemption threshold is increased to Rs. 50,000 (Rs. 1,00,000 for senior citizens); hence, filing of 15G/15H is not
+required up to Rs. 50,000 (Rs. 1,00,000 for senior citizens) of the aggregate interest earned on bank deposits in a financial year. Please ignore this
+message if already submitted.
+RBI guidelines on unauthorised foreign exchange transactions dated April 24, 2024, state that unauthorised entities offering foreign exchange (forex)
+trading facilities to Indian residents with promises of disproportionate/exorbitant returns are providing options to remit/deposit funds in Rupees for
+undertaking unauthorised forex transactions using various digital channels. Refer to the 'Alert List' containing names of such entities (this list is
+indicative and not exhaustive). Vigilance and caution are advised. Liaison must be with 'Authorised Persons' and on 'Authorised ETPs' for
+processing/routing any forex transaction
+As per the RBI Master Direction for Credit and Debit Card Issuance (RBI/2022-23/92 DoR.AUT.REC. No.27/24.01.041/2022-23), issuance of debit cards on
+Overdraft accounts is not permissible.
+RBI, vide its circular DOR.CRE.REC.23/21.08.008/2022-23 dated April 19, 2022, has issued guidelines pertaining to the opening and maintenance of
+Current Account(s) of customers who have availed various credit facilities from the banking system. The term "banking system" refers to Scheduled
+Commercial Banks and Payments Banks. Banks (whether lending banks or otherwise) are required to monitor all Current Account, Overdraft, and Cash
+Credit accounts on a regular basis, at least on a half-yearly frequency. This monitoring must specifically consider the aggregate exposure of the banking
+system to the borrower vis-à-vis the individual bank's share in that exposure, in order to ensure compliance with the said instructions. Detailed
+guidelines are available in the aforementioned circular.
+Corporate Salary Account holders can view complete details of the General Schedule of Features and Charges (GSFC) related to balance maintenance,
+debit card usage, transactions, and more by visiting: https://www.kotak.bank.in/en/personal-banking/accounts/savings-account/saving-accounts-fees-
+and-charges.html
+The Crème Programme will be discontinued effective 1st December, 2025 and its associated benefits including the Lifetime Zero Charge Promise and
+early access to the Privy Programme will be withdrawn.
+Starting December 2025, you will receive 30 free SMS alerts per month for transaction updates. To avoid charges beyond this limit, please maintain a
+combined balance of ₹10,000 across your Savings and Term Deposits, or ensure regular salary credits in your salary account. If these conditions are not
+met, a nominal fee of ₹0.15 per SMS will apply for transaction alerts such as UPI, NEFT, ATM withdrawals, Debit Card usage, and similar activities.
+Messages related to KYC and promotional offers will continue to be free of charge. For more details, please visit
+https://www.kotak.bank.in/en/gsfc.html.
+Deposits of up to ₹5,00,000 per depositor are fully insured by the Deposit Insurance and Credit Guarantee Corporation, under the Deposit Insurance
+Scheme.
+Goods and Services Tax (GST), at the applicable rate of 18%, is levied on relevant service charges.
+Please note: This statement/ advice should not be construed as a Tax Invoice under the Goods and Services Tax Act.
+Commonly Used Narrations
+AP - Autopay for Billpay   Netcard - Netc@rd transaction
+ATL - ATM withdrawal done from other bank ATM machine   OS - Online Shopping transaction
+ATW - ATM withdrawal done from Kotak ATM machine   OT - Online Trading transaction via Payment Gateway
+BP - Bill Pay transaction   PB - Transaction done through Phone Banking (IVR)
+CDM - Kotak Cash Deposit Machine   PCI/PCD - POS transaction
+CMS - Cash Management Service   RTGS - Real Time Gross Settlement
+IB - Transaction done on Kotak Net Banking   UPI - Unified Payment Interface
+IMPS - Immediate Payment Service   VISACCPAY - Visa Credit Card Payment
+IMT - Instant Money Transfer   VMT - VISA Money Transfer
+Statement Generated on 10 Mar 2026, 10:38   Page 5 of 6
+MOHITH REDDY N
+Account No.   0145255075
+Account Statement   10 Dec 2025 - 10 Mar 2026
+KB - Billpay transaction via Keya Chatbot   WB - Billpay transaction via WhatsApp Banking
+MB - Transaction done on Mobile banking   Int. Pd. - Interest credited on your savings account balance
+NACH - National Automated Clearing House   Sweep transfer to - Booking new Term Deposit
+NEFT - National Electronic Funds Transfer   Sweep transfer from - Broken existing Term Deposit
+Statement Generated on 10 Mar 2026, 10:38   Page 6 of 6

@@ -1,6 +1,7 @@
 
-import { AppState, INITIAL_STATE, INITIAL_INVESTMENTS, Expense } from '../types';
+import { AppState, INITIAL_STATE, INITIAL_INVESTMENTS, Expense, LegacyAppSettings } from '../types';
 import { supabase } from './supabaseClient';
+import { hashPIN } from '../utils/security';
 // @ts-ignore
 import jsPDF from 'jspdf';
 // @ts-ignore
@@ -10,6 +11,79 @@ const STORAGE_KEY = 'coupleExpenseTrackerV4_React';
 
 // Debounce timer for cloud saves
 let saveTimeout: any = null;
+
+const normalizeId = (id: unknown): string => {
+  if (typeof id === 'string') return id;
+  if (typeof id === 'number') return id.toString();
+  return '';
+};
+
+export const sanitizeStateForPersistence = (state: AppState): any => {
+  // Deep clone and ensure everything is serializable
+  // We can also strip out large chunks if needed, but for now we sync everything
+  const sanitized = JSON.parse(JSON.stringify(state));
+  return sanitized;
+};
+
+export const normalizeAppState = (state: Partial<AppState> | null | undefined): AppState => {
+  const parsed = state || {};
+  const normalized = {
+    ...INITIAL_STATE,
+    ...parsed,
+    settings: {
+      ...INITIAL_STATE.settings,
+      ...((parsed as any).settings || {}),
+    },
+    savingsGoals: ((parsed as any).savingsGoals || []).map((goal: any) => ({
+      ...goal,
+      id: normalizeId(goal.id),
+    })),
+    categoryBudgets: (parsed as any).categoryBudgets || {},
+    chatMessages: ((parsed as any).chatMessages || []).map((message: any) => ({
+      ...message,
+      expenseId: message.expenseId === undefined || message.expenseId === null ? undefined : normalizeId(message.expenseId),
+    })),
+    investments: {
+      ...INITIAL_INVESTMENTS,
+      ...((parsed as any).investments || {})
+    },
+    loans: ((parsed as any).loans || []).map((loan: any) => ({
+      ...loan,
+      id: normalizeId(loan.id),
+    })),
+    expenses: ((parsed as any).expenses || []).map((expense: any) => ({
+      ...expense,
+      id: normalizeId(expense.id),
+      cardId: expense.cardId === undefined || expense.cardId === null ? undefined : normalizeId(expense.cardId),
+    })),
+    fixedPayments: ((parsed as any).fixedPayments || []).map((payment: any) => ({
+      ...payment,
+      id: normalizeId(payment.id),
+    })),
+    otherIncome: ((parsed as any).otherIncome || []).map((income: any) => ({
+      ...income,
+      id: normalizeId(income.id),
+    })),
+    creditCards: ((parsed as any).creditCards || []).map((card: any) => ({
+      ...card,
+      id: normalizeId(card.id),
+    })),
+    challenges: ((parsed as any).challenges || []).map((challenge: any) => ({
+      ...challenge,
+      id: normalizeId(challenge.id),
+    })),
+    cashWallet: {
+      balance: ((parsed as any).cashWallet?.balance) || 0,
+      transactions: ((parsed as any).cashWallet?.transactions || []).map((tx: any) => ({
+        ...tx,
+        id: normalizeId(tx.id),
+      })),
+      updatedAt: ((parsed as any).cashWallet?.updatedAt) || Date.now(),
+    },
+  };
+
+  return normalized;
+};
 
 /**
  * Logs a sensitive event to the Supabase history table.
@@ -51,7 +125,7 @@ export const triggerCloudSave = async (state: AppState) => {
       const { error } = await supabase
         .from('app_state')
         .update({
-          data: state,
+          data: sanitizeStateForPersistence(state),
           updated_at: new Date().toISOString()
         })
         .eq('id', existingRows[0].id);
@@ -63,7 +137,7 @@ export const triggerCloudSave = async (state: AppState) => {
         .from('app_state')
         .insert({
           user_id: session.user.id,
-          data: state,
+          data: sanitizeStateForPersistence(state),
           updated_at: new Date().toISOString()
         });
 
@@ -103,10 +177,10 @@ export const setupRealtimeSubscription = (userId: string, onUpdate: (newState: A
         table: 'app_state',
         filter: `user_id=eq.${userId}`
       },
-      (payload) => {
+      async (payload) => {
         console.log("Realtime update received:", payload);
         if (payload.new && payload.new.data) {
-          const remoteState = mergeState(payload.new.data);
+          const remoteState = await mergeState(payload.new.data);
           onUpdate(remoteState);
         }
       }
@@ -121,30 +195,13 @@ export const loadFromStorage = (): AppState => {
   return INITIAL_STATE;
 };
 
-const mergeState = (parsed: any): AppState => {
-  return {
-    ...INITIAL_STATE,
-    ...parsed,
-    settings: {
-      ...INITIAL_STATE.settings,
-      ...(parsed.settings || {}),
-    },
-    savingsGoals: parsed.savingsGoals || [],
-    categoryBudgets: parsed.categoryBudgets || {},
-    chatMessages: parsed.chatMessages || [],
-    investments: {
-      ...INITIAL_INVESTMENTS,
-      ...(parsed.investments || {})
-    },
-    loans: parsed.loans || [],
-  };
-};
+const mergeState = (parsed: any): AppState => normalizeAppState(parsed);
 
 /**
  * Robust conflict resolution using Last-Write-Wins (LWW).
  */
 export const mergeAppState = (local: AppState, remote: AppState): AppState => {
-  const lwwMergeArray = <T extends { id: number | string; updatedAt?: number }>(localArr: T[], remoteArr: T[]): T[] => {
+  const lwwMergeArray = <T extends { id: number | string; updatedAt: number }>(localArr: T[], remoteArr: T[]): T[] => {
     const map = new Map<number | string, T>();
     localArr.forEach(item => map.set(item.id, item));
     remoteArr.forEach(remoteItem => {
@@ -156,15 +213,38 @@ export const mergeAppState = (local: AppState, remote: AppState): AppState => {
     return Array.from(map.values());
   };
 
-  const lwwMergeObject = <T extends { updatedAt?: number }>(localObj: T, remoteObj: T): T => {
+  const lwwMergeObject = <T extends { updatedAt: number }>(localObj: T, remoteObj: T): T => {
     if ((remoteObj.updatedAt || 0) > (localObj.updatedAt || 0)) {
       return remoteObj;
     }
     return localObj;
   };
 
+  const preferRemote = <T>(localValue: T, remoteValue: T): T => {
+    return typeof remoteValue === 'undefined' ? localValue : remoteValue;
+  };
+
+  const mergeChatMessages = (localMessages: AppState['chatMessages'], remoteMessages: AppState['chatMessages']) => {
+    const map = new Map<string, AppState['chatMessages'][number]>();
+    localMessages.forEach(message => map.set(message.id, message));
+    remoteMessages.forEach(remoteMessage => {
+      const localMessage = map.get(remoteMessage.id);
+      if (!localMessage || new Date(remoteMessage.timestamp).getTime() >= new Date(localMessage.timestamp).getTime()) {
+        map.set(remoteMessage.id, remoteMessage);
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  };
+
   return {
     ...remote,
+    // Primitive values without per-field timestamps use remote-wins to keep all clients convergent.
+    monthlyBudget: preferRemote(local.monthlyBudget, remote.monthlyBudget),
+    incomePerson1: preferRemote(local.incomePerson1, remote.incomePerson1),
+    incomePerson2: preferRemote(local.incomePerson2, remote.incomePerson2),
+    // categoryBudgets is a top-level object without updatedAt metadata, so we use remote-wins as explicit policy.
+    categoryBudgets: preferRemote(local.categoryBudgets, remote.categoryBudgets),
     settings: lwwMergeObject(local.settings, remote.settings),
     expenses: lwwMergeArray(local.expenses, remote.expenses),
     fixedPayments: lwwMergeArray(local.fixedPayments, remote.fixedPayments),
@@ -173,7 +253,18 @@ export const mergeAppState = (local: AppState, remote: AppState): AppState => {
     loans: lwwMergeArray(local.loans, remote.loans),
     creditCards: lwwMergeArray(local.creditCards, remote.creditCards),
     investments: lwwMergeObject(local.investments, remote.investments),
+    challenges: lwwMergeArray(local.challenges, remote.challenges),
+    chatMessages: mergeChatMessages(local.chatMessages, remote.chatMessages),
+    cashWallet: {
+      balance: preferRemote(local.cashWallet.balance, remote.cashWallet.balance),
+      transactions: lwwMergeArray(local.cashWallet.transactions, remote.cashWallet.transactions),
+      updatedAt: preferRemote(local.cashWallet.updatedAt, remote.cashWallet.updatedAt),
+    },
   };
+};
+
+export const hasStateChanged = (previous: AppState, next: AppState): boolean => {
+  return JSON.stringify(previous) !== JSON.stringify(next);
 };
 
 export const fetchCloudState = async (userId: string): Promise<AppState | null> => {
@@ -185,7 +276,7 @@ export const fetchCloudState = async (userId: string): Promise<AppState | null> 
     .single();
 
   if (error || !data) return null;
-  return mergeState(data.data);
+  return await mergeState(data.data);
 };
 
 export const deleteCloudData = async (): Promise<boolean> => {
@@ -265,7 +356,7 @@ export const uploadFile = async (file: File, userId: string): Promise<string | n
 
 export const exportData = (state: AppState) => {
   try {
-    const data = JSON.stringify(state, null, 2);
+    const data = JSON.stringify(sanitizeStateForPersistence(state), null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -284,7 +375,7 @@ export const exportData = (state: AppState) => {
 };
 
 export const shareBackup = async (state: AppState): Promise<boolean> => {
-  const data = JSON.stringify(state, null, 2);
+  const data = JSON.stringify(sanitizeStateForPersistence(state), null, 2);
   const fileName = `couple-expense-backup-${new Date().toISOString().split('T')[0]}.json`;
   const file = new File([data], fileName, { type: 'application/json' });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {

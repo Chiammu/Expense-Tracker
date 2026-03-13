@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 
-import { AppState, INITIAL_STATE, Expense, Section, FixedPayment } from '../types';
+import { AppState, INITIAL_STATE, Expense, Section, FixedPayment, CashTransaction } from '../types';
 import { loadFromStorage, saveToStorage, forceCloudSync } from '../services/storage';
+import { generateId } from '../utils/id';
 
 interface AppStore extends AppState {
     isGuest: boolean;
@@ -13,7 +14,10 @@ interface AppStore extends AppState {
     setState: (state: Partial<AppState>) => void;
     addExpense: (expense: Omit<Expense, 'id' | 'updatedAt'>) => void;
     updateExpense: (expense: Expense) => void;
-    deleteExpense: (id: number) => void;
+    deleteExpense: (id: string) => void;
+    addCashTransaction: (tx: Omit<CashTransaction, 'id' | 'updatedAt'>) => void;
+    deleteCashTransaction: (id: string) => void;
+    setCashBalance: (amount: number) => void;
     reset: () => void;
 }
 
@@ -46,6 +50,7 @@ export const useAppStore = create<AppStore>()(
             const now = Date.now();
             const newExpense = { ...expense, id: now, updatedAt: now };
             let updatedCards = state.creditCards;
+            let updatedCashWallet = state.cashWallet;
 
             if (newExpense.paymentMode === 'Card' && newExpense.cardId) {
                 updatedCards = applyCardDelta(state.creditCards, newExpense.cardId, newExpense.amount, now);
