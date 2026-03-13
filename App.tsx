@@ -21,11 +21,11 @@ import { Auth } from './components/Auth';
 import { supabase } from './services/supabaseClient';
 import { SkeletonLoader } from './components/SkeletonLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { loadFromStorage, saveToStorage, fetchCloudState, forceCloudSync, mergeAppState, logAuditEvent, setupRealtimeSubscription } from './services/storage';
-import { checkBudgetAlerts, sendLocalNotification, requestNotificationPermission, Alert } from './services/alertService';
-import { DebugView } from './components/DebugView';
-import { BankImport } from './components/BankImport';
-import { INITIAL_STATE } from './types';
+import { loadFromStorage, saveToStorage, fetchCloudState, setupRealtimeSubscription } from './services/storage';
+import { checkBudgetAlerts, sendLocalNotification, Alert } from './services/alertService';
+import { INITIAL_STATE, Section } from './types';
+
+const SECTION_PATHS: ReadonlySet<string> = new Set<Section>(['add-expense', 'summaries', 'investments', 'overview', 'settings', 'chat', 'challenges', 'import', 'split']);
 
 function App() {
   const navigate = useNavigate();
@@ -68,13 +68,19 @@ function App() {
     setToast({ message, type });
   };
 
+  const isSection = (value: string): value is Section => SECTION_PATHS.has(value);
+
   // Sync active section with URL
   useEffect(() => {
     const path = location.pathname.substring(1) || 'add-expense';
-    if (store.activeSection !== path) {
-      store.setSection(path as any);
+    if (!isSection(path)) {
+      return;
     }
-  }, [location.pathname]);
+
+    if (store.activeSection !== path) {
+      store.setSection(path);
+    }
+  }, [location.pathname, store.activeSection]);
 
   // Auth & Init Logic
   useEffect(() => {
@@ -166,12 +172,6 @@ function App() {
     if (!session?.user?.id) return;
 
     const channel = setupRealtimeSubscription(session.user.id, (remoteState) => {
-      // Merge incoming remote state with current to avoid overwriting pending local edits if any
-      // But typically we trust remote. Let's merge using current store state.
-      const current = (store as any).getState ? (store as any).getState() : store;
-      // Since 'store' is the hook result, getting current state inside useEffect might be stale if we don't depend on it.
-      // Actually, we can just setState(remoteState). If we want LWW, we use mergeAppState.
-
       console.log("Applying Realtime Update...");
       store.setState(remoteState);
       showToast("Sync Received ☁️", "info");

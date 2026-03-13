@@ -1,9 +1,6 @@
 import { create } from 'zustand';
 
-import { AppState, INITIAL_STATE, Expense, Section, FixedPayment, CashTransaction } from '../types';
-import { loadFromStorage, saveToStorage, forceCloudSync } from '../services/storage';
-import { generateId } from '../utils/id';
-
+import { AppState, INITIAL_STATE, Expense, Section } from '../types';
 interface AppStore extends AppState {
     isGuest: boolean;
     activeSection: Section;
@@ -30,13 +27,13 @@ const applyCardDelta = (cards: AppState['creditCards'], cardId: number, delta: n
 };
 
 export const useAppStore = create<AppStore>()(
-    (set, get) => ({
+    (set) => ({
         ...INITIAL_STATE,
         isGuest: false,
-        activeSection: 'add-expense' as Section,
+        activeSection: 'add-expense',
         expenseToEdit: null,
 
-        setSection: (section) => set({ activeSection: section as any }),
+        setSection: (section) => set({ activeSection: section }),
         setGuest: (isGuest) => set({ isGuest }),
 
         setExpenseToEdit: (expense) => set((state) => {
@@ -84,8 +81,8 @@ export const useAppStore = create<AppStore>()(
                 expenses: state.expenses.map(e => e.id === updatedExpense.id ? { ...updatedExpense, updatedAt: now } : e),
                 creditCards: updatedCards,
                 expenseToEdit: null, // Clear edit mode
-                activeSection: 'summaries' as Section, // Redirect to summaries after edit
-                updatedAt: now
+                activeSection: 'summaries', // Redirect to summaries after edit
+                updatedAt: Date.now()
             };
             return nextState;
         }),
