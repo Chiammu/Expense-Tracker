@@ -1,22 +1,24 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { overlayVariant, modalVariant } from '../utils/motion';
 import { FixedPayment } from '../types';
 
 interface RecurringModalProps {
   payments: FixedPayment[];
-  onConfirm: (selectedIds: number[]) => void;
+  onConfirm: (selectedIds: string[]) => void;
   onCancel: () => void;
 }
 
 export const RecurringModal: React.FC<RecurringModalProps> = ({ payments, onConfirm, onCancel }) => {
-  const [selected, setSelected] = useState<number[]>(payments.map(p => p.id));
+  const [selected, setSelected] = useState<string[]>(payments.map(p => p.id));
 
-  const toggle = (id: number) => {
+  const toggle = (id: string) => {
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-      <div className="bg-surface w-full max-w-sm rounded-2xl p-6 shadow-2xl border border-gray-100 dark:border-gray-800 animate-scale-in">
+    <motion.div variants={overlayVariant} initial="initial" animate="animate" exit="exit" className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <motion.div variants={modalVariant} className="bg-surface w-full max-w-sm rounded-2xl p-6 shadow-2xl border border-gray-100 dark:border-gray-800">
         <div className="flex flex-col items-center text-center mb-6">
            <div className="text-4xl mb-3">📅</div>
            <h3 className="text-xl font-bold text-text mb-1">Upcoming Bills</h3>
@@ -55,7 +57,7 @@ export const RecurringModal: React.FC<RecurringModalProps> = ({ payments, onConf
              Add {selected.length}
            </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };

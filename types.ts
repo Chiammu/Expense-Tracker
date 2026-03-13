@@ -1,18 +1,34 @@
 
+export interface CashTransaction {
+  id: string;
+  type: 'topup' | 'withdraw' | 'expense';
+  amount: number;
+  note: string;
+  date: string; // ISO YYYY-MM-DD
+  person: string;
+  updatedAt: number;
+}
+
+export interface CashWallet {
+  balance: number;
+  transactions: CashTransaction[];
+  updatedAt: number;
+}
+
 export interface Expense {
-  id: number;
+  id: string;
   person: string;
   date: string;
   amount: number;
   category: string;
   paymentMode: string;
   note: string;
-  cardId?: number;
+  cardId?: string;
   updatedAt: number; // For Last-Write-Wins conflict resolution
 }
 
 export interface CreditCard {
-  id: number;
+  id: string;
   name: string;
   limit: number;
   billingDay: number;
@@ -21,7 +37,7 @@ export interface CreditCard {
 }
 
 export interface FixedPayment {
-  id: number;
+  id: string;
   name: string;
   amount: number;
   day: number;
@@ -29,14 +45,14 @@ export interface FixedPayment {
 }
 
 export interface OtherIncome {
-  id: number;
+  id: string;
   desc: string;
   amount: number;
   updatedAt: number;
 }
 
 export interface SavingsGoal {
-  id: number;
+  id: string;
   name: string;
   targetAmount: number;
   currentAmount: number;
@@ -49,7 +65,7 @@ export interface ChatMessage {
   text: string;
   timestamp: string;
   type: 'text' | 'expense_ref' | 'reaction';
-  expenseId?: number;
+  expenseId?: string;
   reaction?: string;
   replyTo?: string;
 }
@@ -78,7 +94,7 @@ export interface Investments {
 }
 
 export interface Loan {
-  id: number;
+  id: string;
   name: string;
   totalAmount: number;
   pendingAmount: number;
@@ -88,7 +104,7 @@ export interface Loan {
 }
 
 export interface AppSettings {
-  theme: 'light' | 'dark';
+  theme: 'light' | 'dark' | 'system';
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
@@ -101,7 +117,7 @@ export interface AppSettings {
   person2Name: string;
   customCategories: string[];
   categoryIcons: Record<string, string>;
-  pin: string | null;
+  pinHash: string | null;
   syncId: string | null;
   lastFixedPaymentCheck: string | null;
   emailReportsEnabled: boolean;
@@ -112,6 +128,10 @@ export interface AppSettings {
   webAuthnCredentialId: string | null; // For biometric unlock
   lastReadChatTime: string | null;
   updatedAt: number;
+}
+
+export interface LegacyAppSettings extends Partial<AppSettings> {
+  pin?: string | null;
 }
 
 export interface AuditLog {
@@ -150,23 +170,24 @@ export interface AppState {
   loans: Loan[];
   creditCards: CreditCard[];
   challenges: Challenge[];
+  cashWallet: CashWallet;
 }
 
-export type Section = 'add-expense' | 'summaries' | 'investments' | 'overview' | 'settings' | 'chat' | 'challenges' | 'import' | 'split';
+export type Section = 'add-expense' | 'summaries' | 'investments' | 'overview' | 'settings' | 'chat' | 'challenges' | 'import' | 'split' | 'cash-wallet';
 
 export const DEFAULT_CATEGORIES = [
-  "Groceries", "Rent", "Bills", "EMIs", "Shopping", "Travel", "Food",
-  "Entertainment", "Medical", "Education", "Investments", "Others"
+  "Groceries", "Rent", "Bills", "EMIs", "Shopping", "Travel", "Food", "Dining",
+  "Entertainment", "Medical", "Education", "Investments", "Taxes", "Cash Transfer", "Others"
 ];
 
 export const DEFAULT_ICONS: Record<string, string> = {
   "Groceries": "🥦", "Rent": "🏠", "Bills": "⚡", "EMIs": "🏦",
-  "Shopping": "🛍️", "Travel": "🚕", "Food": "🍔", "Entertainment": "🎬",
-  "Medical": "💊", "Education": "📚", "Investments": "📈", "Others": "📦"
+  "Shopping": "🛍️", "Travel": "🚕", "Food": "🍔", "Dining": "🍽️", "Entertainment": "🎬",
+  "Medical": "💊", "Education": "📚", "Investments": "📈", "Taxes": "🏛️", "Cash Transfer": "💵", "Others": "📦"
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  theme: 'light',
+    theme: 'dark',
   primaryColor: '#e91e63',
   secondaryColor: '#2196f3',
   accentColor: '#ff6f00',
@@ -179,7 +200,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   person2Name: 'Person 2',
   customCategories: DEFAULT_CATEGORIES,
   categoryIcons: DEFAULT_ICONS,
-  pin: null,
+  pinHash: null,
   syncId: null,
   lastFixedPaymentCheck: new Date().toISOString(),
   emailReportsEnabled: false,
@@ -218,4 +239,5 @@ export const INITIAL_STATE: AppState = {
   loans: [],
   creditCards: [],
   challenges: [],
+  cashWallet: { balance: 0, transactions: [], updatedAt: Date.now() },
 };

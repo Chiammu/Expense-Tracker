@@ -1,8 +1,6 @@
 import { create } from 'zustand';
 
-import { AppState, INITIAL_STATE, Expense, Section, FixedPayment } from '../types';
-import { loadFromStorage, saveToStorage, forceCloudSync } from '../services/storage';
-
+import { AppState, INITIAL_STATE, Expense, Section } from '../types';
 interface AppStore extends AppState {
     isGuest: boolean;
     activeSection: Section;
@@ -13,7 +11,10 @@ interface AppStore extends AppState {
     setState: (state: Partial<AppState>) => void;
     addExpense: (expense: Omit<Expense, 'id' | 'updatedAt'>) => void;
     updateExpense: (expense: Expense) => void;
-    deleteExpense: (id: number) => void;
+    deleteExpense: (id: string) => void;
+    addCashTransaction: (tx: Omit<CashTransaction, 'id' | 'updatedAt'>) => void;
+    deleteCashTransaction: (id: string) => void;
+    setCashBalance: (amount: number) => void;
     reset: () => void;
 }
 
@@ -26,13 +27,13 @@ const applyCardDelta = (cards: AppState['creditCards'], cardId: number, delta: n
 };
 
 export const useAppStore = create<AppStore>()(
-    (set, get) => ({
+    (set) => ({
         ...INITIAL_STATE,
         isGuest: false,
-        activeSection: 'add-expense' as Section,
+        activeSection: 'add-expense',
         expenseToEdit: null,
 
-        setSection: (section) => set({ activeSection: section as any }),
+        setSection: (section) => set({ activeSection: section }),
         setGuest: (isGuest) => set({ isGuest }),
 
         setExpenseToEdit: (expense) => set((state) => {
@@ -46,6 +47,7 @@ export const useAppStore = create<AppStore>()(
             const now = Date.now();
             const newExpense = { ...expense, id: now, updatedAt: now };
             let updatedCards = state.creditCards;
+            let updatedCashWallet = state.cashWallet;
 
             if (newExpense.paymentMode === 'Card' && newExpense.cardId) {
                 updatedCards = applyCardDelta(state.creditCards, newExpense.cardId, newExpense.amount, now);
@@ -102,6 +104,11 @@ export const useAppStore = create<AppStore>()(
             };
         }),
 
-        reset: () => set({ ...INITIAL_STATE, isGuest: false })
+        reset: () => set({
+            ...INITIAL_STATE,
+            isGuest: false,
+            activeSection: 'add-expense',
+            expenseToEdit: null
+        })
     })
 );
