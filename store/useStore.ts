@@ -81,8 +81,8 @@ export const useAppStore = create<AppStore>()(
                 expenses: state.expenses.map(e => e.id === updatedExpense.id ? { ...updatedExpense, updatedAt: now } : e),
                 creditCards: updatedCards,
                 expenseToEdit: null, // Clear edit mode
-                activeSection: 'summaries', // Redirect to summaries after edit
-                updatedAt: Date.now()
+                activeSection: 'summaries' as Section, // Redirect to summaries after edit
+                updatedAt: now
             };
             return nextState;
         }),
