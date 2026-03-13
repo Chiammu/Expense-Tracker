@@ -1,12 +1,13 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import { pageVariant } from './utils/motion';
 import { Challenges } from './components/Challenges';
 import { Confetti } from './components/Confetti';
 import { evaluateChallenges } from './utils/challenges';
 import { SplitBillView } from './components/SplitBillView';
 import { useAppStore } from './store/useStore';
-import { Header } from './components/Header';
+
 import { BottomNav } from './components/BottomNav';
 import { AddExpense } from './components/AddExpense';
 import { Summaries } from './components/Summaries';
@@ -20,10 +21,11 @@ import { Auth } from './components/Auth';
 import { supabase } from './services/supabaseClient';
 import { SkeletonLoader } from './components/SkeletonLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { loadFromStorage, saveToStorage, fetchCloudState, forceCloudSync, mergeAppState, logAuditEvent, setupRealtimeSubscription } from './services/storage';
-import { checkBudgetAlerts, sendLocalNotification, requestNotificationPermission, Alert } from './services/alertService';
-import { DebugView } from './components/DebugView';
-import { INITIAL_STATE } from './types';
+import { loadFromStorage, saveToStorage, fetchCloudState, setupRealtimeSubscription } from './services/storage';
+import { checkBudgetAlerts, sendLocalNotification, Alert } from './services/alertService';
+import { INITIAL_STATE, Section } from './types';
+
+const SECTION_PATHS: ReadonlySet<string> = new Set<Section>(['add-expense', 'summaries', 'investments', 'overview', 'settings', 'chat', 'challenges', 'import', 'split']);
 
 function App() {
   const navigate = useNavigate();
@@ -82,13 +84,19 @@ function App() {
     setToast({ message, type });
   };
 
+  const isSection = (value: string): value is Section => SECTION_PATHS.has(value);
+
   // Sync active section with URL
   useEffect(() => {
     const path = location.pathname.substring(1) || 'add-expense';
-    if (store.activeSection !== path) {
-      store.setSection(path as any);
+    if (!isSection(path)) {
+      return;
     }
-  }, [location.pathname]);
+
+    if (store.activeSection !== path) {
+      store.setSection(path);
+    }
+  }, [location.pathname, store.activeSection]);
 
   // Auth & Init Logic
   useEffect(() => {
@@ -158,7 +166,7 @@ function App() {
       store.setState(currentState);
       setLoaded(true);
 
-      if (currentState.settings.pin || currentState.settings.webAuthnCredentialId) {
+      if (currentState.settings.pinHash || currentState.settings.webAuthnCredentialId) {
         setIsLocked(true);
       }
 
@@ -180,12 +188,6 @@ function App() {
     if (!session?.user?.id) return;
 
     const channel = setupRealtimeSubscription(session.user.id, (remoteState) => {
-      // Merge incoming remote state with current to avoid overwriting pending local edits if any
-      // But typically we trust remote. Let's merge using current store state.
-      const current = (store as any).getState ? (store as any).getState() : store;
-      // Since 'store' is the hook result, getting current state inside useEffect might be stale if we don't depend on it.
-      // Actually, we can just setState(remoteState). If we want LWW, we use mergeAppState.
-
       console.log("Applying Realtime Update...");
       store.setState(remoteState);
       showToast("Sync Received ☁️", "info");
@@ -267,12 +269,13 @@ function App() {
 
       {isLocked && (
         <LockScreen
-          pin={store.settings.pin}
+          pinHash={store.settings.pinHash}
           webAuthnId={store.settings.webAuthnCredentialId}
           onUnlock={() => setIsLocked(false)}
         />
       )}
 
+      <AnimatePresence>
       {showRecurringModal && (
         <RecurringModal
           payments={duePayments}
@@ -286,6 +289,7 @@ function App() {
           }}
         />
       )}
+      </AnimatePresence>
 
       {toast && (
         <Toast
@@ -297,7 +301,7 @@ function App() {
 
       <div className={`relative w-full overflow-x-hidden min-h-screen bg-background text-text ${store.settings.privacyMode ? 'privacy-active' : ''}`}>
         <div className="max-w-3xl mx-auto px-2 pt-4">
-          <Header settings={store.settings} onTogglePrivacy={handleTogglePrivacy} />
+
 
           {/* Smart Alerts Banner */}
           <div className="space-y-2 mb-4">
@@ -330,62 +334,85 @@ function App() {
 
           <main className="relative pb-24">
             <ErrorBoundary fallbackTitle="Section Error">
-              <Routes>
-                <Route path="/" element={<Navigate to="/add-expense" replace />} />
-                <Route path="/add-expense" element={
-                  <AddExpense
-                    state={store}
-                    addExpense={store.addExpense}
-                    updateExpense={(updatedExpense: any) => store.updateExpense(updatedExpense)}
-                    expenseToEdit={store.expenseToEdit}
-                    cancelEdit={() => store.setExpenseToEdit(null)}
-                    switchTab={(tab) => navigate(`/${tab}`)}
-                    showToast={showToast}
-                  />
-                } />
-                <Route path="/summaries" element={
-                  <Summaries
-                    state={store}
-                    deleteExpense={store.deleteExpense}
-                    editExpense={(exp) => {
-                      store.setExpenseToEdit(exp);
-                      navigate('/add-expense');
-                    }}
-                  />
-                } />
-                <Route path="/investments" element={
-                  <Investments
-                    state={store}
-                    updateState={store.setState}
-                    showToast={showToast}
-                  />
-                } />
-                <Route path="/overview" element={
-                  <Overview />
-                } />
-                <Route path="/challenges" element={
-                  <Challenges
-                    state={store}
-                    updateState={store.setState}
-                    showToast={showToast}
-                  />
-                } />
-                <Route path="/settings" element={
-                  <Settings
-                    state={store}
-                    updateSettings={(s) => store.setState({ settings: { ...store.settings, ...s } })}
-                    updateState={store.setState}
-                    resetData={store.reset}
-                    deleteAccount={store.reset}
-                    showToast={showToast}
-                    installApp={() => { }}
-                    canInstall={false}
-                    isIos={false}
-                    isStandalone={false}
-                    userEmail={session?.user?.email}
-                  />
-                } />
-              </Routes>
+              <AnimatePresence mode="wait">
+                <Routes location={location} key={location.pathname}>
+                  <Route path="/" element={<Navigate to="/add-expense" replace />} />
+                  <Route path="/add-expense" element={
+                    <motion.div variants={pageVariant} initial="initial" animate="animate" exit="exit">
+                      <AddExpense
+                        state={store}
+                        addExpense={store.addExpense}
+                        updateExpense={(updatedExpense: any) => store.updateExpense(updatedExpense)}
+                        expenseToEdit={store.expenseToEdit}
+                        cancelEdit={() => store.setExpenseToEdit(null)}
+                        switchTab={(tab) => navigate(`/${tab}`)}
+                        showToast={showToast}
+                        {...{ 
+                          cashWallet: store.cashWallet, 
+                          onAddCashTransaction: (tx: any) => store.addCashTransaction(tx),
+                          person1Name: store.settings.person1Name,
+                          person2Name: store.settings.person2Name
+                        } as any}
+                      />
+                    </motion.div>
+                  } />
+                  <Route path="/summaries" element={
+                    <motion.div variants={pageVariant} initial="initial" animate="animate" exit="exit">
+                      <Summaries
+                        state={store}
+                        deleteExpense={store.deleteExpense}
+                        editExpense={(exp) => {
+                          store.setExpenseToEdit(exp);
+                          navigate('/add-expense');
+                        }}
+                        cardFilter={cardFilter}
+                        setCardFilter={setCardFilter}
+                      />
+                    </motion.div>
+                  } />
+                  <Route path="/investments" element={
+                    <motion.div variants={pageVariant} initial="initial" animate="animate" exit="exit">
+                      <Investments
+                        state={store}
+                        updateState={store.setState}
+                        showToast={showToast}
+                        {...{
+                          cashWallet: store.cashWallet,
+                          fixedPayments: store.fixedPayments,
+                          onDeleteCashTransaction: (id: string) => store.deleteCashTransaction(id),
+                          onFilterByCard: (cardId: string) => {
+                            setCardFilter(cardId);
+                            navigate('/summaries');
+                          }
+                        } as any}
+                      />
+                    </motion.div>
+                  } />
+                  <Route path="/overview" element={
+                    <motion.div variants={pageVariant} initial="initial" animate="animate" exit="exit">
+                      <Overview />
+                    </motion.div>
+                  } />
+                  <Route path="/settings" element={
+                    <motion.div variants={pageVariant} initial="initial" animate="animate" exit="exit">
+                      <Settings
+                        state={store}
+                        updateSettings={(s) => store.setState({ settings: { ...store.settings, ...s } })}
+                        updateState={store.setState}
+                        resetData={store.reset}
+                        deleteAccount={store.reset}
+                        showToast={showToast}
+                        installApp={() => { }}
+                        canInstall={false}
+                        isIos={false}
+                        isStandalone={false}
+                        userEmail={session?.user?.email}
+                        addExpense={store.addExpense}
+                      />
+                    </motion.div>
+                  } />
+                </Routes>
+              </AnimatePresence>
             </ErrorBoundary>
           </main>
 

@@ -1,0 +1,132 @@
+[
+  {
+    "str": "KB - Billpay transaction via Keya Chatbot",
+    "y": 751,
+    "x": 39
+  },
+  {
+    "str": " ",
+    "y": 751,
+    "x": 169
+  },
+  {
+    "str": "WB - Billpay transaction via WhatsApp Banking",
+    "y": 751,
+    "x": 301
+  },
+  {
+    "str": "MB - Transaction done on Mobile banking",
+    "y": 738,
+    "x": 39
+  },
+  {
+    "str": " ",
+    "y": 738,
+    "x": 172
+  },
+  {
+    "str": "Int. Pd. - Interest credited on your savings account balance",
+    "y": 738,
+    "x": 301
+  },
+  {
+    "str": "NACH - National Automated Clearing House",
+    "y": 724,
+    "x": 39
+  },
+  {
+    "str": " ",
+    "y": 724,
+    "x": 178
+  },
+  {
+    "str": "Sweep transfer to - Booking new Term Deposit",
+    "y": 724,
+    "x": 301
+  },
+  {
+    "str": "NEFT - National Electronic Funds Transfer",
+    "y": 710,
+    "x": 39
+  },
+  {
+    "str": " ",
+    "y": 710,
+    "x": 172
+  },
+  {
+    "str": "Sweep transfer from - Broken existing Term Deposit",
+    "y": 710,
+    "x": 301
+  },
+  {
+    "str": "",
+    "y": 821,
+    "x": 36
+  },
+  {
+    "str": "MOHITH REDDY N",
+    "y": 821,
+    "x": 36
+  },
+  {
+    "str": "Account No.",
+    "y": 809,
+    "x": 36
+  },
+  {
+    "str": " ",
+    "y": 809,
+    "x": 82
+  },
+  {
+    "str": "0145255075",
+    "y": 809,
+    "x": 84
+  },
+  {
+    "str": "",
+    "y": 797,
+    "x": 36
+  },
+  {
+    "str": "Account Statement",
+    "y": 797,
+    "x": 36
+  },
+  {
+    "str": " ",
+    "y": 797,
+    "x": 108
+  },
+  {
+    "str": "10 Dec 2025 - 10 Mar 2026",
+    "y": 797,
+    "x": 111
+  },
+  {
+    "str": "",
+    "y": 16,
+    "x": 36
+  },
+  {
+    "str": "Statement Generated on 10 Mar 2026, 10:38",
+    "y": 16,
+    "x": 36
+  },
+  {
+    "str": " ",
+    "y": 16,
+    "x": 210
+  },
+  {
+    "str": "Page 6 of",
+    "y": 16,
+    "x": 519
+  },
+  {
+    "str": "6",
+    "y": 16,
+    "x": 559
+  }
+]
