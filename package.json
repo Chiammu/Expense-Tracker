@@ -12,9 +12,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/genai": "^1.45.0",
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.39.0",
     "@types/qrcode.react": "^1.0.5",
+    "@vercel/speed-insights": "^2.0.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.26",
