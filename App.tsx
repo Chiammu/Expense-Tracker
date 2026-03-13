@@ -43,6 +43,7 @@ function App() {
   const [alerts, setAlerts] = React.useState<Alert[]>([]);
   const [dismissedAlerts, setDismissedAlerts] = React.useState<string[]>([]);
   const [celebrationReward, setCelebrationReward] = React.useState<string | null>(null);
+  const [cardFilter, setCardFilter] = React.useState<string | null>(null);
   const notifiedAlertIdsRef = React.useRef<Set<string>>(new Set());
 
   // Check Alerts
@@ -160,6 +161,7 @@ function App() {
           console.error("Cloud fetch failed:", e);
           // If offline, we might fall back to localData, but only if we didn't just mistakenly load another user's data.
           // Since we cleared it on mismatch above, this is safe-ish.
+          currentState = { ...INITIAL_STATE, settings: { ...INITIAL_STATE.settings, reportEmail: session.user.email || '' } };
         }
       }
 
