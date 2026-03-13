@@ -43,7 +43,7 @@ function App() {
   const [alerts, setAlerts] = React.useState<Alert[]>([]);
   const [dismissedAlerts, setDismissedAlerts] = React.useState<string[]>([]);
   const [celebrationReward, setCelebrationReward] = React.useState<string | null>(null);
-  const [cardFilter, setCardFilter] = React.useState<string | null>(null);
+  const notifiedAlertIdsRef = React.useRef<Set<string>>(new Set());
 
   // Check Alerts
   useEffect(() => {
@@ -54,12 +54,28 @@ function App() {
     // Filter for dangerous alerts to notify
     if (store.settings.notificationsEnabled && document.hidden) {
       currentAlerts.forEach(alert => {
-        if (alert.type === 'danger' && !dismissedAlerts.includes(alert.id)) {
+        if (
+          alert.type === 'danger' &&
+          !dismissedAlerts.includes(alert.id) &&
+          !notifiedAlertIdsRef.current.has(alert.id)
+        ) {
+          notifiedAlertIdsRef.current.add(alert.id);
           sendLocalNotification(alert.title, alert.message);
         }
       });
     }
-  }, [store.expenses, store.monthlyBudget, store.categoryBudgets, store.fixedPayments, store.savingsGoals, loaded, store.settings.notificationsEnabled]);
+  }, [store.expenses, store.monthlyBudget, store.categoryBudgets, store.fixedPayments, store.savingsGoals, loaded, store.settings.notificationsEnabled, dismissedAlerts]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        notifiedAlertIdsRef.current.clear();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   const activeAlerts = alerts.filter(a => !dismissedAlerts.includes(a.id));
 
@@ -307,7 +323,7 @@ function App() {
                   </div>
                 </div>
                 <button
-                  onClick={() => setDismissedAlerts((prev: string[]) => [...prev, alert.id])}
+                  onClick={() => setDismissedAlerts((prev: string[]) => prev.includes(alert.id) ? prev : [...prev, alert.id])}
                   className="p-1 px-2 hover:bg-black/5 rounded"
                 >
                   ✕
