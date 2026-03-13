@@ -1,12 +1,13 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import { pageVariant } from './utils/motion';
 import { Challenges } from './components/Challenges';
 import { Confetti } from './components/Confetti';
 import { evaluateChallenges } from './utils/challenges';
 import { SplitBillView } from './components/SplitBillView';
 import { useAppStore } from './store/useStore';
-import { Header } from './components/Header';
+
 import { BottomNav } from './components/BottomNav';
 import { AddExpense } from './components/AddExpense';
 import { Summaries } from './components/Summaries';
@@ -20,34 +21,16 @@ import { Auth } from './components/Auth';
 import { supabase } from './services/supabaseClient';
 import { SkeletonLoader } from './components/SkeletonLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { loadFromStorage, saveToStorage, fetchCloudState, forceCloudSync, mergeAppState, hasStateChanged, logAuditEvent, setupRealtimeSubscription } from './services/storage';
-import { checkBudgetAlerts, sendLocalNotification, requestNotificationPermission, Alert } from './services/alertService';
-import { DebugView } from './components/DebugView';
-import { AppState, INITIAL_STATE } from './types';
+import { loadFromStorage, saveToStorage, fetchCloudState, setupRealtimeSubscription } from './services/storage';
+import { checkBudgetAlerts, sendLocalNotification, Alert } from './services/alertService';
+import { INITIAL_STATE, Section } from './types';
 
-const selectPersistedStateSnapshot = (state: AppState) => JSON.stringify({
-  expenses: state.expenses,
-  settings: state.settings,
-  monthlyBudget: state.monthlyBudget,
-  otherIncome: state.otherIncome,
-  fixedPayments: state.fixedPayments,
-  incomePerson1: state.incomePerson1,
-  incomePerson2: state.incomePerson2,
-  savingsGoals: state.savingsGoals,
-  categoryBudgets: state.categoryBudgets,
-  chatMessages: state.chatMessages,
-  investments: state.investments,
-  loans: state.loans,
-  creditCards: state.creditCards,
-  challenges: state.challenges,
-});
+const SECTION_PATHS: ReadonlySet<string> = new Set<Section>(['add-expense', 'summaries', 'investments', 'overview', 'settings', 'chat', 'challenges', 'import', 'split']);
 
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const store = useAppStore();
-  const persistedStateSnapshot = useAppStore(selectPersistedStateSnapshot);
-  const lastSavedSnapshotRef = React.useRef<string | null>(null);
 
   // Local state for UI that doesn't need to be global/persisted
   const [session, setSession] = React.useState<any>(null);
@@ -60,6 +43,7 @@ function App() {
   const [alerts, setAlerts] = React.useState<Alert[]>([]);
   const [dismissedAlerts, setDismissedAlerts] = React.useState<string[]>([]);
   const [celebrationReward, setCelebrationReward] = React.useState<string | null>(null);
+  const notifiedAlertIdsRef = React.useRef<Set<string>>(new Set());
 
   // Check Alerts
   useEffect(() => {
@@ -70,12 +54,28 @@ function App() {
     // Filter for dangerous alerts to notify
     if (store.settings.notificationsEnabled && document.hidden) {
       currentAlerts.forEach(alert => {
-        if (alert.type === 'danger' && !dismissedAlerts.includes(alert.id)) {
+        if (
+          alert.type === 'danger' &&
+          !dismissedAlerts.includes(alert.id) &&
+          !notifiedAlertIdsRef.current.has(alert.id)
+        ) {
+          notifiedAlertIdsRef.current.add(alert.id);
           sendLocalNotification(alert.title, alert.message);
         }
       });
     }
-  }, [store.expenses, store.monthlyBudget, store.categoryBudgets, store.fixedPayments, store.savingsGoals, loaded, store.settings.notificationsEnabled]);
+  }, [store.expenses, store.monthlyBudget, store.categoryBudgets, store.fixedPayments, store.savingsGoals, loaded, store.settings.notificationsEnabled, dismissedAlerts]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        notifiedAlertIdsRef.current.clear();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   const activeAlerts = alerts.filter(a => !dismissedAlerts.includes(a.id));
 
@@ -84,13 +84,19 @@ function App() {
     setToast({ message, type });
   };
 
+  const isSection = (value: string): value is Section => SECTION_PATHS.has(value);
+
   // Sync active section with URL
   useEffect(() => {
     const path = location.pathname.substring(1) || 'add-expense';
-    if (store.activeSection !== path) {
-      store.setSection(path as any);
+    if (!isSection(path)) {
+      return;
     }
-  }, [location.pathname]);
+
+    if (store.activeSection !== path) {
+      store.setSection(path);
+    }
+  }, [location.pathname, store.activeSection]);
 
   // Auth & Init Logic
   useEffect(() => {
@@ -182,15 +188,8 @@ function App() {
     if (!session?.user?.id) return;
 
     const channel = setupRealtimeSubscription(session.user.id, (remoteState) => {
-      const localSnapshot = useAppStore.getState();
-      const mergedState = mergeAppState(localSnapshot, remoteState);
-
-      if (!hasStateChanged(localSnapshot, mergedState)) {
-        return;
-      }
-
       console.log("Applying Realtime Update...");
-      store.setState(mergedState);
+      store.setState(remoteState);
       showToast("Sync Received ☁️", "info");
     });
 
@@ -201,12 +200,11 @@ function App() {
 
   // Save on Change
   useEffect(() => {
-    if (!loaded || store.isGuest || !session) return;
-    if (persistedStateSnapshot === lastSavedSnapshotRef.current) return;
-
-    lastSavedSnapshotRef.current = persistedStateSnapshot;
-    saveToStorage(JSON.parse(persistedStateSnapshot) as AppState, 'remote');
-  }, [loaded, store.isGuest, session, persistedStateSnapshot]);
+    if (loaded && !store.isGuest && session) {
+      // Trigger debounced cloud save
+      saveToStorage(store, 'remote');
+    }
+  }, [store.expenses, store.settings, store.investments, store.challenges, loaded]);
 
   // Challenge Evaluation Loop
   useEffect(() => {
@@ -277,6 +275,7 @@ function App() {
         />
       )}
 
+      <AnimatePresence>
       {showRecurringModal && (
         <RecurringModal
           payments={duePayments}
@@ -290,6 +289,7 @@ function App() {
           }}
         />
       )}
+      </AnimatePresence>
 
       {toast && (
         <Toast
@@ -301,7 +301,7 @@ function App() {
 
       <div className={`relative w-full overflow-x-hidden min-h-screen bg-background text-text ${store.settings.privacyMode ? 'privacy-active' : ''}`}>
         <div className="max-w-3xl mx-auto px-2 pt-4">
-          <Header settings={store.settings} onTogglePrivacy={handleTogglePrivacy} />
+
 
           {/* Smart Alerts Banner */}
           <div className="space-y-2 mb-4">
@@ -323,7 +323,7 @@ function App() {
                   </div>
                 </div>
                 <button
-                  onClick={() => setDismissedAlerts((prev: string[]) => [...prev, alert.id])}
+                  onClick={() => setDismissedAlerts((prev: string[]) => prev.includes(alert.id) ? prev : [...prev, alert.id])}
                   className="p-1 px-2 hover:bg-black/5 rounded"
                 >
                   ✕
@@ -334,62 +334,85 @@ function App() {
 
           <main className="relative pb-24">
             <ErrorBoundary fallbackTitle="Section Error">
-              <Routes>
-                <Route path="/" element={<Navigate to="/add-expense" replace />} />
-                <Route path="/add-expense" element={
-                  <AddExpense
-                    state={store}
-                    addExpense={store.addExpense}
-                    updateExpense={(updatedExpense: any) => store.updateExpense(updatedExpense)}
-                    expenseToEdit={store.expenseToEdit}
-                    cancelEdit={() => store.setExpenseToEdit(null)}
-                    switchTab={(tab) => navigate(`/${tab}`)}
-                    showToast={showToast}
-                  />
-                } />
-                <Route path="/summaries" element={
-                  <Summaries
-                    state={store}
-                    deleteExpense={store.deleteExpense}
-                    editExpense={(exp) => {
-                      store.setExpenseToEdit(exp);
-                      navigate('/add-expense');
-                    }}
-                  />
-                } />
-                <Route path="/investments" element={
-                  <Investments
-                    state={store}
-                    updateState={store.setState}
-                    showToast={showToast}
-                  />
-                } />
-                <Route path="/overview" element={
-                  <Overview />
-                } />
-                <Route path="/challenges" element={
-                  <Challenges
-                    state={store}
-                    updateState={store.setState}
-                    showToast={showToast}
-                  />
-                } />
-                <Route path="/settings" element={
-                  <Settings
-                    state={store}
-                    updateSettings={(s) => store.setState({ settings: { ...store.settings, ...s } })}
-                    updateState={store.setState}
-                    resetData={store.reset}
-                    deleteAccount={store.reset}
-                    showToast={showToast}
-                    installApp={() => { }}
-                    canInstall={false}
-                    isIos={false}
-                    isStandalone={false}
-                    userEmail={session?.user?.email}
-                  />
-                } />
-              </Routes>
+              <AnimatePresence mode="wait">
+                <Routes location={location} key={location.pathname}>
+                  <Route path="/" element={<Navigate to="/add-expense" replace />} />
+                  <Route path="/add-expense" element={
+                    <motion.div variants={pageVariant} initial="initial" animate="animate" exit="exit">
+                      <AddExpense
+                        state={store}
+                        addExpense={store.addExpense}
+                        updateExpense={(updatedExpense: any) => store.updateExpense(updatedExpense)}
+                        expenseToEdit={store.expenseToEdit}
+                        cancelEdit={() => store.setExpenseToEdit(null)}
+                        switchTab={(tab) => navigate(`/${tab}`)}
+                        showToast={showToast}
+                        {...{ 
+                          cashWallet: store.cashWallet, 
+                          onAddCashTransaction: (tx: any) => store.addCashTransaction(tx),
+                          person1Name: store.settings.person1Name,
+                          person2Name: store.settings.person2Name
+                        } as any}
+                      />
+                    </motion.div>
+                  } />
+                  <Route path="/summaries" element={
+                    <motion.div variants={pageVariant} initial="initial" animate="animate" exit="exit">
+                      <Summaries
+                        state={store}
+                        deleteExpense={store.deleteExpense}
+                        editExpense={(exp) => {
+                          store.setExpenseToEdit(exp);
+                          navigate('/add-expense');
+                        }}
+                        cardFilter={cardFilter}
+                        setCardFilter={setCardFilter}
+                      />
+                    </motion.div>
+                  } />
+                  <Route path="/investments" element={
+                    <motion.div variants={pageVariant} initial="initial" animate="animate" exit="exit">
+                      <Investments
+                        state={store}
+                        updateState={store.setState}
+                        showToast={showToast}
+                        {...{
+                          cashWallet: store.cashWallet,
+                          fixedPayments: store.fixedPayments,
+                          onDeleteCashTransaction: (id: string) => store.deleteCashTransaction(id),
+                          onFilterByCard: (cardId: string) => {
+                            setCardFilter(cardId);
+                            navigate('/summaries');
+                          }
+                        } as any}
+                      />
+                    </motion.div>
+                  } />
+                  <Route path="/overview" element={
+                    <motion.div variants={pageVariant} initial="initial" animate="animate" exit="exit">
+                      <Overview />
+                    </motion.div>
+                  } />
+                  <Route path="/settings" element={
+                    <motion.div variants={pageVariant} initial="initial" animate="animate" exit="exit">
+                      <Settings
+                        state={store}
+                        updateSettings={(s) => store.setState({ settings: { ...store.settings, ...s } })}
+                        updateState={store.setState}
+                        resetData={store.reset}
+                        deleteAccount={store.reset}
+                        showToast={showToast}
+                        installApp={() => { }}
+                        canInstall={false}
+                        isIos={false}
+                        isStandalone={false}
+                        userEmail={session?.user?.email}
+                        addExpense={store.addExpense}
+                      />
+                    </motion.div>
+                  } />
+                </Routes>
+              </AnimatePresence>
             </ErrorBoundary>
           </main>
 

@@ -1,6 +1,8 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { AppState, Expense } from '../types';
+import { motion, AnimatePresence } from 'framer-motion';
+import { fadeVariant, fadeUpVariant, spring } from '../utils/motion';
+import { AppState, Expense, CashTransaction } from '../types';
+import { useAppStore } from '../store/useStore';
 import { parseReceiptImage, parseNaturalLanguageExpense } from '../services/geminiService';
 
 interface AddExpenseProps {
@@ -37,6 +39,16 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
   switchTab,
   showToast
 }) => {
+  const store = useAppStore();
+  const [mode, setMode] = useState<'expense' | 'cash'>('expense');
+  const [cashForm, setCashForm] = useState<'topup' | 'expense' | 'withdraw' | null>(null);
+  const [cashFormData, setCashFormData] = useState({
+    amount: '',
+    date: getLocalDate(),
+    note: '',
+    person: state.settings.person1Name
+  });
+
   const [formData, setFormData] = useState({
     person: '',
     date: getLocalDate(),
@@ -212,10 +224,183 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
     if (expenseToEdit && cancelEdit) cancelEdit();
   };
 
+  const currentCashBalance = state.cashWallet?.balance || 0;
+  
+  const handleCashSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cashForm || !cashFormData.amount || !cashFormData.note || !cashFormData.person) return;
+    
+    const amountVal = parseFloat(cashFormData.amount);
+    if (amountVal <= 0) return;
+
+    const tx: CashTransaction = {
+      id: crypto.randomUUID(),
+      type: cashForm,
+      amount: amountVal,
+      note: cashFormData.note,
+      date: cashFormData.date,
+      person: cashFormData.person,
+      updatedAt: Date.now()
+    };
+
+    store.addCashTransaction(tx);
+    showToast("Cash transaction saved ✓", "success");
+    haptic(50);
+    
+    setCashForm(null);
+    setCashFormData({
+      amount: '',
+      date: getLocalDate(),
+      note: '',
+      person: state.settings.person1Name
+    });
+  };
+
   return (
     <div className="max-w-2xl mx-auto pb-24 px-4 sm:px-0">
+      
+      {/* Segmented Toggle */}
+      <div className="mb-6 flex bg-gray-100 dark:bg-[#1a1a1a] rounded-full p-1 border border-gray-200 dark:border-white/5 mx-auto max-w-sm relative">
+        <button
+          className={`flex-1 py-2 text-sm font-bold relative transition-colors ${mode === 'expense' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}
+          onClick={() => {
+            setMode('expense');
+            setCashForm(null);
+          }}
+        >
+          {mode === 'expense' && (
+            <motion.div
+              layoutId="mainModeIndicator"
+              className="absolute inset-0 bg-white dark:bg-white/10 shadow-sm rounded-full z-0"
+              transition={spring}
+            />
+          )}
+          <span className="relative z-10">Expense</span>
+        </button>
+        <button
+          className={`flex-1 py-2 text-sm font-bold relative transition-colors ${mode === 'cash' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}
+          onClick={() => setMode('cash')}
+        >
+          {mode === 'cash' && (
+            <motion.div
+              layoutId="mainModeIndicator"
+              className="absolute inset-0 bg-white dark:bg-white/10 shadow-sm rounded-full z-0"
+              transition={spring}
+            />
+          )}
+          <span className="relative z-10">Wallet</span>
+        </button>
+      </div>
 
-      {/* AI Input Bar */}
+      <AnimatePresence mode="wait">
+      {mode === 'cash' ? (
+        <motion.div key="cashMode" variants={fadeVariant} initial="initial" animate="animate" exit="exit" className="space-y-6">
+          {/* Cash Actions */}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => { setCashForm('topup'); setCashFormData({ ...cashFormData, amount: '', note: '' }); }}
+              className={`p-3 rounded-xl text-sm font-bold active:scale-95 transition-all text-center flex flex-col items-center justify-center gap-1 ${
+                cashForm === 'topup' ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' : 'bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 hover:bg-green-500/20'
+              }`}
+            >
+              <span className="text-xl">＋</span> Add Cash
+            </button>
+            <button
+              onClick={() => { setCashForm('withdraw'); setCashFormData({ ...cashFormData, amount: '', note: '' }); }}
+              className={`p-3 rounded-xl text-sm font-bold active:scale-95 transition-all text-center flex flex-col items-center justify-center gap-1 ${
+                cashForm === 'withdraw' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30' : 'bg-orange-500/10 border border-orange-500/20 text-orange-600 dark:text-orange-400 hover:bg-orange-500/20'
+              }`}
+            >
+              <span className="text-xl">↑</span> Withdraw
+            </button>
+          </div>
+
+          {/* Cash Form */}
+          <AnimatePresence mode="wait">
+          {cashForm && (
+            <motion.form key="cashFormInternal" variants={fadeUpVariant} initial="initial" animate="animate" exit="exit" onSubmit={handleCashSubmit} className="bg-surface dark:bg-[#1a1a1a] rounded-[32px] p-6 shadow-xl border border-gray-100 dark:border-white/5 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-6 opacity-10 text-6xl">
+                {cashForm === 'topup' ? '💳' : '🏧'}
+              </div>
+              <h3 className="text-sm font-black uppercase tracking-widest text-gray-800 dark:text-gray-200 mb-6 flex justify-between items-center">
+                {cashForm === 'topup' ? 'Add Cash to Wallet' : 'Withdraw Cash'}
+                <button type="button" onClick={() => setCashForm(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+              </h3>
+              
+              <div className="space-y-6">
+                <div className="flex flex-col items-center justify-center py-2">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Amount</span>
+                  <div className="relative">
+                    <span className="absolute -left-6 top-1/2 -translate-y-1/2 text-3xl font-bold text-gray-300">₹</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      required
+                      value={cashFormData.amount}
+                      onChange={(e) => setCashFormData({ ...cashFormData, amount: e.target.value })}
+                      placeholder="0"
+                      className="w-48 text-center text-5xl font-black bg-transparent border-none outline-none text-gray-900 dark:text-white placeholder:text-gray-200 dark:placeholder:text-white/10"
+                    />
+                  </div>
+                  {parseFloat(cashFormData.amount || '0') > currentCashBalance && cashForm === 'withdraw' && (
+                    <div className="mt-4 text-xs font-bold text-orange-500 bg-orange-500/10 px-3 py-1.5 rounded-lg border border-orange-500/20 animate-fade-in">
+                      ⚠️ This exceeds your current cash balance of ₹{currentCashBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}.
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={cashFormData.date}
+                      onChange={(e) => setCashFormData({ ...cashFormData, date: e.target.value })}
+                      className="w-full bg-gray-50 dark:bg-black/20 border-transparent focus:border-primary rounded-2xl px-4 py-3 text-sm font-bold text-gray-900 dark:text-white outline-none transition-all text-center"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Person</label>
+                    <select
+                      value={cashFormData.person}
+                      onChange={(e) => setCashFormData({ ...cashFormData, person: e.target.value })}
+                      className="w-full bg-gray-50 dark:bg-black/20 border-r-[8px] border-r-transparent border-transparent focus:border-primary rounded-2xl px-4 py-3 text-sm font-bold text-gray-900 dark:text-white outline-none transition-all appearance-none hover:bg-gray-100 dark:hover:bg-black/30"
+                    >
+                      <option value={state.settings.person1Name}>{state.settings.person1Name}</option>
+                      <option value={state.settings.person2Name}>{state.settings.person2Name}</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Note / Description</label>
+                  <input
+                    type="text"
+                    required
+                    value={cashFormData.note}
+                    onChange={(e) => setCashFormData({ ...cashFormData, note: e.target.value })}
+                    placeholder={cashForm === 'topup' ? 'e.g. ATM withdrawal' : 'e.g. Deposited back to bank'}
+                    className="w-full bg-gray-50 dark:bg-black/20 border border-transparent focus:border-primary rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 dark:text-white outline-none transition-all placeholder:text-gray-400"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={!cashFormData.amount || parseFloat(cashFormData.amount) <= 0 || !cashFormData.note}
+                  className="w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider shadow-lg transition-all active:scale-[0.98] bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Save Transaction
+                </button>
+              </div>
+            </motion.form>
+          )}
+          </AnimatePresence>
+        </motion.div>
+      ) : (
+        <motion.div key="expenseMode" variants={fadeVariant} initial="initial" animate="animate" exit="exit" className="space-y-6">
+          {/* AI Input Bar */}
       <div className="mb-8">
         <div className="bg-surface dark:bg-[#1a1a1a] rounded-[24px] p-2 flex items-center gap-2 shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)] border border-gray-100 dark:border-white/[0.06] transition-all focus-within:ring-2 focus-within:ring-primary/20">
           <form onSubmit={handleSubmit} className="flex-1 flex items-center gap-2">
@@ -270,9 +455,21 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
         </div>
       </div>
 
+      {/* Bank Import Button */}
+      <button
+        onClick={() => switchTab('import')}
+        className="w-full mb-6 flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-800/30 hover:shadow-md transition-all active:scale-[0.99] group"
+      >
+        <span className="text-lg">🏦</span>
+        <span className="text-sm font-bold text-blue-700 dark:text-blue-300 group-hover:text-blue-800 dark:group-hover:text-blue-200">
+          Import from Bank Statement
+        </span>
+        <span className="text-xs text-blue-400 dark:text-blue-500 ml-auto">CSV · PDF</span>
+      </button>
+
 
       {/* Manual Entry Form */}
-      < div className="bg-surface dark:bg-[#1a1a1a] rounded-[32px] p-6 shadow-xl border border-gray-100 dark:border-white/5 animate-fade-in relative overflow-hidden group" >
+      <motion.div variants={fadeUpVariant} initial="initial" animate="animate" className="bg-surface dark:bg-[#1a1a1a] rounded-[32px] p-6 shadow-xl border border-gray-100 dark:border-white/5 relative overflow-hidden group" >
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
 
         <div className="relative z-10 space-y-6">
@@ -289,6 +486,11 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
                 className="w-48 text-center text-5xl font-black bg-transparent border-none outline-none text-gray-900 dark:text-white placeholder:text-gray-200 dark:placeholder:text-white/10"
               />
             </div>
+            {formData.paymentMode === 'Cash' && parseFloat(formData.amount || '0') > currentCashBalance && (
+              <div className="mt-4 text-xs font-bold text-orange-500 bg-orange-500/10 px-3 py-1.5 rounded-lg border border-orange-500/20 animate-fade-in">
+                ⚠️ This exceeds your current cash balance of ₹{currentCashBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}.
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -338,8 +540,9 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
             </div>
 
             {/* Credit Card (Conditional) */}
+            <AnimatePresence mode="wait">
             {formData.paymentMode === 'Card' ? (
-              <div className="space-y-2 animate-fade-in">
+              <motion.div key="cardSelector" variants={fadeVariant} initial="initial" animate="animate" exit="exit" className="space-y-2">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Select Card</label>
                 <select
                   value={formData.cardId}
@@ -351,33 +554,36 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
                     <option key={card.id} value={card.id}>{card.name}</option>
                   ))}
                 </select>
-              </div>
+              </motion.div>
             ) : (
-              /* Person Split (only if not card? or always needed? Usually needed) */
-              <div className="space-y-2">
+              /* Person Split */
+              <motion.div key="spenderSelector" variants={fadeVariant} initial="initial" animate="animate" exit="exit" className="space-y-2">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Spender</label>
                 <div className="flex bg-gray-50 dark:bg-black/20 rounded-2xl p-1 relative">
-                  <div
-                    className={`absolute top-1 bottom-1 w-[48%] bg-white dark:bg-white/10 shadow-sm rounded-xl transition-all duration-300 ease-out`}
-                    style={{ left: formData.person === state.settings.person2Name ? '50%' : '1%' }}
-                  ></div>
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, person: state.settings.person1Name })}
-                    className={`flex-1 py-2 text-xs font-bold relative z-10 transition-colors ${formData.person === state.settings.person1Name ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}
+                    className={`flex-1 py-1.5 text-[11px] font-bold relative transition-colors ${formData.person === state.settings.person1Name ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}
                   >
-                    {state.settings.person1Name}
+                    {formData.person === state.settings.person1Name && (
+                      <motion.div layoutId="spenderIndicator" className="absolute inset-0 bg-white dark:bg-white/10 shadow-sm rounded-xl z-0" transition={spring} />
+                    )}
+                    <span className="relative z-10">{state.settings.person1Name}</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, person: state.settings.person2Name })}
-                    className={`flex-1 py-2 text-xs font-bold relative z-10 transition-colors ${formData.person === state.settings.person2Name ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}
+                    className={`flex-1 py-1.5 text-[11px] font-bold relative transition-colors ${formData.person === state.settings.person2Name ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}
                   >
-                    {state.settings.person2Name}
+                    {formData.person === state.settings.person2Name && (
+                      <motion.div layoutId="spenderIndicator" className="absolute inset-0 bg-white dark:bg-white/10 shadow-sm rounded-xl z-0" transition={spring} />
+                    )}
+                    <span className="relative z-10">{state.settings.person2Name}</span>
                   </button>
                 </div>
-              </div>
+              </motion.div>
             )}
+            </AnimatePresence>
           </div>
 
           {/* Note */}
@@ -419,7 +625,11 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
           </div>
 
         </div>
-      </div>
+      </motion.div>
+      
+      </motion.div>
+      )}
+      </AnimatePresence>
     </div>
   );
 };

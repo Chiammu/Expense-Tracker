@@ -1,4 +1,20 @@
 
+export interface CashTransaction {
+  id: string;
+  type: 'topup' | 'withdraw' | 'expense';
+  amount: number;
+  note: string;
+  date: string; // ISO YYYY-MM-DD
+  person: string;
+  updatedAt: number;
+}
+
+export interface CashWallet {
+  balance: number;
+  transactions: CashTransaction[];
+  updatedAt: number;
+}
+
 export interface Expense {
   id: string;
   person: string;
@@ -88,7 +104,7 @@ export interface Loan {
 }
 
 export interface AppSettings {
-  theme: 'light' | 'dark';
+  theme: 'light' | 'dark' | 'system';
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
@@ -154,23 +170,24 @@ export interface AppState {
   loans: Loan[];
   creditCards: CreditCard[];
   challenges: Challenge[];
+  cashWallet: CashWallet;
 }
 
-export type Section = 'add-expense' | 'summaries' | 'investments' | 'overview' | 'settings' | 'chat' | 'challenges' | 'import' | 'split';
+export type Section = 'add-expense' | 'summaries' | 'investments' | 'overview' | 'settings' | 'chat' | 'challenges' | 'import' | 'split' | 'cash-wallet';
 
 export const DEFAULT_CATEGORIES = [
-  "Groceries", "Rent", "Bills", "EMIs", "Shopping", "Travel", "Food",
-  "Entertainment", "Medical", "Education", "Investments", "Others"
+  "Groceries", "Rent", "Bills", "EMIs", "Shopping", "Travel", "Food", "Dining",
+  "Entertainment", "Medical", "Education", "Investments", "Taxes", "Cash Transfer", "Others"
 ];
 
 export const DEFAULT_ICONS: Record<string, string> = {
   "Groceries": "🥦", "Rent": "🏠", "Bills": "⚡", "EMIs": "🏦",
-  "Shopping": "🛍️", "Travel": "🚕", "Food": "🍔", "Entertainment": "🎬",
-  "Medical": "💊", "Education": "📚", "Investments": "📈", "Others": "📦"
+  "Shopping": "🛍️", "Travel": "🚕", "Food": "🍔", "Dining": "🍽️", "Entertainment": "🎬",
+  "Medical": "💊", "Education": "📚", "Investments": "📈", "Taxes": "🏛️", "Cash Transfer": "💵", "Others": "📦"
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  theme: 'light',
+    theme: 'dark',
   primaryColor: '#e91e63',
   secondaryColor: '#2196f3',
   accentColor: '#ff6f00',
@@ -222,4 +239,5 @@ export const INITIAL_STATE: AppState = {
   loans: [],
   creditCards: [],
   challenges: [],
+  cashWallet: { balance: 0, transactions: [], updatedAt: Date.now() },
 };

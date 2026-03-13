@@ -51,8 +51,8 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip cross-origin requests
-  if (url.origin !== location.origin && !url.origin.includes('cdn.tailwindcss.com')) {
+  // Skip cross-origin requests, except for the trusted Tailwind CDN
+  if (url.origin !== location.origin && url.hostname !== 'cdn.tailwindcss.com') {
     return;
   }
 
