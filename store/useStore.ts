@@ -21,6 +21,14 @@ interface AppStore extends AppState {
     reset: () => void;
 }
 
+const applyCardDelta = (cards: AppState['creditCards'], cardId: number, delta: number, timestamp: number) => {
+    return cards.map((card) =>
+        card.id === cardId
+            ? { ...card, currentBalance: card.currentBalance + delta, updatedAt: timestamp }
+            : card
+    );
+};
+
 export const useAppStore = create<AppStore>()(
     (set, get) => ({
         ...INITIAL_STATE,
@@ -39,176 +47,65 @@ export const useAppStore = create<AppStore>()(
         setState: (newState) => set((state) => ({ ...state, ...newState })),
 
         addExpense: (expense) => set((state) => {
-            const newExpense = { ...expense, id: generateId(), updatedAt: Date.now() };
+            const now = Date.now();
+            const newExpense = { ...expense, id: now, updatedAt: now };
             let updatedCards = state.creditCards;
             let updatedCashWallet = state.cashWallet;
 
             if (newExpense.paymentMode === 'Card' && newExpense.cardId) {
-                updatedCards = state.creditCards.map(c =>
-                    c.id === newExpense.cardId
-                        ? { ...c, currentBalance: c.currentBalance + newExpense.amount, updatedAt: Date.now() }
-                        : c
-                );
-            } else if (newExpense.paymentMode === 'Cash') {
-                const newTx: CashTransaction = {
-                    id: newExpense.id,
-                    type: 'expense',
-                    amount: newExpense.amount,
-                    note: newExpense.note,
-                    date: newExpense.date,
-                    person: newExpense.person,
-                    updatedAt: Date.now()
-                };
-                updatedCashWallet = {
-                    ...state.cashWallet,
-                    balance: state.cashWallet.balance - newExpense.amount,
-                    transactions: [newTx, ...state.cashWallet.transactions],
-                    updatedAt: Date.now()
-                };
+                updatedCards = applyCardDelta(state.creditCards, newExpense.cardId, newExpense.amount, now);
             }
 
             const nextState = {
                 ...state,
                 expenses: [...state.expenses, newExpense],
                 creditCards: updatedCards,
-                cashWallet: updatedCashWallet,
-                updatedAt: Date.now()
+                updatedAt: now
             };
 
             return nextState;
         }),
 
         updateExpense: (updatedExpense) => set((state) => {
-            const oldExpense = state.expenses.find(e => e.id === updatedExpense.id);
+            const now = Date.now();
+            const originalExpense = state.expenses.find((expense) => expense.id === updatedExpense.id);
             let updatedCards = state.creditCards;
-            let updatedCashWallet = state.cashWallet;
 
-            if (oldExpense) {
-                // 1. Remove old amount from old card if it was a card payment
-                if (oldExpense.paymentMode === 'Card' && oldExpense.cardId) {
-                    updatedCards = updatedCards.map(c =>
-                        c.id === oldExpense.cardId
-                            ? { ...c, currentBalance: c.currentBalance - oldExpense.amount, updatedAt: Date.now() }
-                            : c
-                    );
-                } else if (oldExpense.paymentMode === 'Cash') {
-                    // Remove old cash transaction
-                    updatedCashWallet = {
-                        ...updatedCashWallet,
-                        balance: updatedCashWallet.balance + oldExpense.amount,
-                        transactions: updatedCashWallet.transactions.filter(t => t.id !== oldExpense.id),
-                        updatedAt: Date.now()
-                    };
-                }
+            if (originalExpense?.paymentMode === 'Card' && originalExpense.cardId) {
+                updatedCards = applyCardDelta(updatedCards, originalExpense.cardId, -originalExpense.amount, now);
+            }
 
-                // 2. Add new amount to new card if it is a card payment
-                if (updatedExpense.paymentMode === 'Card' && updatedExpense.cardId) {
-                    updatedCards = updatedCards.map(c =>
-                        c.id === updatedExpense.cardId
-                            ? { ...c, currentBalance: c.currentBalance + updatedExpense.amount, updatedAt: Date.now() }
-                            : c
-                    );
-                } else if (updatedExpense.paymentMode === 'Cash') {
-                    // Add new cash transaction
-                    const newTx: CashTransaction = {
-                        id: updatedExpense.id,
-                        type: 'expense',
-                        amount: updatedExpense.amount,
-                        note: updatedExpense.note,
-                        date: updatedExpense.date,
-                        person: updatedExpense.person,
-                        updatedAt: Date.now()
-                    };
-                    updatedCashWallet = {
-                        ...updatedCashWallet,
-                        balance: updatedCashWallet.balance - updatedExpense.amount,
-                        transactions: [newTx, ...updatedCashWallet.transactions],
-                        updatedAt: Date.now()
-                    };
-                }
+            if (updatedExpense.paymentMode === 'Card' && updatedExpense.cardId) {
+                updatedCards = applyCardDelta(updatedCards, updatedExpense.cardId, updatedExpense.amount, now);
             }
 
             const nextState = {
                 ...state,
-                expenses: state.expenses.map(e => e.id === updatedExpense.id ? { ...updatedExpense, updatedAt: Date.now() } : e),
+                expenses: state.expenses.map(e => e.id === updatedExpense.id ? { ...updatedExpense, updatedAt: now } : e),
                 creditCards: updatedCards,
-                cashWallet: updatedCashWallet,
-                expenseToEdit: null,
-                activeSection: 'summaries' as Section,
-                updatedAt: Date.now()
+                expenseToEdit: null, // Clear edit mode
+                activeSection: 'summaries' as Section, // Redirect to summaries after edit
+                updatedAt: now
             };
             return nextState;
         }),
 
         deleteExpense: (id) => set((state) => {
-            const expense = state.expenses.find(e => e.id === id);
-            let updatedCashWallet = state.cashWallet;
+            const now = Date.now();
+            const expenseToDelete = state.expenses.find((expense) => expense.id === id);
+            let updatedCards = state.creditCards;
 
-            if (expense && expense.paymentMode === 'Cash') {
-                updatedCashWallet = {
-                    ...updatedCashWallet,
-                    balance: updatedCashWallet.balance + expense.amount,
-                    transactions: updatedCashWallet.transactions.filter(t => t.id !== id),
-                    updatedAt: Date.now()
-                };
+            if (expenseToDelete?.paymentMode === 'Card' && expenseToDelete.cardId) {
+                updatedCards = applyCardDelta(updatedCards, expenseToDelete.cardId, -expenseToDelete.amount, now);
             }
 
             return {
                 ...state,
                 expenses: state.expenses.filter(e => e.id !== id),
-                cashWallet: updatedCashWallet,
-                updatedAt: Date.now()
+                creditCards: updatedCards,
+                updatedAt: now
             };
         }),
-
-        addCashTransaction: (tx) => set((state) => {
-            const newTx: CashTransaction = { ...tx, id: generateId(), updatedAt: Date.now() };
-            const newTransactions = [...state.cashWallet.transactions, newTx];
-            const newBalance = newTransactions.reduce((acc, curr) => {
-                if (curr.type === 'topup') return acc + curr.amount;
-                if (curr.type === 'withdraw' || curr.type === 'expense') return acc - curr.amount;
-                return acc;
-            }, 0);
-            
-            return {
-                ...state,
-                cashWallet: {
-                    balance: newBalance,
-                    transactions: newTransactions,
-                    updatedAt: Date.now()
-                },
-                updatedAt: Date.now()
-            };
-        }),
-
-        deleteCashTransaction: (id) => set((state) => {
-            const newTransactions = state.cashWallet.transactions.filter(t => t.id !== id);
-            const newBalance = newTransactions.reduce((acc, curr) => {
-                if (curr.type === 'topup') return acc + curr.amount;
-                if (curr.type === 'withdraw' || curr.type === 'expense') return acc - curr.amount;
-                return acc;
-            }, 0);
-            
-            return {
-                ...state,
-                cashWallet: {
-                    balance: newBalance,
-                    transactions: newTransactions,
-                    updatedAt: Date.now()
-                },
-                updatedAt: Date.now()
-            };
-        }),
-
-        setCashBalance: (amount) => set((state) => ({
-            ...state,
-            cashWallet: {
-                ...state.cashWallet,
-                balance: amount,
-                updatedAt: Date.now()
-            },
-            updatedAt: Date.now()
-        })),
 
         reset: () => set({ ...INITIAL_STATE, isGuest: false })
     })
