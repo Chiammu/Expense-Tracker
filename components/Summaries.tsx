@@ -7,6 +7,31 @@ import { SplitBillModal } from './SplitBillModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fadeVariant, fadeUpVariant, cardVariant, spring } from '../utils/motion';
 
+const normalizePerson = (value?: string) =>
+  (value || '').toLowerCase().replace(/\s+/g, '');
+
+const matchesPersonView = (expensePerson: string, personView: string, settings: AppState['settings']) => {
+  if (personView === 'all') return true;
+
+  const normalizedExpense = normalizePerson(expensePerson);
+  const normalizedP1 = normalizePerson(settings.person1Name);
+  const normalizedP2 = normalizePerson(settings.person2Name);
+  const normalizedView = normalizePerson(personView);
+
+  const person1Aliases = new Set([normalizedP1, 'person1']);
+  const person2Aliases = new Set([normalizedP2, 'person2']);
+
+  if (person1Aliases.has(normalizedView)) {
+    return person1Aliases.has(normalizedExpense);
+  }
+
+  if (person2Aliases.has(normalizedView)) {
+    return person2Aliases.has(normalizedExpense);
+  }
+
+  return normalizedExpense === normalizedView;
+};
+
 interface SummariesProps {
   state: AppState;
   deleteExpense: (id: string) => void;
@@ -49,7 +74,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
       const d = new Date(exp.date);
       if (d.getMonth() !== targetMonth || d.getFullYear() !== targetYear) return false;
 
-      if (personView !== 'all' && exp.person !== personView) return false;
+      if (!matchesPersonView(exp.person, personView, state.settings)) return false;
       
       return true;
     });
@@ -122,7 +147,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
          const ed = new Date(e.date);
          if (ed.getMonth() === m && ed.getFullYear() === y) {
             // Apply person filter
-            if (personView !== 'all' && e.person !== personView) return sum;
+            if (!matchesPersonView(e.person, personView, state.settings)) return sum;
             return sum + e.amount;
          }
          return sum;
@@ -441,7 +466,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
                     className="p-4 flex justify-between items-center group hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg shadow-sm border border-black/5 dark:border-white/5 ${exp.person === state.settings.person1Name ? 'bg-blue-50 dark:bg-blue-500/10' : 'bg-purple-50 dark:bg-purple-500/10'}`}>
+                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg shadow-sm border border-black/5 dark:border-white/5 ${matchesPersonView(exp.person, state.settings.person1Name, state.settings) ? 'bg-blue-50 dark:bg-blue-500/10' : 'bg-purple-50 dark:bg-purple-500/10'}`}>
                         {state.settings.categoryIcons?.[exp.category] || '📦'}
                       </div>
                       <div className="cursor-pointer" onClick={() => editExpense(exp)}>
