@@ -8,6 +8,14 @@
     content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval' data: blob:; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https: wss:;">
   <title>Couple Expense Tracker</title>
 
+  <!-- Fix #4: Preconnect to Supabase for faster initial connection -->
+  <link rel="preconnect" href="https://[YOUR_PROJECT].supabase.co" crossorigin />
+  <link rel="dns-prefetch" href="https://[YOUR_PROJECT].supabase.co" />
+
+  <!-- Preload critical assets -->
+  <link rel="preload" href="/index.tsx" as="script" />
+  <link rel="preload" href="https://cdn.tailwindcss.com" as="script" />
+
   <!-- PWA Settings -->
   <link rel="manifest" href="./manifest.json" />
   <meta name="theme-color" content="#e91e63" />

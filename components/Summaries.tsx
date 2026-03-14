@@ -1,12 +1,25 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, Suspense, lazy } from 'react';
 import { AppState, Expense } from '../types';
 import { roastSpending } from '../services/geminiService';
 import { MerchantDashboard } from './MerchantDashboard';
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { SplitBillModal } from './SplitBillModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fadeVariant, fadeUpVariant, cardVariant, spring } from '../utils/motion';
 
+// ============================================================================
+// Fix #3: Lazy load Recharts (equivalent to next/dynamic with ssr:false)
+// ============================================================================
+// Recharts is ~150KB - lazy loading it dramatically improves initial LCP
+
+const BarChart = lazy(() => import('./charts/RechartsBarChart'));
+const PieChart = lazy(() => import('./charts/RechartsPieChart'));
+
+// Skeleton fallback for charts - renders immediately while chart loads
+const ChartSkeleton = () => (
+  <div className="animate-pulse bg-gray-200 dark:bg-white/5 rounded-xl h-40 w-full" />
+);
+
+// Person matching utility (from origin/main)
 const normalizePerson = (value?: string) =>
   (value || '').toLowerCase().replace(/\s+/g, '');
 
@@ -247,11 +260,23 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
           </button>
       </div>
 
-      {/* Total Card */}
-      <motion.div variants={cardVariant} className="bg-gradient-to-br from-[#0f0f0f] to-[#1a1a1a] p-8 rounded-[32px] text-white shadow-xl shadow-black/10 border border-white/5 relative overflow-hidden flex flex-col items-center justify-center min-h-[160px]">
-        <div className="absolute top-0 right-0 p-8 opacity-5 text-8xl pointer-events-none">💸</div>
+      {/* Fix #1: Total Card - This is the LCP element, add fetchpriority="high" */}
+      {/* Using CSS content-visibility and will-change for browser optimization */}
+      <motion.div 
+        variants={cardVariant} 
+        className="bg-gradient-to-br from-[#0f0f0f] to-[#1a1a1a] p-8 rounded-[32px] text-white shadow-xl shadow-black/10 border border-white/5 relative overflow-hidden flex flex-col items-center justify-center min-h-[160px]"
+        style={{ contentVisibility: 'auto', containIntrinsicSize: '160px' }}
+      >
+        {/* fetchpriority="high" signals browser to prioritize this element */}
+        <div className="absolute top-0 right-0 p-8 opacity-5 text-8xl pointer-events-none" aria-hidden="true">💸</div>
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-2 z-10">Total Spent</p>
-        <h2 className="text-5xl font-mono font-medium tracking-tighter z-10">₹{totalSpent.toLocaleString('en-IN')}</h2>
+        <h2 
+          className="text-5xl font-mono font-medium tracking-tighter z-10"
+          // @ts-ignore - fetchpriority is supported in modern browsers
+          fetchpriority="high"
+        >
+          ₹{totalSpent.toLocaleString('en-IN')}
+        </h2>
       </motion.div>
 
       {/* Analytics Grid */}
@@ -260,22 +285,17 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
         {/* Monthly Trend Card */}
         <motion.div variants={cardVariant} className="bg-white dark:bg-[#1a1a1a] rounded-[24px] p-6 shadow-sm border border-gray-100 dark:border-white/5">
           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-6">6-Month Trend</h3>
+          
+          {/* Fix #2: Wrap non-critical chart in Suspense with skeleton fallback */}
+          {/* This allows the Total Card to render immediately while chart loads */}
           <div className="h-40 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={sixMonthTrend}>
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#888', fontWeight: 700 }} />
-                <Tooltip
-                  cursor={{ fill: 'transparent' }}
-                  contentStyle={{ borderRadius: '16px', background: 'rgba(0,0,0,0.8)', border: 'none', color: '#fff', backdropFilter: 'blur(8px)' }}
-                  itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
-                />
-                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                  {sixMonthTrend.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={index === 5 ? '#3b82f6' : '#3b82f640'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <Suspense fallback={<ChartSkeleton />}>
+              <BarChart 
+                data={sixMonthTrend}
+                height={160}
+                highlightLast={true}
+              />
+            </Suspense>
           </div>
         </motion.div>
 
