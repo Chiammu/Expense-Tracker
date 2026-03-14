@@ -56,3 +56,11 @@ declare module '@google/genai' {
     };
   }
 }
+
+declare interface ImportMetaEnv {
+  readonly VITE_VERCEL_SPEED_INSIGHTS_ID: string;
+}
+
+declare interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}

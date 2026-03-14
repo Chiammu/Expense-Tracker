@@ -17,7 +17,7 @@ interface SummariesProps {
 
 export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, editExpense, cardFilter, setCardFilter }) => {
   const [selectedMonthOffset, setSelectedMonthOffset] = useState(0); // 0 = current, -1 = prev
-  const [personView, setPersonView] = useState<'all' | 'Person1' | 'Person2'>('all');
+  const [personView, setPersonView] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -49,8 +49,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
       const d = new Date(exp.date);
       if (d.getMonth() !== targetMonth || d.getFullYear() !== targetYear) return false;
 
-      if (personView === 'Person1' && exp.person !== state.settings.person1Name) return false;
-      if (personView === 'Person2' && exp.person !== state.settings.person2Name) return false;
+      if (personView !== 'all' && exp.person !== personView) return false;
       
       return true;
     });
@@ -123,8 +122,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
          const ed = new Date(e.date);
          if (ed.getMonth() === m && ed.getFullYear() === y) {
             // Apply person filter
-            if (personView === 'Person1' && e.person !== state.settings.person1Name) return sum;
-            if (personView === 'Person2' && e.person !== state.settings.person2Name) return sum;
+            if (personView !== 'all' && e.person !== personView) return sum;
             return sum + e.amount;
          }
          return sum;
@@ -199,7 +197,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
           <motion.div
             className="absolute top-1 bottom-1 bg-white dark:bg-white/10 shadow-sm rounded-full z-0"
             animate={{
-              left: personView === 'all' ? '1%' : personView === 'Person1' ? '33.5%' : '66.5%',
+              left: personView === 'all' ? '1%' : personView === state.settings.person1Name ? '33.5%' : '66.5%',
               width: '32.5%'
             }}
             transition={spring}
@@ -211,14 +209,14 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
             Combined
           </button>
           <button
-            className={`flex-1 py-2 rounded-full text-xs font-bold relative z-10 transition-colors ${personView === 'Person1' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}
-            onClick={() => setPersonView('Person1')}
+            className={`flex-1 py-2 rounded-full text-xs font-bold relative z-10 transition-colors ${personView === state.settings.person1Name ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}
+            onClick={() => setPersonView(state.settings.person1Name)}
           >
             {state.settings.person1Name}
           </button>
           <button
-            className={`flex-1 py-2 rounded-full text-xs font-bold relative z-10 transition-colors ${personView === 'Person2' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}
-            onClick={() => setPersonView('Person2')}
+            className={`flex-1 py-2 rounded-full text-xs font-bold relative z-10 transition-colors ${personView === state.settings.person2Name ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}
+            onClick={() => setPersonView(state.settings.person2Name)}
           >
             {state.settings.person2Name}
           </button>
@@ -369,14 +367,17 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
         {/* Filters and Search */}
         <div className="flex flex-col gap-3">
           <div className="flex gap-2 items-center">
-            <div className="flex-1 bg-white dark:bg-[#1a1a1a] rounded-2xl p-1.5 flex items-center shadow-sm border border-gray-100 dark:border-white/5 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-              <div className="w-8 h-8 flex items-center justify-center text-gray-400">🔍</div>
+            <div className="flex-1 bg-[var(--control-bg)] dark:bg-[#0f0f15] rounded-2xl px-4 py-3 flex items-center shadow-[var(--control-shadow)] border border-[var(--control-border)] focus-within:border-[var(--primary)] focus-within:ring-4 focus-within:ring-primary/10 transition-all duration-300">
+              <span className="mr-3 opacity-50">🔍</span>
               <input
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Search anything..."
-                className="bg-transparent flex-1 text-sm font-medium placeholder:text-gray-400 focus:outline-none"
+                placeholder="Search transactions, notes..."
+                className="bg-transparent flex-1 text-sm font-semibold placeholder:text-[var(--text-placeholder)] focus:outline-none text-[var(--text-primary)]"
               />
+              {searchTerm && (
+                <button onClick={() => setSearchTerm('')} className="ml-2 w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 dark:bg-white/10 text-[10px] hover:bg-gray-300 dark:hover:bg-white/20 transition-colors">✕</button>
+              )}
             </div>
           </div>
           

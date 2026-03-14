@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import { AppState, INITIAL_STATE, Expense, Section } from '../types';
+import { AppState, INITIAL_STATE, Expense, Section, CashTransaction } from '../types';
 interface AppStore extends AppState {
     isGuest: boolean;
     activeSection: Section;
@@ -12,13 +12,13 @@ interface AppStore extends AppState {
     addExpense: (expense: Omit<Expense, 'id' | 'updatedAt'>) => void;
     updateExpense: (expense: Expense) => void;
     deleteExpense: (id: string) => void;
-    addCashTransaction: (tx: Omit<CashTransaction, 'id' | 'updatedAt'>) => void;
+    addCashTransaction: (tx: CashTransaction) => void;
     deleteCashTransaction: (id: string) => void;
     setCashBalance: (amount: number) => void;
     reset: () => void;
 }
 
-const applyCardDelta = (cards: AppState['creditCards'], cardId: number, delta: number, timestamp: number) => {
+const applyCardDelta = (cards: AppState['creditCards'], cardId: string, delta: number, timestamp: number) => {
     return cards.map((card) =>
         card.id === cardId
             ? { ...card, currentBalance: card.currentBalance + delta, updatedAt: timestamp }
@@ -45,9 +45,8 @@ export const useAppStore = create<AppStore>()(
 
         addExpense: (expense) => set((state) => {
             const now = Date.now();
-            const newExpense = { ...expense, id: now, updatedAt: now };
+            const newExpense: Expense = { ...expense, id: String(now), updatedAt: now };
             let updatedCards = state.creditCards;
-            let updatedCashWallet = state.cashWallet;
 
             if (newExpense.paymentMode === 'Card' && newExpense.cardId) {
                 updatedCards = applyCardDelta(state.creditCards, newExpense.cardId, newExpense.amount, now);
@@ -103,6 +102,39 @@ export const useAppStore = create<AppStore>()(
                 updatedAt: now
             };
         }),
+
+        addCashTransaction: (tx) => set((state) => ({
+            ...state,
+            cashWallet: {
+                ...state.cashWallet,
+                balance: tx.type === 'topup' ? state.cashWallet.balance + tx.amount : state.cashWallet.balance - tx.amount,
+                transactions: [tx, ...state.cashWallet.transactions],
+                updatedAt: Date.now()
+            }
+        })),
+
+        deleteCashTransaction: (id) => set((state) => {
+            const tx = state.cashWallet.transactions.find(t => t.id === id);
+            if (!tx) return state;
+            return {
+                ...state,
+                cashWallet: {
+                    ...state.cashWallet,
+                    balance: tx.type === 'topup' ? state.cashWallet.balance - tx.amount : state.cashWallet.balance + tx.amount,
+                    transactions: state.cashWallet.transactions.filter(t => t.id !== id),
+                    updatedAt: Date.now()
+                }
+            };
+        }),
+
+        setCashBalance: (amount) => set((state) => ({
+            ...state,
+            cashWallet: {
+                ...state.cashWallet,
+                balance: amount,
+                updatedAt: Date.now()
+            }
+        })),
 
         reset: () => set({
             ...INITIAL_STATE,

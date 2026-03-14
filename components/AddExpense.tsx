@@ -4,6 +4,7 @@ import { fadeVariant, fadeUpVariant, spring } from '../utils/motion';
 import { AppState, Expense, CashTransaction } from '../types';
 import { useAppStore } from '../store/useStore';
 import { parseReceiptImage, parseNaturalLanguageExpense } from '../services/geminiService';
+import { getMostUsedPersonByCategory, getMostUsedPaymentModeByCategory, getMostUsedCardByCategory } from '../utils/smartDefaults';
 
 interface AddExpenseProps {
   state: AppState;
@@ -86,6 +87,22 @@ export const AddExpense: React.FC<AddExpenseProps> = ({
       });
     }
   }, [expenseToEdit]);
+
+  // Fix 3: Smart Defaults for Add Expense
+  useEffect(() => {
+    if (!expenseToEdit && formData.category) {
+      const suggestedPerson = getMostUsedPersonByCategory(state.expenses, formData.category, state.settings.person1Name);
+      const suggestedMode = getMostUsedPaymentModeByCategory(state.expenses, formData.category, '');
+      const suggestedCard = suggestedMode === 'Card' ? getMostUsedCardByCategory(state.expenses, formData.category) : '';
+
+      setFormData(prev => ({
+        ...prev,
+        person: prev.person || suggestedPerson,
+        paymentMode: prev.paymentMode || suggestedMode,
+        cardId: (prev.paymentMode === 'Card' || (!prev.paymentMode && suggestedMode === 'Card')) ? (prev.cardId || suggestedCard) : prev.cardId
+      }));
+    }
+  }, [formData.category, expenseToEdit, state.expenses, state.settings.person1Name]);
 
   const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
