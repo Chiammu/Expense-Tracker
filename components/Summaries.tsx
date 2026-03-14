@@ -1,10 +1,11 @@
-import React, { useState, useMemo, Suspense, lazy } from 'react';
+import React, { useState, useMemo, Suspense, lazy, startTransition } from 'react';
 import { AppState, Expense } from '../types';
 import { roastSpending } from '../services/geminiService';
 import { MerchantDashboard } from './MerchantDashboard';
 import { SplitBillModal } from './SplitBillModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fadeVariant, fadeUpVariant, cardVariant, spring } from '../utils/motion';
+import { useDebounce } from '../utils/hooks';
 
 // ============================================================================
 // Fix #3: Lazy load Recharts (equivalent to next/dynamic with ssr:false)
@@ -59,6 +60,9 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
   const [searchTerm, setSearchTerm] = useState('');
+  // Fix #2: Debounce search term to prevent re-renders on every keystroke
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  
   const [showMerchants, setShowMerchants] = useState(false);
 
   // Roast State
@@ -94,9 +98,10 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
   }, [state.expenses, targetDate, personView, state.settings]);
 
   // --- List Filtering (Search + Category + Card) ---
+  // Fix #2: Use debounced search term to avoid re-filtering on every keystroke
   const displayExpenses = useMemo(() => {
     return filteredMonthExpenses.filter(exp => {
-      if (searchTerm && !exp.note.toLowerCase().includes(searchTerm.toLowerCase()) && !String(exp.amount).includes(searchTerm)) {
+      if (debouncedSearchTerm && !exp.note.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) && !String(exp.amount).includes(debouncedSearchTerm)) {
         return false;
       }
       if (selectedCategory && exp.category !== selectedCategory) {
@@ -107,7 +112,7 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
       }
       return true;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [filteredMonthExpenses, searchTerm, selectedCategory, cardFilter]);
+  }, [filteredMonthExpenses, debouncedSearchTerm, selectedCategory, cardFilter]);
 
   // --- Computations ---
   const totalSpent = useMemo(() => filteredMonthExpenses.reduce((s, e) => s + e.amount, 0), [filteredMonthExpenses]);
@@ -501,7 +506,8 @@ export const Summaries: React.FC<SummariesProps> = ({ state, deleteExpense, edit
                     <div className="flex flex-col items-end gap-1.5">
                       <span className="text-sm font-mono font-medium text-gray-900 dark:text-gray-100">₹{exp.amount.toLocaleString()}</span>
                       <div className="flex gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => deleteExpense(exp.id)} className="text-[10px] text-red-500 font-bold tracking-wider hover:text-red-600 transition-colors">DEL</button>
+                        {/* Fix #1: Wrap Supabase write in startTransition to not block UI */}
+                        <button onClick={() => startTransition(() => deleteExpense(exp.id))} className="text-[10px] text-red-500 font-bold tracking-wider hover:text-red-600 transition-colors">DEL</button>
                       </div>
                     </div>
                   </motion.div>
