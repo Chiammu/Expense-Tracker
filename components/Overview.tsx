@@ -9,7 +9,11 @@ import { cardVariant, pageVariant } from '../utils/motion';
 import { CashFlowCalendar } from './CashFlowCalendar';
 import { generateFinancialInsights as getSpendingInsights } from '../services/geminiService';
 
-export const Overview: React.FC = () => {
+interface OverviewProps {
+  showToast?: (message: string, type: 'success' | 'error' | 'info') => void;
+}
+
+export const Overview: React.FC<OverviewProps> = ({ showToast }) => {
   const state = useAppStore();
   const navigate = useNavigate();
 
@@ -392,7 +396,7 @@ export const Overview: React.FC = () => {
                <Challenges 
                   state={state}
                   updateState={state.setState}
-                  showToast={() => {}} // Pass down a dummy or real toast if injected contextually. We can mock it for now since Overview doesn't get showToast passed to it in App.tsx
+                  showToast={showToast || (() => {})}
                   navigate={(path) => navigate('/' + path)}
                />
             </motion.div>

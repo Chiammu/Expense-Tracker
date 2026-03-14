@@ -97,7 +97,12 @@ function App() {
     if (store.activeSection !== path) {
       store.setSection(path);
     }
-  }, [location.pathname, store.activeSection]);
+
+    // Fix 1: Clear edit state when navigating away from add-expense
+    if (path !== 'add-expense' && store.expenseToEdit) {
+      store.setExpenseToEdit(null);
+    }
+  }, [location.pathname, store.activeSection, store.expenseToEdit, store.setSection, store.setExpenseToEdit]);
 
   // Auth & Init Logic
   useEffect(() => {
@@ -392,7 +397,7 @@ function App() {
                   } />
                   <Route path="/overview" element={
                     <motion.div variants={pageVariant} initial="initial" animate="animate" exit="exit">
-                      <Overview />
+                      <Overview showToast={showToast} />
                     </motion.div>
                   } />
                   <Route path="/settings" element={
