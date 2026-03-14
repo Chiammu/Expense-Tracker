@@ -17,6 +17,8 @@ if (!rootElement) {
 }
 
 const root = ReactDOM.createRoot(rootElement);
+
+// Fix #3: Add hydrated class after mount for CSS-based hydration handling
 root.render(
   <React.StrictMode>
     <BrowserRouter>
@@ -24,3 +26,8 @@ root.render(
     </BrowserRouter>
   </React.StrictMode>
 );
+
+// Mark as hydrated after first render for CSS transitions
+setTimeout(() => {
+  document.documentElement.classList.add('hydrated');
+}, 0);
