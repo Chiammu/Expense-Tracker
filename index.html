@@ -8,6 +8,38 @@
     content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval' data: blob:; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https: wss:;">
   <title>Couple Expense Tracker</title>
 
+  <!-- Fix #4: Preconnect to Supabase for faster initial connection -->
+  <link rel="preconnect" href="https://[YOUR_PROJECT].supabase.co" crossorigin />
+  <link rel="dns-prefetch" href="https://[YOUR_PROJECT].supabase.co" />
+
+  <!-- Preload critical assets for faster FCP -->
+  <link rel="preload" href="/index.tsx" as="script" />
+  
+  <!-- Critical CSS: Inline for fastest FCP (above-the-fold styles only) -->
+  <style>
+    /* Critical CSS - renders immediately */
+    *, *::before, *::after { box-sizing: border-box; }
+    body { 
+      margin: 0; 
+      padding: 0;
+      background-color: #0b0b10;
+      color: #f4f3fa;
+      font-family: 'Inter', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+    #root { min-height: 100vh; }
+    /* Loading skeleton for instant feedback */
+    .skeleton { 
+      background: linear-gradient(90deg, #1d1d27 25%, #242431 50%, #1d1d27 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    /* Hide content until hydrated */
+    [data-hide-if-unhydrated] { visibility: hidden; }
+    [data-hide-if-unhydrated].hydrated { visibility: visible; }
+  </style>
+
   <!-- PWA Settings -->
   <link rel="manifest" href="./manifest.json" />
   <meta name="theme-color" content="#e91e63" />
@@ -16,8 +48,9 @@
   <meta name="apple-mobile-web-app-title" content="Expenses" />
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2344/2344132.png" />
 
-  <!-- Tailwind CSS (CDN for simplicity) -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Tailwind CSS - defer loading to not block FCP -->
+  <!-- Using blocking for now as it's loaded via CDN, but in production should be inlined or async -->
+  <script src="https://cdn.tailwindcss.com" defer></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
