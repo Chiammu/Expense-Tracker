@@ -5,6 +5,7 @@ import { AppState, Expense, CashTransaction } from '../types';
 import { useAppStore } from '../store/useStore';
 import { parseReceiptImage, parseNaturalLanguageExpense } from '../services/geminiService';
 import { getMostUsedPersonByCategory, getMostUsedPaymentModeByCategory, getMostUsedCardByCategory } from '../utils/smartDefaults';
+import { HAPTIC } from '../utils/constants';
 
 interface AddExpenseProps {
   state: AppState;
