@@ -1,5 +1,7 @@
 # Implementation Migration Plan
 
+> **Note (current codebase):** `utils/security.ts` has been removed. Security snippets in this document that import it are historical planning notes and are not part of shipped runtime behavior.
+
 ## Overview
 This document provides a step-by-step plan to implement the expert recommendations while maintaining app stability.
 

@@ -1,5 +1,7 @@
 # AI Features Setup Guide
 
+> **Note:** References in this guide to `utils/security.ts` are legacy implementation suggestions. That module is no longer part of the shipped code.
+
 ## Overview
 This app uses Google Gemini AI for several powerful features:
 - 📸 Receipt image parsing (extract amounts, dates, categories)

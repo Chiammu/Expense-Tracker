@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Challenges } from './Challenges';
 import { ErrorBoundary } from './ErrorBoundary';
+import { CashFlowCalendar } from './CashFlowCalendar';
 import { useAppStore } from '../store/useStore';
 import { formatCurrency } from '../utils/currencyFormatter';
 import { cardVariant, pageVariant } from '../utils/motion';
